@@ -1,0 +1,27 @@
+[package]
+name = "freq-ai"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "freq-ai"
+path = "src/main.rs"
+
+[dependencies]
+dioxus = { version = "0.6", features = ["desktop"] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rust-embed = "8.5"
+jsonwebtoken = "9"
+toml = "0.8"
+clap = { version = "4.5", features = ["derive"] }
+# NOTE: toak-rs pulls in ~100+ transitive crates (fastembed, ONNX, tokenizers).
+# Dev-only — does not affect production binaries, but increases CI build time.
+toak-rs = "6.0.1"
+
+[dev-dependencies]
+tempfile = "3"
