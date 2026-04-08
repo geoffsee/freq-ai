@@ -313,8 +313,40 @@ pub struct Config {
     pub root: String,
     pub project_name: String,
     pub scan_targets: ScanTargets,
+    #[serde(default)]
+    pub skill_paths: SkillPaths,
+    #[serde(default = "default_bootstrap_agent_files")]
+    pub bootstrap_agent_files: bool,
     #[serde(skip)]
     pub bot_credentials: Option<BotCredentials>,
+}
+
+fn default_bootstrap_agent_files() -> bool {
+    true
+}
+
+/// Per-skill paths the dev agent reads at runtime. Hardcoded defaults match
+/// freq-ai's own `.agents/skills/` layout, so the standalone freq-ai binary
+/// keeps working unchanged. Library consumers (e.g. a project that organises
+/// its skills under a different prefix) can override these on `Config` before
+/// calling `freq_ai::run`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillPaths {
+    /// Path to the user-personas skill, used by the UXR Synthesis prompt
+    /// builders to seed the persona-lens section.
+    pub user_personas: String,
+    /// Path to the issue-tracking skill, runtime-loaded by the sidebar to
+    /// render the "Before marking an issue complete" trigger reminder.
+    pub issue_tracking: String,
+}
+
+impl Default for SkillPaths {
+    fn default() -> Self {
+        Self {
+            user_personas: ".agents/skills/user-personas/SKILL.md".into(),
+            issue_tracking: ".agents/skills/issue-tracking/SKILL.md".into(),
+        }
+    }
 }
 
 /// Debug formatting for `Config` redacts the credential field while
@@ -336,6 +368,8 @@ impl fmt::Debug for Config {
             .field("root", &self.root)
             .field("project_name", &self.project_name)
             .field("scan_targets", &self.scan_targets)
+            .field("skill_paths", &self.skill_paths)
+            .field("bootstrap_agent_files", &self.bootstrap_agent_files)
             .field("bot_credentials", bot_credentials_marker)
             .finish()
     }
@@ -383,6 +417,13 @@ pub struct DevConfig {
     pub local_inference: LocalInferenceConfigFile,
     #[serde(default)]
     pub security_scan: ScanTargetsFile,
+    #[serde(default)]
+    pub skills: SkillPathsFile,
+    /// Whether `preflight()` should materialise embedded default skill files
+    /// into the project root if they're missing. Library consumers that bring
+    /// their own skill layout (under a different prefix) should set this to
+    /// `false` so freq-ai's defaults don't appear next to their own files.
+    pub bootstrap_agent_files: Option<bool>,
 }
 
 /// Optional overrides for scan target paths in `dev.toml`.
@@ -410,6 +451,25 @@ pub struct LocalInferenceConfigFile {
     pub base_url: Option<String>,
     pub model: Option<String>,
     pub api_key: Option<String>,
+}
+
+/// Optional overrides for skill file paths in `dev.toml`'s `[skills]` section.
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default)]
+pub struct SkillPathsFile {
+    pub user_personas: Option<String>,
+    pub issue_tracking: Option<String>,
+}
+
+impl SkillPathsFile {
+    /// Merge file overrides onto defaults, producing a complete `SkillPaths`.
+    pub fn into_skill_paths(self) -> SkillPaths {
+        let def = SkillPaths::default();
+        SkillPaths {
+            user_personas: self.user_personas.unwrap_or(def.user_personas),
+            issue_tracking: self.issue_tracking.unwrap_or(def.issue_tracking),
+        }
+    }
 }
 
 impl ScanTargetsFile {
@@ -783,11 +843,64 @@ mod tests {
             root: "/tmp/test".into(),
             project_name: "my-project".into(),
             scan_targets: ScanTargets::default(),
+            skill_paths: SkillPaths::default(),
+            bootstrap_agent_files: true,
             bot_credentials: None,
         };
         let json = serde_json::to_string(&cfg).unwrap();
         let back: Config = serde_json::from_str(&json).unwrap();
         assert_eq!(cfg, back);
+    }
+
+    #[test]
+    fn skill_paths_default_unprefixed_paths() {
+        let p = SkillPaths::default();
+        assert_eq!(p.user_personas, ".agents/skills/user-personas/SKILL.md");
+        assert_eq!(p.issue_tracking, ".agents/skills/issue-tracking/SKILL.md");
+    }
+
+    #[test]
+    fn skill_paths_file_merges_defaults() {
+        let merged = SkillPathsFile {
+            user_personas: Some(".agents/skills/freq-cloud-user-personas/SKILL.md".into()),
+            issue_tracking: None,
+        }
+        .into_skill_paths();
+        assert_eq!(
+            merged.user_personas,
+            ".agents/skills/freq-cloud-user-personas/SKILL.md"
+        );
+        // Falls back to default for the field that wasn't overridden.
+        assert_eq!(merged.issue_tracking, ".agents/skills/issue-tracking/SKILL.md");
+    }
+
+    #[test]
+    fn config_default_bootstrap_is_true_via_serde() {
+        // Confirms `default = "default_bootstrap_agent_files"` works: an old
+        // dev.toml without bootstrap_agent_files deserializes with the flag on.
+        let json = r#"{
+            "agent": "Claude",
+            "auto_mode": false,
+            "dry_run": false,
+            "local_inference": {
+                "advanced": false,
+                "preset": "vllm",
+                "base_url": "http://localhost:8000/v1",
+                "model": "",
+                "api_key": ""
+            },
+            "root": "/tmp/test",
+            "project_name": "x",
+            "scan_targets": {
+                "edge": "a", "network_kem": "b", "network_crypto": "c",
+                "network": "d", "service": "e", "gateway": "f",
+                "gateway_users": "g", "gateway_kms": "h",
+                "cli_build": "i", "compute": "j"
+            }
+        }"#;
+        let cfg: Config = serde_json::from_str(json).unwrap();
+        assert!(cfg.bootstrap_agent_files);
+        assert_eq!(cfg.skill_paths, SkillPaths::default());
     }
 
     #[test]
@@ -803,6 +916,8 @@ mod tests {
             root: "/tmp/test".into(),
             project_name: "my-project".into(),
             scan_targets: ScanTargets::default(),
+            skill_paths: SkillPaths::default(),
+            bootstrap_agent_files: true,
             bot_credentials: Some(BotCredentials::Token("ghp_test123".into())),
         };
         let json = serde_json::to_string(&cfg).unwrap();
@@ -827,6 +942,8 @@ mod tests {
             root: "/tmp/test".into(),
             project_name: "my-project".into(),
             scan_targets: ScanTargets::default(),
+            skill_paths: SkillPaths::default(),
+            bootstrap_agent_files: true,
             bot_credentials: Some(BotCredentials::Token("ghp_test123".into())),
         };
         let dbg = format!("{cfg:?}");
@@ -851,6 +968,8 @@ mod tests {
             root: "/tmp/test".into(),
             project_name: "my-project".into(),
             scan_targets: ScanTargets::default(),
+            skill_paths: SkillPaths::default(),
+            bootstrap_agent_files: true,
             bot_credentials: Some(BotCredentials::GitHubApp {
                 app_id: "12345".into(),
                 installation_id: "67890".into(),
@@ -897,6 +1016,8 @@ mod tests {
             root: "/tmp/test".into(),
             project_name: "my-project".into(),
             scan_targets: ScanTargets::default(),
+            skill_paths: SkillPaths::default(),
+            bootstrap_agent_files: true,
             bot_credentials: Some(BotCredentials::GitHubApp {
                 app_id: "12345".into(),
                 installation_id: "67890".into(),

@@ -1120,7 +1120,9 @@ pub fn preflight(cfg: &Config) {
             cfg.agent.binary()
         ));
     }
-    ensure_agent_files(cfg);
+    if cfg.bootstrap_agent_files {
+        ensure_agent_files(cfg);
+    }
 }
 
 /// Ensure `AGENTS.md` and standard skills exist on disk, bootstrapping missing
@@ -1687,6 +1689,7 @@ pub fn run_report_draft(cfg: &Config) {
         &issues_md,
         &crate_tree,
         &ideation,
+        &cfg.skill_paths,
     );
 
     if cfg.dry_run {
@@ -1732,6 +1735,7 @@ pub fn run_report_finalize(cfg: &Config, feedback: &str) {
         &ideation,
         feedback,
         cfg.dry_run,
+        &cfg.skill_paths,
     );
 
     if cfg.dry_run {
@@ -2848,6 +2852,8 @@ pub fn parse_args() -> Config {
         .unwrap_or_else(|| infer_project_name(&root));
     let local_inference = dev_cfg.local_inference.into_local_inference_config();
     let scan_targets = dev_cfg.security_scan.into_scan_targets();
+    let skill_paths = dev_cfg.skills.into_skill_paths();
+    let bootstrap_agent_files = dev_cfg.bootstrap_agent_files.unwrap_or(true);
 
     Config {
         agent: Agent::Claude, // Default, will be overridden by CLI
@@ -2857,6 +2863,8 @@ pub fn parse_args() -> Config {
         root,
         project_name,
         scan_targets,
+        skill_paths,
+        bootstrap_agent_files,
         bot_credentials,
     }
 }
@@ -2864,7 +2872,7 @@ pub fn parse_args() -> Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent::types::{LocalInferenceConfig, ScanTargets};
+    use crate::agent::types::{LocalInferenceConfig, ScanTargets, SkillPaths};
     use std::fs;
 
     fn test_config(agent: Agent) -> Config {
@@ -2876,6 +2884,8 @@ mod tests {
             root: "/tmp/test".into(),
             project_name: "freq-cloud".into(),
             scan_targets: ScanTargets::default(),
+            skill_paths: SkillPaths::default(),
+            bootstrap_agent_files: true,
             bot_credentials: None,
         }
     }

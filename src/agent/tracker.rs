@@ -1747,9 +1747,7 @@ Do NOT write any files to disk — the GitHub issue IS the artifact."#
     )
 }
 
-const USER_PERSONA_SKILL_PATH: &str = ".agents/skills/user-personas/SKILL.md";
-
-fn report_persona_lens_section() -> String {
+fn report_persona_lens_section(skill_paths: &crate::agent::types::SkillPaths) -> String {
     format!(
         r#"## Synthesis Lens — User Personas
 
@@ -1765,7 +1763,7 @@ For sections 2-6, tag each evidence item to the single closest persona by matchi
 signal matches no persona cleanly, surface it in section 7 as a possible persona blind
 spot instead of forcing a weak fit.
 "#,
-        skill_path = USER_PERSONA_SKILL_PATH,
+        skill_path = skill_paths.user_personas,
     )
 }
 
@@ -1779,6 +1777,7 @@ pub fn build_report_draft_prompt(
     issues_md: &str,
     crate_tree: &str,
     ideation: &str,
+    skill_paths: &crate::agent::types::SkillPaths,
 ) -> String {
     let context = strategic_review_context(
         open_issues,
@@ -1806,7 +1805,7 @@ your filtering rationale in the Executive Summary or Recommended Next Actions.
 "#
         )
     };
-    let persona_lens_section = report_persona_lens_section();
+    let persona_lens_section = report_persona_lens_section(skill_paths);
     format!(
         r#"You are a project analyst for the {project_name} project. Produce a concise
 **Strategic Report** summarising current state, progress, and recommended next actions.
@@ -1873,6 +1872,7 @@ pub fn build_report_finalize_prompt(
     ideation: &str,
     feedback: &str,
     dry_run: bool,
+    skill_paths: &crate::agent::types::SkillPaths,
 ) -> String {
     let context = strategic_review_context(
         open_issues,
@@ -1905,7 +1905,7 @@ which were kept and which were filtered out, and why.
 "#
         )
     };
-    let persona_lens_section = report_persona_lens_section();
+    let persona_lens_section = report_persona_lens_section(skill_paths);
     format!(
         r#"You are a project analyst for the {project_name} project.
 
@@ -3712,8 +3712,10 @@ mod tests {
 
     #[test]
     fn report_draft_is_draft_not_final() {
-        let p =
-            build_report_draft_prompt("test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "");
+        let sp = crate::agent::types::SkillPaths::default();
+        let p = build_report_draft_prompt(
+            "test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "", &sp,
+        );
         assert!(p.contains("DRAFT"));
         assert!(p.contains("Executive Summary"));
         assert!(p.contains("Risk Assessment"));
@@ -3722,6 +3724,7 @@ mod tests {
 
     #[test]
     fn report_draft_includes_ideation_when_present() {
+        let sp = crate::agent::types::SkillPaths::default();
         let p = build_report_draft_prompt(
             "test-project",
             "[i]",
@@ -3731,6 +3734,7 @@ mod tests {
             "[m]",
             "[t]",
             "Add WebSocket support idea",
+            &sp,
         );
         assert!(p.contains("Prior Ideation"));
         assert!(p.contains("Add WebSocket support idea"));
@@ -3738,9 +3742,11 @@ mod tests {
 
     #[test]
     fn report_draft_includes_persona_lens() {
-        let p =
-            build_report_draft_prompt("test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "");
-        assert!(p.contains(USER_PERSONA_SKILL_PATH));
+        let sp = crate::agent::types::SkillPaths::default();
+        let p = build_report_draft_prompt(
+            "test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "", &sp,
+        );
+        assert!(p.contains(&sp.user_personas));
         assert!(p.contains("Synthesis Lens"));
         assert!(p.contains("Do NOT conflate it with other skills"));
         assert!(p.contains("`recognition_cues:`"));
@@ -3751,14 +3757,33 @@ mod tests {
     }
 
     #[test]
+    fn report_draft_includes_persona_lens_with_custom_skill_path() {
+        // Verifies that library consumers (e.g. crates/dev in the freq workspace)
+        // can override the user-personas skill path and have it propagate into
+        // the prompt verbatim — drop-in support for prefixed skill layouts.
+        let sp = crate::agent::types::SkillPaths {
+            user_personas: ".agents/skills/freq-cloud-user-personas/SKILL.md".into(),
+            issue_tracking: ".agents/skills/freq-cloud-issue-tracking/SKILL.md".into(),
+        };
+        let p = build_report_draft_prompt(
+            "test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "", &sp,
+        );
+        assert!(p.contains(".agents/skills/freq-cloud-user-personas/SKILL.md"));
+        assert!(!p.contains(".agents/skills/user-personas/SKILL.md"));
+    }
+
+    #[test]
     fn report_draft_omits_ideation_when_empty() {
-        let p =
-            build_report_draft_prompt("test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "");
+        let sp = crate::agent::types::SkillPaths::default();
+        let p = build_report_draft_prompt(
+            "test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "", &sp,
+        );
         assert!(!p.contains("Prior Ideation"));
     }
 
     #[test]
     fn report_finalize_includes_feedback_and_synthesis() {
+        let sp = crate::agent::types::SkillPaths::default();
         let p = build_report_finalize_prompt(
             "test-project",
             "[i]",
@@ -3770,6 +3795,7 @@ mod tests {
             "",
             "add more detail on blockers",
             false,
+            &sp,
         );
         assert!(p.contains("add more detail on blockers"));
         assert!(p.contains("Synthesis"));
@@ -3782,6 +3808,7 @@ mod tests {
 
     #[test]
     fn report_finalize_includes_persona_lens_and_synthesis_attribution() {
+        let sp = crate::agent::types::SkillPaths::default();
         let p = build_report_finalize_prompt(
             "test-project",
             "[i]",
@@ -3793,8 +3820,9 @@ mod tests {
             "",
             "feedback",
             false,
+            &sp,
         );
-        assert!(p.contains(USER_PERSONA_SKILL_PATH));
+        assert!(p.contains(&sp.user_personas));
         assert!(p.contains("Synthesis Lens"));
         assert!(p.contains("Do NOT conflate it with other skills"));
         assert!(p.contains("`recognition_cues:`"));
@@ -3808,6 +3836,7 @@ mod tests {
 
     #[test]
     fn report_finalize_dry_run_includes_dry_run_note() {
+        let sp = crate::agent::types::SkillPaths::default();
         let p = build_report_finalize_prompt(
             "test-project",
             "[i]",
@@ -3819,6 +3848,7 @@ mod tests {
             "",
             "feedback",
             true,
+            &sp,
         );
         assert!(p.contains("DRY RUN"));
         assert!(p.contains("gh issue create"));
@@ -3827,6 +3857,7 @@ mod tests {
 
     #[test]
     fn report_finalize_includes_ideation_when_present() {
+        let sp = crate::agent::types::SkillPaths::default();
         let p = build_report_finalize_prompt(
             "test-project",
             "[i]",
@@ -3838,6 +3869,7 @@ mod tests {
             "ideation content here",
             "my feedback",
             false,
+            &sp,
         );
         assert!(p.contains("Prior Ideation"));
         assert!(p.contains("ideation content here"));
