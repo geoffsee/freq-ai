@@ -2,28 +2,47 @@
 
 A Dioxus desktop app and CLI that drives the full development lifecycle for distributed systems through AI coding agents. It replaces the manual coordination between stakeholders, engineers, and reviewers with a four-step loop you can run from a single UI or CLI.
 
+## Install
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/geoffsee/freq-ai/master/install.sh | bash
+```
+
+This detects your OS and architecture, downloads the latest release binary, and installs it to `~/.local/bin`. Override the install directory with `FREQ_AI_INSTALL_DIR`:
+
+```sh
+FREQ_AI_INSTALL_DIR=/usr/local/bin curl -fsSL https://raw.githubusercontent.com/geoffsee/freq-ai/master/install.sh | bash
+```
+
+Pre-built binaries are available for:
+- Linux x86_64 / aarch64
+- macOS aarch64 (Apple Silicon)
+- Windows x86_64
+
+### Prerequisites
+
+- `gh` CLI authenticated (`gh auth login`)
+- An AI agent on PATH (`claude`, `codex`, `copilot`, or `gemini`)
+
 ## Quick Start
 
 ```sh
-# Prerequisites: gh CLI authenticated, claude (or another agent) on PATH
-cargo run -- gui
+freq-ai gui
 ```
 
 This opens the desktop app. Everything runs from the sidebar.
 
 ### CLI Usage
 
-`freq-ai` can also be used as a reusable CLI for various workflows. In the current source tree, run the commands through `cargo run --`:
-
 ```sh
 # Run sprint planning draft
-cargo run -- sprint-planning
+freq-ai sprint-planning
 
 # Fix review comments on a PR
-cargo run -- fix-pr 123
+freq-ai fix-pr 123
 
 # Run a specific issue
-cargo run -- issue 45
+freq-ai issue 45
 ```
 
 ## How to Progress the Project
@@ -320,7 +339,7 @@ Each action enumerates its in-scope file set, runs the agent against a prompt th
 ## Options
 
 ```sh
-cargo run -p dev -- [OPTIONS]
+freq-ai [OPTIONS] [COMMAND]
 ```
 
 | Flag | Description | Default |
@@ -359,7 +378,7 @@ The **Code Review** action posts reviews via `gh pr review`. GitHub forbids appr
    export DEV_BOT_APP_ID="123456"
    export DEV_BOT_INSTALLATION_ID="78901234"
    export DEV_BOT_PRIVATE_KEY="$HOME/.config/freq-cloud/dev-ui-bot.pem"
-   cargo run -p dev
+   freq-ai
    ```
 
 The dev-UI mints short-lived installation tokens on demand (cached for 50 minutes) and injects `GH_TOKEN` into the review subprocess. Audit logs show `dev-ui-bot[bot]`.
@@ -376,14 +395,14 @@ into the OS credential vault instead of plaintext project files.
 3. Set the token directly:
    ```sh
    export DEV_BOT_TOKEN="github_pat_..."
-   cargo run -p dev
+   freq-ai
    ```
    Or store it in a file and point to it:
    ```sh
    echo "github_pat_..." > ~/.config/freq-cloud/bot-token
    chmod 600 ~/.config/freq-cloud/bot-token
    export DEV_BOT_TOKEN_PATH="$HOME/.config/freq-cloud/bot-token"
-   cargo run -p dev
+   freq-ai
    ```
 
 ### Environment Variables
