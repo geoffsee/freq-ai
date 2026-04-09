@@ -29,6 +29,10 @@ pub mod ui;
 
 pub use agent::types::{Agent, Config, SkillPaths};
 
+use agent::config_store::{
+    clear_bot_private_key_pem, clear_bot_token, clear_local_inference_api_key,
+    store_bot_private_key_pem, store_bot_token, store_local_inference_api_key,
+};
 use agent::shell::{
     clear_stop_request, parse_args, preflight, request_stop, run_code_review,
     run_housekeeping_draft, run_housekeeping_finalize, run_ideation_draft, run_ideation_finalize,
@@ -43,7 +47,8 @@ use agent::tracker::{
     is_auto_merge_enabled, list_open_prs, open_pr_map_from, parse_pending,
 };
 use agent::types::{
-    AgentEvent, ChangedFile, ClaudeEvent, ContentBlock, EVENT_SENDER, FileChangeKind, Workflow,
+    save_dev_config, AgentEvent, BotAuthMode, ChangedFile, ClaudeEvent, ContentBlock, EVENT_SENDER,
+    FileChangeKind, Workflow,
 };
 use clap::{Parser, Subcommand};
 use custom_themes::Theme;
@@ -202,9 +207,9 @@ fn App() -> Element {
     let mut pr_map_sig = use_signal(HashMap::<u32, u32>::new);
     let mut pull_requests = use_signal(Vec::<PrSummary>::new);
     let mut security_findings = use_signal(Vec::<SecurityFinding>::new);
+    let mut settings_status = use_signal(|| None::<String>);
     let root_sig = use_signal(|| config.read().root.clone());
     let mut auto_merge_enabled = use_signal(|| false);
-    let bot_configured = use_signal(|| config.read().bot_credentials.is_some());
     let expand_all = use_signal(|| false);
     let follow_mode = use_signal(|| true);
     let bottom_el = use_signal(|| None::<std::rc::Rc<MountedData>>);
@@ -469,6 +474,62 @@ fn App() -> Element {
         });
     };
 
+    let save_settings = move |_: MouseEvent| {
+        let cfg = config.read().clone();
+        settings_status.set(Some("Saving configuration...".into()));
+        spawn(async move {
+            let root = cfg.root.clone();
+            let result = tokio::task::spawn_blocking(move || {
+                save_dev_config(&root, &cfg)?;
+
+                match cfg.bot_settings.mode {
+                    BotAuthMode::Token => {
+                        let token = cfg.bot_settings.token.trim();
+                        if token.is_empty() {
+                            clear_bot_token(&root).map_err(|e| e.to_string())?;
+                        } else {
+                            store_bot_token(&root, token).map_err(|e| e.to_string())?;
+                        }
+                        clear_bot_private_key_pem(&root).map_err(|e| e.to_string())?;
+                    }
+                    BotAuthMode::GitHubApp => {
+                        clear_bot_token(&root).map_err(|e| e.to_string())?;
+                        let pem = cfg.bot_settings.private_key_pem.trim();
+                        if pem.is_empty() {
+                            clear_bot_private_key_pem(&root).map_err(|e| e.to_string())?;
+                        } else {
+                            store_bot_private_key_pem(&root, pem).map_err(|e| e.to_string())?;
+                        }
+                    }
+                    BotAuthMode::Disabled => {
+                        clear_bot_token(&root).map_err(|e| e.to_string())?;
+                        clear_bot_private_key_pem(&root).map_err(|e| e.to_string())?;
+                    }
+                }
+
+                let api_key = cfg.local_inference.api_key.trim();
+                if api_key.is_empty() {
+                    clear_local_inference_api_key(&root).map_err(|e| e.to_string())?;
+                } else {
+                    store_local_inference_api_key(&root, api_key).map_err(|e| e.to_string())?;
+                }
+
+                Ok::<(), String>(())
+            })
+            .await
+            .map_err(|e| e.to_string())
+            .and_then(|r| r);
+
+            match result {
+                Ok(()) => settings_status
+                    .set(Some("Configuration saved. Secrets use the OS credential vault.".into())),
+                Err(err) => {
+                    settings_status.set(Some(format!("Failed to save configuration: {err}")))
+                }
+            }
+        });
+    };
+
     let submit_feedback = move |_: MouseEvent| {
         let fb = feedback_text.read().clone();
         if fb.trim().is_empty() {
@@ -565,7 +626,7 @@ fn App() -> Element {
                     awaiting_feedback,
                     feedback_text,
                     auto_merge_enabled,
-                    bot_configured,
+                    settings_status,
                     refresh_tracker,
                     start_work,
                     start_single_issue,
@@ -582,6 +643,7 @@ fn App() -> Element {
                     start_housekeeping,
                     start_refresh_agents,
                     start_refresh_docs,
+                    save_settings,
                     stop_work,
                     submit_feedback,
                     on_auto_merge,

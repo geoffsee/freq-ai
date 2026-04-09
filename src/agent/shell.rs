@@ -1,4 +1,7 @@
 use crate::agent::assets::{AGENTS_MD, SkillAssets};
+use crate::agent::config_store::{
+    load_bot_private_key_pem, load_bot_token, load_local_inference_api_key,
+};
 use crate::agent::tracker::{
     DEFAULT_REVIEW_BOT_LOGIN, build_code_review_prompt, build_housekeeping_draft_prompt,
     build_housekeeping_finalize_prompt, build_ideation_draft_prompt,
@@ -16,8 +19,8 @@ use crate::agent::tracker::{
 };
 use crate::agent::types::Workflow;
 use crate::agent::types::{
-    Agent, AgentEvent, AssistantMessage, BRANCH_PREFIX, BotCredentials, ClaudeEvent, Config,
-    ContentBlock, EVENT_SENDER, MAX_COMMIT_ATTEMPTS, MAX_PUSH_ATTEMPTS,
+    Agent, AgentEvent, AssistantMessage, BRANCH_PREFIX, BotCredentials, BotSettings,
+    ClaudeEvent, Config, ContentBlock, EVENT_SENDER, MAX_COMMIT_ATTEMPTS, MAX_PUSH_ATTEMPTS,
 };
 use std::collections::BTreeSet;
 use std::env;
@@ -124,7 +127,7 @@ fn bot_token_cache() -> &'static Mutex<Option<(String, Instant)>> {
 /// 1. `DEV_BOT_TOKEN` — direct token (PAT or pre-minted installation token)
 /// 2. `DEV_BOT_TOKEN_PATH` — path to a file containing the token
 /// 3. `DEV_BOT_APP_ID` + `DEV_BOT_INSTALLATION_ID` + `DEV_BOT_PRIVATE_KEY` — GitHub App
-pub fn load_bot_credentials() -> Option<BotCredentials> {
+pub fn load_bot_credentials_from_env() -> Option<BotCredentials> {
     // Direct token from env
     if let Ok(token) = env::var("DEV_BOT_TOKEN") {
         let token = token.trim().to_string();
@@ -153,12 +156,34 @@ pub fn load_bot_credentials() -> Option<BotCredentials> {
             .map(|h| format!("{h}/.config/freq-cloud/dev-ui-bot.pem"))
             .unwrap_or_else(|_| ".config/freq-cloud/dev-ui-bot.pem".to_string())
     });
+    let private_key_pem = std::fs::read_to_string(&private_key_path)
+        .map_err(|e| {
+            log(&format!(
+                "Failed to read bot private key at {private_key_path}: {e}"
+            ))
+        })
+        .ok()?;
 
     Some(BotCredentials::GitHubApp {
         app_id,
         installation_id,
-        private_key_path,
+        private_key_pem,
     })
+}
+
+fn load_bot_settings(root: &str, dev_cfg: &crate::agent::types::DevConfig) -> BotSettings {
+    if let Some(creds) = load_bot_credentials_from_env() {
+        return BotSettings::from_credentials(&creds);
+    }
+
+    let mut settings = dev_cfg.bot.clone().into_bot_settings();
+    if let Some(token) = load_bot_token(root) {
+        settings.token = token;
+    }
+    if let Some(private_key_pem) = load_bot_private_key_pem(root) {
+        settings.private_key_pem = private_key_pem;
+    }
+    settings
 }
 
 /// Resolve bot credentials to a usable `GH_TOKEN` value.
@@ -168,7 +193,7 @@ pub fn resolve_bot_token(creds: &BotCredentials) -> Option<String> {
         BotCredentials::GitHubApp {
             app_id,
             installation_id,
-            private_key_path,
+            private_key_pem,
         } => {
             // Check cache
             if let Ok(cache) = bot_token_cache().lock()
@@ -178,7 +203,7 @@ pub fn resolve_bot_token(creds: &BotCredentials) -> Option<String> {
                 return Some(token.clone());
             }
 
-            let token = mint_installation_token(app_id, installation_id, private_key_path)?;
+            let token = mint_installation_token(app_id, installation_id, private_key_pem)?;
 
             if let Ok(mut cache) = bot_token_cache().lock() {
                 *cache = Some((token.clone(), Instant::now()));
@@ -193,18 +218,11 @@ pub fn resolve_bot_token(creds: &BotCredentials) -> Option<String> {
 fn mint_installation_token(
     app_id: &str,
     installation_id: &str,
-    private_key_path: &str,
+    private_key_pem: &str,
 ) -> Option<String> {
     use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 
-    let pem = std::fs::read(private_key_path)
-        .map_err(|e| {
-            log(&format!(
-                "Failed to read bot private key at {private_key_path}: {e}"
-            ))
-        })
-        .ok()?;
-    let key = EncodingKey::from_rsa_pem(&pem)
+    let key = EncodingKey::from_rsa_pem(private_key_pem.as_bytes())
         .map_err(|e| log(&format!("Invalid RSA PEM key: {e}")))
         .ok()?;
 
@@ -2522,7 +2540,7 @@ pub fn run_code_review(cfg: &Config) {
     log("Starting code review...");
 
     // Resolve bot token so the review subprocess runs under the bot identity.
-    let bot_token = cfg.bot_credentials.as_ref().and_then(resolve_bot_token);
+    let bot_token = cfg.effective_bot_credentials().as_ref().and_then(resolve_bot_token);
 
     if bot_token.is_none() {
         log(
@@ -2745,7 +2763,7 @@ fn do_pr_review_fix(cfg: &Config, pr_num: u32) {
     // additional PR context) run as the bot. The push itself uses the
     // user's git credentials, which is fine — clicking the Fix button is
     // an explicit authorization to push.
-    let bot_token = cfg.bot_credentials.as_ref().and_then(resolve_bot_token);
+    let bot_token = cfg.effective_bot_credentials().as_ref().and_then(resolve_bot_token);
     let extra_env: Vec<(String, String)> = bot_token
         .as_deref()
         .map(|t| vec![("GH_TOKEN".to_string(), t.to_string())])
@@ -2844,13 +2862,17 @@ pub fn parse_args() -> Config {
     let root = cmd_stdout("git", &["rev-parse", "--show-toplevel"])
         .unwrap_or_else(|| die("not inside a git repository"));
 
-    let bot_credentials = load_bot_credentials();
     let dev_cfg = crate::agent::types::load_dev_config(&root);
+    let bot_settings = load_bot_settings(&root, &dev_cfg);
+    let bot_credentials = bot_settings.to_credentials();
     let project_name = env::var("DEV_PROJECT_NAME")
         .ok()
         .or(dev_cfg.project_name)
         .unwrap_or_else(|| infer_project_name(&root));
-    let local_inference = dev_cfg.local_inference.into_local_inference_config();
+    let mut local_inference = dev_cfg.local_inference.into_local_inference_config();
+    if let Some(api_key) = load_local_inference_api_key(&root) {
+        local_inference.api_key = api_key;
+    }
     let scan_targets = dev_cfg.security_scan.into_scan_targets();
     let skill_paths = dev_cfg.skills.into_skill_paths();
     let bootstrap_agent_files = dev_cfg.bootstrap_agent_files.unwrap_or(true);
@@ -2865,6 +2887,7 @@ pub fn parse_args() -> Config {
         scan_targets,
         skill_paths,
         bootstrap_agent_files,
+        bot_settings,
         bot_credentials,
     }
 }
@@ -2886,6 +2909,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            bot_settings: Default::default(),
             bot_credentials: None,
         }
     }

@@ -1,0 +1,96 @@
+use anyhow::{Context, Result};
+use keyring::Entry;
+use std::hash::{Hash, Hasher};
+
+const SERVICE_PREFIX: &str = "freq-ai";
+const BOT_TOKEN_SLOT: &str = "bot-token";
+const BOT_PEM_SLOT: &str = "bot-private-key-pem";
+const LOCAL_INFERENCE_API_KEY_SLOT: &str = "local-inference-api-key";
+
+fn root_scope(root: &str) -> String {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    root.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+}
+
+fn entry(root: &str, slot: &str) -> Result<Entry> {
+    Entry::new(
+        &format!("{SERVICE_PREFIX}.{slot}"),
+        &format!("project:{}", root_scope(root)),
+    )
+    .context("failed to open OS credential store entry")
+}
+
+pub fn load_secret(root: &str, slot: &str) -> Option<String> {
+    let entry = entry(root, slot).ok()?;
+    match entry.get_password() {
+        Ok(secret) if !secret.trim().is_empty() => Some(secret),
+        Ok(_) => None,
+        Err(_) => None,
+    }
+}
+
+pub fn store_secret(root: &str, slot: &str, value: &str) -> Result<()> {
+    let entry = entry(root, slot)?;
+    entry
+        .set_password(value)
+        .with_context(|| format!("failed to store secret for {slot}"))
+}
+
+pub fn clear_secret(root: &str, slot: &str) -> Result<()> {
+    let entry = entry(root, slot)?;
+    match entry.delete_credential() {
+        Ok(()) => Ok(()),
+        Err(_) => Ok(()),
+    }
+}
+
+pub fn load_bot_token(root: &str) -> Option<String> {
+    load_secret(root, BOT_TOKEN_SLOT)
+}
+
+pub fn store_bot_token(root: &str, token: &str) -> Result<()> {
+    store_secret(root, BOT_TOKEN_SLOT, token)
+}
+
+pub fn clear_bot_token(root: &str) -> Result<()> {
+    clear_secret(root, BOT_TOKEN_SLOT)
+}
+
+pub fn load_bot_private_key_pem(root: &str) -> Option<String> {
+    load_secret(root, BOT_PEM_SLOT)
+}
+
+pub fn store_bot_private_key_pem(root: &str, pem: &str) -> Result<()> {
+    store_secret(root, BOT_PEM_SLOT, pem)
+}
+
+pub fn clear_bot_private_key_pem(root: &str) -> Result<()> {
+    clear_secret(root, BOT_PEM_SLOT)
+}
+
+pub fn load_local_inference_api_key(root: &str) -> Option<String> {
+    load_secret(root, LOCAL_INFERENCE_API_KEY_SLOT)
+}
+
+pub fn store_local_inference_api_key(root: &str, api_key: &str) -> Result<()> {
+    store_secret(root, LOCAL_INFERENCE_API_KEY_SLOT, api_key)
+}
+
+pub fn clear_local_inference_api_key(root: &str) -> Result<()> {
+    clear_secret(root, LOCAL_INFERENCE_API_KEY_SLOT)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn root_scope_is_stable() {
+        let a = root_scope("/tmp/project-a");
+        let b = root_scope("/tmp/project-a");
+        let c = root_scope("/tmp/project-b");
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+}

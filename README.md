@@ -364,6 +364,11 @@ The **Code Review** action posts reviews via `gh pr review`. GitHub forbids appr
 
 The dev-UI mints short-lived installation tokens on demand (cached for 50 minutes) and injects `GH_TOKEN` into the review subprocess. Audit logs show `dev-ui-bot[bot]`.
 
+You can also configure review-bot access in the GUI under `Configuration` and
+click `Save Configuration`. Non-secret settings are written to `dev.toml`;
+stored GitHub tokens, GitHub App PEM keys, and local inference API keys go
+into the OS credential vault instead of plaintext project files.
+
 ### Option B — Personal access token (second user)
 
 1. Create a second GitHub user (e.g. `<owner>-bot`), grant write access to the repo.

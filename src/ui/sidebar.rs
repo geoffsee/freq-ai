@@ -1,5 +1,5 @@
 use crate::agent::tracker::{PendingIssue, PrSummary, TrackerInfo};
-use crate::agent::types::{Agent, Config, LocalInferencePreset, Workflow};
+use crate::agent::types::{Agent, BotAuthMode, Config, LocalInferencePreset, Workflow};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
@@ -122,7 +122,7 @@ pub fn Sidebar(
     awaiting_feedback: Signal<Option<Workflow>>,
     feedback_text: Signal<String>,
     auto_merge_enabled: Signal<bool>,
-    bot_configured: Signal<bool>,
+    settings_status: Signal<Option<String>>,
     refresh_tracker: EventHandler<MouseEvent>,
     start_work: EventHandler<u32>,
     start_single_issue: EventHandler<u32>,
@@ -139,6 +139,7 @@ pub fn Sidebar(
     start_housekeeping: EventHandler<MouseEvent>,
     start_refresh_agents: EventHandler<MouseEvent>,
     start_refresh_docs: EventHandler<MouseEvent>,
+    save_settings: EventHandler<MouseEvent>,
     stop_work: EventHandler<MouseEvent>,
     submit_feedback: EventHandler<MouseEvent>,
     on_auto_merge: EventHandler<MouseEvent>,
@@ -146,7 +147,7 @@ pub fn Sidebar(
     let working = *is_working.read();
     let awaiting = *awaiting_feedback.read();
     let auto_merge = *auto_merge_enabled.read();
-    let has_bot = *bot_configured.read();
+    let has_bot = config.read().has_bot_credentials();
     let advanced_open = config.read().local_inference.advanced;
     let advanced_controls_class = if advanced_open {
         "advanced-controls advanced-controls-open"
@@ -205,6 +206,73 @@ pub fn Sidebar(
                             },
                         }
                         span { "Advanced" }
+                    }
+                    label { class: "advanced-field",
+                        span { class: "control-label", "Review bot auth" }
+                        select {
+                            class: "select",
+                            value: "{config.read().bot_settings.mode}",
+                            onchange: move |evt| {
+                                if let Ok(mode) = evt.value().parse::<BotAuthMode>() {
+                                    config.write().bot_settings.mode = mode;
+                                }
+                            },
+                            option { value: "disabled", "Disabled" }
+                            option { value: "token", "Token" }
+                            option { value: "github_app", "GitHub App" }
+                        }
+                    }
+                    if config.read().bot_settings.mode == BotAuthMode::Token {
+                        label { class: "advanced-field",
+                            span { class: "control-label", "GitHub token" }
+                            input {
+                                class: "text-input",
+                                r#type: "password",
+                                value: "{config.read().bot_settings.token}",
+                                placeholder: "github_pat_...",
+                                oninput: move |evt| {
+                                    config.write().bot_settings.token = evt.value();
+                                },
+                            }
+                        }
+                    }
+                    if config.read().bot_settings.mode == BotAuthMode::GitHubApp {
+                        label { class: "advanced-field",
+                            span { class: "control-label", "App ID" }
+                            input {
+                                class: "text-input",
+                                r#type: "text",
+                                value: "{config.read().bot_settings.app_id}",
+                                placeholder: "123456",
+                                oninput: move |evt| {
+                                    config.write().bot_settings.app_id = evt.value();
+                                },
+                            }
+                        }
+                        label { class: "advanced-field",
+                            span { class: "control-label", "Installation ID" }
+                            input {
+                                class: "text-input",
+                                r#type: "text",
+                                value: "{config.read().bot_settings.installation_id}",
+                                placeholder: "78901234",
+                                oninput: move |evt| {
+                                    config.write().bot_settings.installation_id = evt.value();
+                                },
+                            }
+                        }
+                        label { class: "advanced-field",
+                            span { class: "control-label", "Private key PEM" }
+                            textarea {
+                                class: "text-input",
+                                rows: "6",
+                                value: "{config.read().bot_settings.private_key_pem}",
+                                placeholder: "-----BEGIN RSA PRIVATE KEY-----",
+                                oninput: move |evt| {
+                                    config.write().bot_settings.private_key_pem = evt.value();
+                                },
+                            }
+                        }
                     }
                     div { class: advanced_controls_class,
                         div { class: "advanced-group",
@@ -265,6 +333,20 @@ pub fn Sidebar(
                             }
                         }
                     }
+                    div { class: "advanced-group",
+                        div { class: "advanced-hint",
+                            "Save writes non-secret settings to `dev.toml` and stores tokens, PEM keys, and API keys in the OS credential vault."
+                        }
+                        button {
+                            class: "btn btn-sm btn-action",
+                            disabled: working,
+                            onclick: move |evt| save_settings.call(evt),
+                            "Save Configuration"
+                        }
+                        if let Some(status) = settings_status.read().clone() {
+                            div { class: "advanced-hint", "{status}" }
+                        }
+                    }
                 }
             }
 
@@ -306,7 +388,7 @@ pub fn Sidebar(
                     button {
                         class: "btn btn-sm btn-action",
                         disabled: working || awaiting.is_some() || !has_bot,
-                        title: if !has_bot { "Bot credentials required. Set DEV_BOT_TOKEN env var or configure a GitHub App (see README)." } else { "" },
+                        title: if !has_bot { "Bot credentials required. Configure a token or GitHub App in the Configuration section." } else { "" },
                         onclick: move |evt| start_code_review.call(evt),
                         if !has_bot { "Code Review (no bot)" } else if working { "Working..." } else { "Code Review" }
                     }

@@ -1,0 +1,24 @@
+# Configuration for the dev-agent (crates/dev).
+# This file is read at startup from the project root.
+# All fields are optional — defaults are shown below.
+# Override via environment: DEV_PROJECT_NAME="my-project"
+
+#project_name = "freq-cloud"
+
+[local_inference]
+advanced = false
+preset = "vllm"
+base_url = "http://localhost:8000/v1"
+model = ""
+
+[security_scan]
+#edge          = "crates/edge-node/src/lib.rs"
+#network_kem   = "crates/network-node/src/kem.rs"
+#network_crypto = "crates/network-node/src/crypto.rs"
+#network       = "crates/network-node/src/lib.rs"
+#service       = "crates/service-node/src/lib.rs"
+#gateway       = "crates/gateway-node/src/lib.rs"
+#gateway_users = "crates/gateway-node/src/users.rs"
+#gateway_kms   = "crates/gateway-node/src/kms.rs"
+#cli_build     = "crates/freq-cli/src/build.rs"
+#compute       = "crates/compute-node/src/lib.rs"

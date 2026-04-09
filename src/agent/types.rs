@@ -270,6 +270,39 @@ impl LocalInferenceConfig {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BotAuthMode {
+    #[default]
+    Disabled,
+    Token,
+    #[serde(rename = "github_app")]
+    GitHubApp,
+}
+
+impl fmt::Display for BotAuthMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BotAuthMode::Disabled => write!(f, "disabled"),
+            BotAuthMode::Token => write!(f, "token"),
+            BotAuthMode::GitHubApp => write!(f, "github_app"),
+        }
+    }
+}
+
+impl FromStr for BotAuthMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "disabled" | "none" => Ok(BotAuthMode::Disabled),
+            "token" => Ok(BotAuthMode::Token),
+            "github_app" | "github-app" | "githubapp" => Ok(BotAuthMode::GitHubApp),
+            _ => Err(format!("Unknown bot auth mode: {s}")),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BotCredentials {
     /// A pre-minted token (PAT or installation token).
@@ -278,7 +311,7 @@ pub enum BotCredentials {
     GitHubApp {
         app_id: String,
         installation_id: String,
-        private_key_path: String,
+        private_key_pem: String,
     },
 }
 
@@ -297,8 +330,68 @@ impl fmt::Debug for BotCredentials {
                 .debug_struct("BotCredentials::GitHubApp")
                 .field("app_id", &"<redacted>")
                 .field("installation_id", &"<redacted>")
-                .field("private_key_path", &"<redacted>")
+                .field("private_key_pem", &"<redacted>")
                 .finish(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct BotSettings {
+    pub mode: BotAuthMode,
+    pub token: String,
+    pub app_id: String,
+    pub installation_id: String,
+    pub private_key_pem: String,
+}
+
+impl BotSettings {
+    pub fn from_credentials(creds: &BotCredentials) -> Self {
+        match creds {
+            BotCredentials::Token(token) => Self {
+                mode: BotAuthMode::Token,
+                token: token.clone(),
+                ..Self::default()
+            },
+            BotCredentials::GitHubApp {
+                app_id,
+                installation_id,
+                private_key_pem,
+            } => Self {
+                mode: BotAuthMode::GitHubApp,
+                app_id: app_id.clone(),
+                installation_id: installation_id.clone(),
+                private_key_pem: private_key_pem.clone(),
+                ..Self::default()
+            },
+        }
+    }
+
+    pub fn to_credentials(&self) -> Option<BotCredentials> {
+        match self.mode {
+            BotAuthMode::Disabled => None,
+            BotAuthMode::Token => {
+                let token = self.token.trim();
+                if token.is_empty() {
+                    None
+                } else {
+                    Some(BotCredentials::Token(token.to_string()))
+                }
+            }
+            BotAuthMode::GitHubApp => {
+                let app_id = self.app_id.trim();
+                let installation_id = self.installation_id.trim();
+                let private_key_pem = self.private_key_pem.trim();
+                if app_id.is_empty() || installation_id.is_empty() || private_key_pem.is_empty() {
+                    None
+                } else {
+                    Some(BotCredentials::GitHubApp {
+                        app_id: app_id.to_string(),
+                        installation_id: installation_id.to_string(),
+                        private_key_pem: private_key_pem.to_string(),
+                    })
+                }
+            }
         }
     }
 }
@@ -318,11 +411,36 @@ pub struct Config {
     #[serde(default = "default_bootstrap_agent_files")]
     pub bootstrap_agent_files: bool,
     #[serde(skip)]
+    pub bot_settings: BotSettings,
+    #[serde(skip)]
     pub bot_credentials: Option<BotCredentials>,
+}
+
+impl Config {
+    pub fn effective_bot_credentials(&self) -> Option<BotCredentials> {
+        self.bot_settings
+            .to_credentials()
+            .or_else(|| self.bot_credentials.clone())
+    }
+
+    pub fn has_bot_credentials(&self) -> bool {
+        self.effective_bot_credentials().is_some()
+    }
 }
 
 fn default_bootstrap_agent_files() -> bool {
     true
+}
+
+fn is_none<T>(value: &Option<T>) -> bool {
+    value.is_none()
+}
+
+fn is_default<T>(value: &T) -> bool
+where
+    T: Default + PartialEq,
+{
+    value == &T::default()
 }
 
 /// Per-skill paths the dev agent reads at runtime. Hardcoded defaults match
@@ -370,6 +488,7 @@ impl fmt::Debug for Config {
             .field("scan_targets", &self.scan_targets)
             .field("skill_paths", &self.skill_paths)
             .field("bootstrap_agent_files", &self.bootstrap_agent_files)
+            .field("bot_settings", &format_args!("{}", self.bot_settings.mode))
             .field("bot_credentials", bot_credentials_marker)
             .finish()
     }
@@ -410,55 +529,101 @@ impl Default for ScanTargets {
 
 /// On-disk `dev.toml` layout. Missing fields fall back to defaults.
 #[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Serialize)]
 #[serde(default)]
 pub struct DevConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub project_name: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub local_inference: LocalInferenceConfigFile,
     #[serde(default)]
+    #[serde(skip_serializing_if = "is_default")]
     pub security_scan: ScanTargetsFile,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub skills: SkillPathsFile,
     /// Whether `preflight()` should materialise embedded default skill files
     /// into the project root if they're missing. Library consumers that bring
     /// their own skill layout (under a different prefix) should set this to
     /// `false` so freq-ai's defaults don't appear next to their own files.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub bootstrap_agent_files: Option<bool>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub bot: BotSettingsFile,
 }
 
 /// Optional overrides for scan target paths in `dev.toml`.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct ScanTargetsFile {
+    #[serde(skip_serializing_if = "is_none")]
     pub edge: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub network_kem: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub network_crypto: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub network: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub service: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub gateway: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub gateway_users: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub gateway_kms: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub cli_build: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub compute: Option<String>,
 }
 
 /// Optional local inference overrides in `dev.toml`.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct LocalInferenceConfigFile {
+    #[serde(skip_serializing_if = "is_none")]
     pub advanced: Option<bool>,
+    #[serde(skip_serializing_if = "is_none")]
     pub preset: Option<LocalInferencePreset>,
+    #[serde(skip_serializing_if = "is_none")]
     pub base_url: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
 }
 
 /// Optional overrides for skill file paths in `dev.toml`'s `[skills]` section.
-#[derive(Clone, Debug, Default, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(default)]
 pub struct SkillPathsFile {
+    #[serde(skip_serializing_if = "is_none")]
     pub user_personas: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
     pub issue_tracking: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct BotSettingsFile {
+    #[serde(skip_serializing_if = "is_none")]
+    pub mode: Option<BotAuthMode>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub app_id: Option<String>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub installation_id: Option<String>,
+}
+
+impl BotSettingsFile {
+    pub fn into_bot_settings(self) -> BotSettings {
+        BotSettings {
+            mode: self.mode.unwrap_or_default(),
+            token: String::new(),
+            app_id: self.app_id.unwrap_or_default(),
+            installation_id: self.installation_id.unwrap_or_default(),
+            private_key_pem: String::new(),
+        }
+    }
 }
 
 impl SkillPathsFile {
@@ -523,6 +688,56 @@ pub fn load_dev_config(root: &str) -> DevConfig {
         Ok(contents) => toml::from_str(&contents).unwrap_or_default(),
         Err(_) => DevConfig::default(),
     }
+}
+
+pub fn save_dev_config(root: &str, cfg: &Config) -> Result<(), String> {
+    let path = std::path::Path::new(root).join("dev.toml");
+    let mut local_inference = LocalInferenceConfigFile {
+        advanced: Some(cfg.local_inference.advanced),
+        preset: Some(cfg.local_inference.preset),
+        base_url: Some(cfg.local_inference.base_url.clone()),
+        model: Some(cfg.local_inference.model.clone()),
+        api_key: None,
+    };
+    if cfg.local_inference.base_url.trim().is_empty() {
+        local_inference.base_url = None;
+    }
+    if cfg.local_inference.model.trim().is_empty() {
+        local_inference.model = None;
+    }
+
+    let bot = BotSettingsFile {
+        mode: Some(cfg.bot_settings.mode),
+        app_id: (!cfg.bot_settings.app_id.trim().is_empty()).then(|| cfg.bot_settings.app_id.clone()),
+        installation_id: (!cfg.bot_settings.installation_id.trim().is_empty())
+            .then(|| cfg.bot_settings.installation_id.clone()),
+    };
+
+    let file_cfg = DevConfig {
+        project_name: Some(cfg.project_name.clone()),
+        local_inference,
+        security_scan: ScanTargetsFile {
+            edge: Some(cfg.scan_targets.edge.clone()),
+            network_kem: Some(cfg.scan_targets.network_kem.clone()),
+            network_crypto: Some(cfg.scan_targets.network_crypto.clone()),
+            network: Some(cfg.scan_targets.network.clone()),
+            service: Some(cfg.scan_targets.service.clone()),
+            gateway: Some(cfg.scan_targets.gateway.clone()),
+            gateway_users: Some(cfg.scan_targets.gateway_users.clone()),
+            gateway_kms: Some(cfg.scan_targets.gateway_kms.clone()),
+            cli_build: Some(cfg.scan_targets.cli_build.clone()),
+            compute: Some(cfg.scan_targets.compute.clone()),
+        },
+        skills: SkillPathsFile {
+            user_personas: Some(cfg.skill_paths.user_personas.clone()),
+            issue_tracking: Some(cfg.skill_paths.issue_tracking.clone()),
+        },
+        bootstrap_agent_files: Some(cfg.bootstrap_agent_files),
+        bot,
+    };
+
+    let toml = toml::to_string_pretty(&file_cfg).map_err(|e| e.to_string())?;
+    std::fs::write(path, toml).map_err(|e| e.to_string())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -845,6 +1060,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            bot_settings: BotSettings::default(),
             bot_credentials: None,
         };
         let json = serde_json::to_string(&cfg).unwrap();
@@ -918,6 +1134,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::Token("ghp_test123".into())),
         };
         let json = serde_json::to_string(&cfg).unwrap();
@@ -944,6 +1161,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::Token("ghp_test123".into())),
         };
         let dbg = format!("{cfg:?}");
@@ -970,15 +1188,16 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::GitHubApp {
                 app_id: "12345".into(),
                 installation_id: "67890".into(),
-                private_key_path: "/tmp/key.pem".into(),
+                private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\nsecret\n-----END RSA PRIVATE KEY-----".into(),
             }),
         };
         let dbg = format!("{cfg:?}");
         assert!(
-            !dbg.contains("12345") && !dbg.contains("67890") && !dbg.contains("/tmp/key.pem"),
+            !dbg.contains("12345") && !dbg.contains("67890") && !dbg.contains("BEGIN RSA PRIVATE KEY"),
             "GitHub App credentials leaked into Debug output: {dbg}"
         );
         assert!(
@@ -997,12 +1216,12 @@ mod tests {
         let app = BotCredentials::GitHubApp {
             app_id: "appid42".into(),
             installation_id: "instid99".into(),
-            private_key_path: "/secret/key.pem".into(),
+            private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\nsuper-secret\n-----END RSA PRIVATE KEY-----".into(),
         };
         let dbg = format!("{app:?}");
         assert!(!dbg.contains("appid42"));
         assert!(!dbg.contains("instid99"));
-        assert!(!dbg.contains("/secret/key.pem"));
+        assert!(!dbg.contains("BEGIN RSA PRIVATE KEY"));
         assert!(dbg.contains("redacted"));
     }
 
@@ -1018,19 +1237,76 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::GitHubApp {
                 app_id: "12345".into(),
                 installation_id: "67890".into(),
-                private_key_path: "/tmp/key.pem".into(),
+                private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\nsecret\n-----END RSA PRIVATE KEY-----".into(),
             }),
         };
         let json = serde_json::to_string(&cfg).unwrap();
         assert!(
-            !json.contains("/tmp/key.pem") && !json.contains("12345"),
+            !json.contains("BEGIN RSA PRIVATE KEY") && !json.contains("12345"),
             "GitHub App credentials must not appear in serialized Config"
         );
         let back: Config = serde_json::from_str(&json).unwrap();
         assert!(back.bot_credentials.is_none());
+    }
+
+    #[test]
+    fn bot_settings_require_complete_selected_mode() {
+        let mut settings = BotSettings {
+            mode: BotAuthMode::Token,
+            token: "github_pat_123".into(),
+            ..BotSettings::default()
+        };
+        assert!(matches!(settings.to_credentials(), Some(BotCredentials::Token(_))));
+
+        settings.token.clear();
+        assert!(settings.to_credentials().is_none());
+
+        settings.mode = BotAuthMode::GitHubApp;
+        settings.app_id = "123".into();
+        settings.installation_id = "456".into();
+        settings.private_key_pem = "-----BEGIN RSA PRIVATE KEY-----\nsecret\n-----END RSA PRIVATE KEY-----".into();
+        assert!(matches!(
+            settings.to_credentials(),
+            Some(BotCredentials::GitHubApp { .. })
+        ));
+    }
+
+    #[test]
+    fn save_dev_config_omits_plaintext_secrets() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = Config {
+            agent: Agent::Claude,
+            auto_mode: false,
+            dry_run: false,
+            local_inference: LocalInferenceConfig {
+                api_key: "super-secret-local-key".into(),
+                ..LocalInferenceConfig::default()
+            },
+            root: dir.path().to_string_lossy().into_owned(),
+            project_name: "my-project".into(),
+            scan_targets: ScanTargets::default(),
+            skill_paths: SkillPaths::default(),
+            bootstrap_agent_files: true,
+            bot_settings: BotSettings {
+                mode: BotAuthMode::GitHubApp,
+                app_id: "12345".into(),
+                installation_id: "67890".into(),
+                private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\nsuper-secret-pem\n-----END RSA PRIVATE KEY-----".into(),
+                ..BotSettings::default()
+            },
+            bot_credentials: None,
+        };
+
+        save_dev_config(&cfg.root, &cfg).unwrap();
+        let saved = std::fs::read_to_string(dir.path().join("dev.toml")).unwrap();
+        assert!(!saved.contains("super-secret-local-key"));
+        assert!(!saved.contains("super-secret-pem"));
+        assert!(saved.contains("[bot]"));
+        assert!(saved.contains("mode = \"github_app\""));
     }
 
     // ── AgentEvent variants ──
