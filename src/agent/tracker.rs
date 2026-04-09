@@ -2874,6 +2874,220 @@ Format: `Housekeeping complete: <URL>`"#
     )
 }
 
+// ── Interview prompts ──
+
+pub fn build_interview_draft_prompt(
+    open_issues: &str,
+    open_prs: &str,
+    recent_commits: &str,
+    status: &str,
+    issues_md: &str,
+    crate_tree: &str,
+) -> String {
+    let context = strategic_review_context(
+        open_issues,
+        open_prs,
+        recent_commits,
+        status,
+        issues_md,
+        crate_tree,
+    );
+    format!(
+        r#"You are an interview facilitator for a software project. Your job is to conduct
+a structured discovery interview with the project maintainer to surface the gap
+between what currently exists and what the user intends.
+
+Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+
+{context}
+
+---
+
+## Instructions
+
+Analyze the project state above — code, issues, PRs, and commit history — then ask
+**directed, project-specific questions**. Do NOT use generic templates; every question
+must reference concrete artifacts you observed (specific issues, code patterns, PRs,
+missing tests, architectural gaps, etc.).
+
+Organize your questions under these section headers (use exactly these headings):
+
+### Intent vs. Current State
+Ask about gaps between what exists and what the user intends. Reference specific
+issues, code areas, or patterns that seem incomplete or misaligned.
+
+### Priority and Sequencing
+Ask what matters most and what should come first. Reference competing priorities
+you detected (e.g. open issues that pull in different directions).
+
+### Scope Boundaries
+Ask what is in scope and what is out. Reference features or ideas that seem
+ambitious or unclear in their boundaries.
+
+### Open Questions
+Surface unresolved decisions or tensions you detected in the codebase or issue
+tracker. Ask the user to weigh in.
+
+## Format
+
+- Use the exact section headings above (### level)
+- Ask 2-3 focused questions per section
+- Each question should be concrete and reference specific project artifacts
+- Keep questions concise — one or two sentences each
+- Number your questions within each section
+
+This is round 1 of an interactive interview. The user will answer, and you will
+ask follow-up questions in round 2."#
+    )
+}
+
+pub fn build_interview_followup_prompt(
+    open_issues: &str,
+    open_prs: &str,
+    recent_commits: &str,
+    status: &str,
+    issues_md: &str,
+    crate_tree: &str,
+    prior_answers: &[String],
+) -> String {
+    let context = strategic_review_context(
+        open_issues,
+        open_prs,
+        recent_commits,
+        status,
+        issues_md,
+        crate_tree,
+    );
+    let answers_section: String = prior_answers
+        .iter()
+        .enumerate()
+        .map(|(i, a)| format!("### Round {} response\n\n{a}", i + 1))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    format!(
+        r#"You are an interview facilitator for a software project, conducting round {round}
+of a structured discovery interview.
+
+Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+
+{context}
+
+---
+
+## Prior Interview Responses
+
+{answers_section}
+
+---
+
+## Instructions
+
+Based on the user's prior answers, ask **targeted follow-up questions** that dig
+deeper into areas where:
+- Answers were ambiguous or revealed new tensions
+- Important details were missing
+- Priorities or scope need further clarification
+- You detected contradictions between answers and the project state
+
+Organize follow-ups under the same section headings:
+
+### Intent vs. Current State
+### Priority and Sequencing
+### Scope Boundaries
+### Open Questions
+
+Only include sections where you have meaningful follow-ups. Skip sections where
+the user's answers were already clear and complete.
+
+## Format
+
+- 1-3 follow-up questions per section (only where needed)
+- Reference the user's specific answers when asking follow-ups
+- Keep questions concrete and actionable
+
+This is round {round} of the interview. The user will answer, then you will
+generate a final summary."#,
+        round = prior_answers.len() + 1
+    )
+}
+
+pub fn build_interview_summary_prompt(
+    open_issues: &str,
+    open_prs: &str,
+    recent_commits: &str,
+    status: &str,
+    issues_md: &str,
+    crate_tree: &str,
+    all_answers: &[String],
+) -> String {
+    let context = strategic_review_context(
+        open_issues,
+        open_prs,
+        recent_commits,
+        status,
+        issues_md,
+        crate_tree,
+    );
+    let answers_section: String = all_answers
+        .iter()
+        .enumerate()
+        .map(|(i, a)| format!("### Round {} response\n\n{a}", i + 1))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    format!(
+        r#"You are an interview facilitator for a software project. You have completed a
+multi-round discovery interview. Now generate the structured summary.
+
+Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+
+{context}
+
+---
+
+## Interview Responses
+
+{answers_section}
+
+---
+
+## Instructions
+
+Synthesize all interview responses into a structured summary document. This summary
+will be consumed by other agent workflows for downstream planning.
+
+## Output Format
+
+Produce a Markdown document with these sections:
+
+### Vision & Intent
+One paragraph distilling the user's intended direction for the project.
+
+### Priorities (ordered)
+A numbered list of priorities in the order the user specified, with brief rationale
+for each.
+
+### Scope Boundaries
+Two subsections:
+- **In scope**: What the user confirmed is in scope
+- **Out of scope**: What the user explicitly excluded or deferred
+
+### Key Decisions
+Bullet list of decisions made during the interview, referencing specific issues
+or code areas where applicable.
+
+### Open Items
+Anything still unresolved — questions the user deferred, tensions that remain,
+or areas needing further investigation.
+
+### Recommended Next Actions
+3-5 concrete next steps derived from the interview, each tied to a specific
+issue, PR, or code area.
+
+Do NOT create GitHub issues. Output only the summary document.
+End with the line: `---interview-summary-complete---`"#
+    )
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PrSummary {
     pub number: u32,

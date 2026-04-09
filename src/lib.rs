@@ -36,9 +36,10 @@ use agent::config_store::{
 use agent::shell::{
     clear_stop_request, parse_args, preflight, request_stop, run_code_review,
     run_housekeeping_draft, run_housekeeping_finalize, run_ideation_draft, run_ideation_finalize,
-    run_loop, run_pr_review_fix, run_refresh_agents, run_refresh_docs, run_report_draft,
-    run_report_finalize, run_retrospective_draft, run_retrospective_finalize, run_roadmapper_draft,
-    run_roadmapper_finalize, run_security_code_review, run_single_issue, run_sprint_planning_draft,
+    run_interview_draft, run_interview_respond, run_loop, run_pr_review_fix, run_refresh_agents,
+    run_refresh_docs, run_report_draft, run_report_finalize, run_retrospective_draft,
+    run_retrospective_finalize, run_roadmapper_draft, run_roadmapper_finalize,
+    run_security_code_review, run_single_issue, run_sprint_planning_draft,
     run_sprint_planning_finalize, run_strategic_review_draft, run_strategic_review_finalize,
 };
 use agent::tracker::{
@@ -48,7 +49,7 @@ use agent::tracker::{
 };
 use agent::types::{
     save_dev_config, AgentEvent, BotAuthMode, ChangedFile, ClaudeEvent, ContentBlock, EVENT_SENDER,
-    FileChangeKind, Workflow,
+    FileChangeKind, InterviewTurn, Workflow,
 };
 use clap::{Parser, Subcommand};
 use custom_themes::Theme;
@@ -100,6 +101,8 @@ enum Commands {
     Retrospective,
     /// Run housekeeping draft
     Housekeeping,
+    /// Run user interview
+    Interview,
     /// Run code review
     CodeReview,
     /// Run security code review
@@ -157,6 +160,7 @@ where
         Some(Commands::SprintPlanning) => run_sprint_planning_draft(&config),
         Some(Commands::Retrospective) => run_retrospective_draft(&config),
         Some(Commands::Housekeeping) => run_housekeeping_draft(&config),
+        Some(Commands::Interview) => run_interview_draft(&config),
         Some(Commands::CodeReview) => run_code_review(&config),
         Some(Commands::SecurityReview) => run_security_code_review(&config),
         Some(Commands::RefreshAgents) => run_refresh_agents(&config),
@@ -207,6 +211,10 @@ fn App() -> Element {
     let mut pr_map_sig = use_signal(HashMap::<u32, u32>::new);
     let mut pull_requests = use_signal(Vec::<PrSummary>::new);
     let mut security_findings = use_signal(Vec::<SecurityFinding>::new);
+    let mut interview_turns = use_signal(Vec::<InterviewTurn>::new);
+    let mut interview_active = use_signal(|| false);
+    let mut interview_done = use_signal(|| false);
+    let mut interview_agent_buf = use_signal(String::new);
     let mut settings_status = use_signal(|| None::<String>);
     let root_sig = use_signal(|| config.read().root.clone());
     let mut auto_merge_enabled = use_signal(|| false);
@@ -240,12 +248,36 @@ fn App() -> Element {
                 while let Some(ev) = rx.recv().await {
                     match &ev {
                         AgentEvent::Done => {
+                            // Flush interview agent buffer if active.
+                            if *interview_active.peek() {
+                                let buf = interview_agent_buf.peek().clone();
+                                if !buf.trim().is_empty() {
+                                    interview_turns.write().push(InterviewTurn {
+                                        is_agent: true,
+                                        content: buf,
+                                    });
+                                }
+                                interview_agent_buf.set(String::new());
+                                interview_done.set(true);
+                                interview_active.set(false);
+                            }
                             is_working.set(false);
                             awaiting_feedback.set(None);
                             clear_stop_request();
                             continue;
                         }
                         AgentEvent::AwaitingFeedback(wf) => {
+                            // Flush interview agent buffer as a dialog turn.
+                            if *wf == Workflow::Interview {
+                                let buf = interview_agent_buf.peek().clone();
+                                if !buf.trim().is_empty() {
+                                    interview_turns.write().push(InterviewTurn {
+                                        is_agent: true,
+                                        content: buf,
+                                    });
+                                }
+                                interview_agent_buf.set(String::new());
+                            }
                             is_working.set(false);
                             awaiting_feedback.set(Some(*wf));
                             feedback_text.set(String::new());
@@ -257,6 +289,20 @@ fn App() -> Element {
                             continue;
                         }
                         _ => {}
+                    }
+                    // Accumulate agent text into the interview buffer.
+                    if *interview_active.peek() {
+                        if let AgentEvent::Claude(ClaudeEvent::Assistant { ref message }) = ev {
+                            for block in &message.content {
+                                if let ContentBlock::Text { text } = block {
+                                    let mut buf = interview_agent_buf.write();
+                                    if !buf.is_empty() {
+                                        buf.push('\n');
+                                    }
+                                    buf.push_str(text);
+                                }
+                            }
+                        }
                     }
                     // Extract file changes from tool use events
                     if let AgentEvent::Claude(ClaudeEvent::Assistant { ref message }) = ev {
@@ -425,6 +471,19 @@ fn App() -> Element {
         });
     };
 
+    let start_interview = move |_: MouseEvent| {
+        clear_stop_request();
+        is_working.set(true);
+        interview_turns.write().clear();
+        interview_agent_buf.set(String::new());
+        interview_active.set(true);
+        interview_done.set(false);
+        let cfg = config.read().clone();
+        tokio::spawn(async move {
+            run_interview_draft(&cfg);
+        });
+    };
+
     let start_security_review = move |_: MouseEvent| {
         let root = config.read().root.clone();
         let targets = config.read().scan_targets.clone();
@@ -539,6 +598,15 @@ fn App() -> Element {
         let wf = *awaiting_feedback.read();
         awaiting_feedback.set(None);
         is_working.set(true);
+
+        // Record user answer as interview turn.
+        if wf == Some(Workflow::Interview) {
+            interview_turns.write().push(InterviewTurn {
+                is_agent: false,
+                content: fb.clone(),
+            });
+        }
+
         let cfg = config.read().clone();
         tokio::spawn(async move {
             match wf {
@@ -549,6 +617,7 @@ fn App() -> Element {
                 Some(Workflow::Retrospective) => run_retrospective_finalize(&cfg, &fb),
                 Some(Workflow::Roadmapper) => run_roadmapper_finalize(&cfg, &fb),
                 Some(Workflow::Housekeeping) => run_housekeeping_finalize(&cfg, &fb),
+                Some(Workflow::Interview) => run_interview_respond(&cfg, &fb),
                 None => {}
             }
         });
@@ -638,6 +707,7 @@ fn App() -> Element {
                     start_retrospective,
                     start_ideation,
                     start_report,
+                    start_interview,
                     start_security_review,
                     start_security_code_review,
                     start_housekeeping,
@@ -653,6 +723,9 @@ fn App() -> Element {
                     events,
                     changed_files,
                     security_findings,
+                    interview_turns,
+                    interview_active,
+                    interview_done,
                     root: root_sig,
                     follow_mode,
                     expand_all,

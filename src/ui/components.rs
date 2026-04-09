@@ -236,6 +236,8 @@ body {
 .btn-report:hover { background: var(--blue); color: var(--bg-primary); }
 .btn-security { border-color: var(--orange); color: var(--orange); width: 100%; }
 .btn-security:hover { background: var(--orange); color: var(--bg-primary); }
+.btn-interview { border-color: var(--cyan); color: var(--cyan); width: 100%; }
+.btn-interview:hover { background: var(--cyan); color: var(--bg-primary); }
 .btn-merge { border-color: var(--green); color: var(--green); width: 100%; }
 .btn-merge:hover { background: var(--green); color: var(--bg-primary); }
 .btn-merge-active { background: var(--green); color: var(--bg-primary); opacity: 0.9; }
@@ -811,6 +813,100 @@ body {
 }
 .editor-content::-webkit-scrollbar-thumb:hover, .sidebar::-webkit-scrollbar-thumb:hover {
     background: var(--fg-muted);
+}
+
+/* ── Interview dialog ── */
+.interview-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    padding: 16px 20px;
+    gap: 12px;
+}
+.interview-empty {
+    color: var(--fg-muted);
+    text-align: center;
+    padding: 32px 16px;
+    font-style: italic;
+}
+.interview-section-header {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    padding: 8px 0 4px;
+    border-bottom: 1px solid var(--border);
+    margin-top: 8px;
+}
+.interview-turn {
+    display: flex;
+    flex-direction: column;
+    max-width: 85%;
+}
+.interview-turn-agent {
+    align-self: flex-start;
+}
+.interview-turn-user {
+    align-self: flex-end;
+}
+.interview-bubble {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+.interview-bubble-agent {
+    background: color-mix(in srgb, var(--cyan) 8%, var(--bg-secondary));
+    border-left: 3px solid var(--cyan);
+    color: var(--fg-primary);
+}
+.interview-bubble-user {
+    background: color-mix(in srgb, var(--purple) 10%, var(--bg-secondary));
+    border-right: 3px solid var(--purple);
+    color: var(--fg-primary);
+    text-align: left;
+}
+.interview-role {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    color: var(--fg-muted);
+}
+.interview-role-agent { color: var(--cyan); }
+.interview-role-user { color: var(--purple); text-align: right; }
+.interview-summary-card {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 6px;
+    border: 1px solid var(--cyan);
+    background: color-mix(in srgb, var(--cyan) 5%, var(--bg-secondary));
+}
+.interview-summary-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--cyan);
+    margin-bottom: 8px;
+    letter-spacing: 0.3px;
+}
+.interview-summary-body {
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    color: var(--fg-primary);
+}
+.interview-status {
+    text-align: center;
+    padding: 8px;
+    font-size: 11px;
+    color: var(--fg-muted);
+    font-style: italic;
 }
 "#;
 

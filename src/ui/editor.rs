@@ -1,4 +1,6 @@
-use crate::agent::types::{AgentEvent, ChangedFile, ClaudeEvent, ContentBlock, FileChangeKind};
+use crate::agent::types::{
+    AgentEvent, ChangedFile, ClaudeEvent, ContentBlock, FileChangeKind, InterviewTurn,
+};
 use crate::ui::components::EventRow;
 use crate::ui::security::{SecurityFinding, SecurityPanel};
 use dioxus::prelude::*;
@@ -24,6 +26,7 @@ enum EditorTab {
     Output,
     Files,
     Security,
+    Interview,
 }
 
 #[component]
@@ -31,6 +34,9 @@ pub fn Editor(
     events: Signal<Vec<AgentEvent>>,
     changed_files: Signal<Vec<ChangedFile>>,
     security_findings: Signal<Vec<SecurityFinding>>,
+    interview_turns: Signal<Vec<InterviewTurn>>,
+    interview_active: Signal<bool>,
+    interview_done: Signal<bool>,
     root: Signal<String>,
     follow_mode: Signal<bool>,
     expand_all: Signal<bool>,
@@ -73,6 +79,13 @@ pub fn Editor(
                     class: if *active_tab.read() == EditorTab::Security { "tab tab-active" } else { "tab" },
                     onclick: move |_| active_tab.set(EditorTab::Security),
                     "Security ({security_findings.read().len()})"
+                }
+                if *interview_active.read() || !interview_turns.read().is_empty() {
+                    div {
+                        class: if *active_tab.read() == EditorTab::Interview { "tab tab-active" } else { "tab" },
+                        onclick: move |_| active_tab.set(EditorTab::Interview),
+                        "Interview ({interview_turns.read().len()})"
+                    }
                 }
                 div { class: "tab-actions",
                     if *active_tab.read() == EditorTab::Output {
@@ -159,6 +172,43 @@ pub fn Editor(
                     SecurityPanel {
                         findings: security_findings,
                         root,
+                    }
+                },
+                EditorTab::Interview => rsx! {
+                    div { class: "interview-panel",
+                        if interview_turns.read().is_empty() {
+                            div { class: "interview-empty", "Interview not started yet." }
+                        }
+                        for (i , turn) in interview_turns.read().iter().enumerate() {
+                            if turn.is_agent {
+                                div { key: "{i}", class: "interview-turn interview-turn-agent",
+                                    div { class: "interview-role interview-role-agent", "Agent" }
+                                    div { class: "interview-bubble interview-bubble-agent",
+                                        "{turn.content}"
+                                    }
+                                }
+                            } else {
+                                div { key: "{i}", class: "interview-turn interview-turn-user",
+                                    div { class: "interview-role interview-role-user", "You" }
+                                    div { class: "interview-bubble interview-bubble-user",
+                                        "{turn.content}"
+                                    }
+                                }
+                            }
+                        }
+                        if *interview_done.read() && !interview_turns.read().is_empty() {
+                            div { class: "interview-summary-card",
+                                div { class: "interview-summary-title", "Interview Complete" }
+                                div { class: "interview-summary-body",
+                                    "The structured summary has been generated above. You can use it as input for other workflows (Sprint Planning, Roadmapper, etc.)."
+                                }
+                            }
+                        }
+                        if *interview_active.read() && !*interview_done.read() {
+                            div { class: "interview-status",
+                                "Awaiting your response in the Feedback section..."
+                            }
+                        }
                     }
                 },
             }

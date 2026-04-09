@@ -134,6 +134,7 @@ pub fn Sidebar(
     start_retrospective: EventHandler<MouseEvent>,
     start_ideation: EventHandler<MouseEvent>,
     start_report: EventHandler<MouseEvent>,
+    start_interview: EventHandler<MouseEvent>,
     start_security_review: EventHandler<MouseEvent>,
     start_security_code_review: EventHandler<MouseEvent>,
     start_housekeeping: EventHandler<MouseEvent>,
@@ -381,6 +382,12 @@ pub fn Sidebar(
                         disabled: working || awaiting.is_some(),
                         onclick: move |evt| start_sprint_planning.call(evt),
                         if working { "Working..." } else { "Sprint Planning" }
+                    }
+                    button {
+                        class: "btn btn-sm btn-interview",
+                        disabled: working || awaiting.is_some(),
+                        onclick: move |evt| start_interview.call(evt),
+                        if working { "Working..." } else { "Interview" }
                     }
                     hr { class: "sidebar-buttons-divider" }
                     button {

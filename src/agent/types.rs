@@ -15,6 +15,7 @@ pub enum Workflow {
     SprintPlanning,
     Retrospective,
     Housekeeping,
+    Interview,
 }
 
 impl std::fmt::Display for Workflow {
@@ -27,8 +28,18 @@ impl std::fmt::Display for Workflow {
             Workflow::SprintPlanning => write!(f, "Sprint Planning"),
             Workflow::Retrospective => write!(f, "Retrospective"),
             Workflow::Housekeeping => write!(f, "Housekeeping"),
+            Workflow::Interview => write!(f, "Interview"),
         }
     }
+}
+
+/// A single turn in the interview dialog, used by the UI to render the
+/// conversation view.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InterviewTurn {
+    /// `true` = agent message, `false` = user message.
+    pub is_agent: bool,
+    pub content: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]

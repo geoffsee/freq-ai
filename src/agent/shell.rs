@@ -5,17 +5,18 @@ use crate::agent::config_store::{
 use crate::agent::tracker::{
     DEFAULT_REVIEW_BOT_LOGIN, build_code_review_prompt, build_housekeeping_draft_prompt,
     build_housekeeping_finalize_prompt, build_ideation_draft_prompt,
-    build_ideation_finalize_prompt, build_lint_fix_prompt, build_pr_review_fix_prompt,
-    build_prompt, build_refresh_agents_prompt, build_refresh_docs_prompt,
-    build_report_draft_prompt, build_report_finalize_prompt, build_retrospective_draft_prompt,
-    build_retrospective_finalize_prompt, build_roadmapper_draft_prompt,
-    build_roadmapper_finalize_prompt, build_security_review_prompt,
-    build_sprint_planning_draft_prompt, build_sprint_planning_finalize_prompt,
-    build_strategic_review_draft_prompt, build_strategic_review_finalize_prompt,
-    build_test_fix_prompt, check_off_issue, close_issue, fetch_issue,
-    fetch_unresolved_review_threads, find_retro_issues, find_tracker, find_upstream_branch,
-    get_tracker_body, is_ready, list_open_prs, parse_completed, parse_pending, pr_body, pr_diff,
-    pr_head_branch, resolve_review_thread,
+    build_ideation_finalize_prompt, build_interview_draft_prompt,
+    build_interview_followup_prompt, build_interview_summary_prompt, build_lint_fix_prompt,
+    build_pr_review_fix_prompt, build_prompt, build_refresh_agents_prompt,
+    build_refresh_docs_prompt, build_report_draft_prompt, build_report_finalize_prompt,
+    build_retrospective_draft_prompt, build_retrospective_finalize_prompt,
+    build_roadmapper_draft_prompt, build_roadmapper_finalize_prompt,
+    build_security_review_prompt, build_sprint_planning_draft_prompt,
+    build_sprint_planning_finalize_prompt, build_strategic_review_draft_prompt,
+    build_strategic_review_finalize_prompt, build_test_fix_prompt, check_off_issue, close_issue,
+    fetch_issue, fetch_unresolved_review_threads, find_retro_issues, find_tracker,
+    find_upstream_branch, get_tracker_body, is_ready, list_open_prs, parse_completed,
+    parse_pending, pr_body, pr_diff, pr_head_branch, resolve_review_thread,
 };
 use crate::agent::types::Workflow;
 use crate::agent::types::{
@@ -38,6 +39,10 @@ const MAX_SNAPSHOT_TOKENS: usize = 100_000;
 static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 static ACTIVE_CHILD_PID: OnceLock<Mutex<Option<u32>>> = OnceLock::new();
 static BOT_TOKEN_CACHE: OnceLock<Mutex<Option<(String, Instant)>>> = OnceLock::new();
+
+/// Interview round tracking. Answers accumulate across rounds so the follow-up
+/// and summary prompts can reference prior responses.
+static INTERVIEW_ANSWERS: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 /// Cached bot tokens expire after 50 minutes (GitHub installation tokens last 60).
 const TOKEN_CACHE_SECS: u64 = 50 * 60;
@@ -2533,6 +2538,151 @@ pub fn run_refresh_docs(cfg: &Config) {
     cmd_run("git", &["checkout", "master"]);
     log("Refresh Docs complete.");
     emit_event(AgentEvent::Done);
+}
+
+// ── Interview (multi-round) ──
+
+/// Maximum number of follow-up rounds before the summary is generated.
+/// Round 0 = initial questions, rounds 1..MAX = follow-ups, then summary.
+const INTERVIEW_MAX_FOLLOWUP_ROUNDS: usize = 1;
+
+pub fn run_interview_draft(cfg: &Config) {
+    preflight(cfg);
+    log("Starting interview — analyzing project state...");
+
+    // Reset interview state.
+    if let Ok(mut answers) = INTERVIEW_ANSWERS.lock() {
+        answers.clear();
+    }
+
+    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
+        gather_strategic_context_base(cfg);
+
+    let prompt = build_interview_draft_prompt(
+        &open_issues,
+        &open_prs,
+        &recent_commits,
+        &status,
+        &issues_md,
+        &crate_tree,
+    );
+
+    if cfg.dry_run {
+        log_resolved_agent_launch(cfg, &[]);
+        log("[dry-run] Would run interview draft");
+        if let Some(tx) = EVENT_SENDER.get() {
+            let _ = tx.send(AgentEvent::Done);
+        }
+        return;
+    }
+
+    run_agent(cfg, &prompt);
+    if stop_requested() {
+        log("Stop requested. Interview cancelled.");
+        if let Some(tx) = EVENT_SENDER.get() {
+            let _ = tx.send(AgentEvent::Done);
+        }
+        return;
+    }
+
+    log("Review the questions above and provide your answers.");
+    if let Some(tx) = EVENT_SENDER.get() {
+        let _ = tx.send(AgentEvent::AwaitingFeedback(Workflow::Interview));
+    }
+}
+
+pub fn run_interview_respond(cfg: &Config, answer: &str) {
+    preflight(cfg);
+
+    // Accumulate the answer.
+    let answers = {
+        let mut guard = INTERVIEW_ANSWERS.lock().unwrap();
+        guard.push(answer.to_string());
+        guard.clone()
+    };
+
+    let round = answers.len(); // 1-indexed (1 = first follow-up, etc.)
+
+    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
+        gather_strategic_context_base(cfg);
+
+    if round <= INTERVIEW_MAX_FOLLOWUP_ROUNDS {
+        // Follow-up round.
+        log(&format!(
+            "Processing answer (round {round}) — generating follow-up questions..."
+        ));
+
+        let prompt = build_interview_followup_prompt(
+            &open_issues,
+            &open_prs,
+            &recent_commits,
+            &status,
+            &issues_md,
+            &crate_tree,
+            &answers,
+        );
+
+        if cfg.dry_run {
+            log_resolved_agent_launch(cfg, &[]);
+            log(&format!("[dry-run] Would run interview round {round}"));
+            if let Some(tx) = EVENT_SENDER.get() {
+                let _ = tx.send(AgentEvent::Done);
+            }
+            return;
+        }
+
+        run_agent(cfg, &prompt);
+        if stop_requested() {
+            log("Stop requested. Interview cancelled.");
+            if let Some(tx) = EVENT_SENDER.get() {
+                let _ = tx.send(AgentEvent::Done);
+            }
+            return;
+        }
+
+        log("Review the follow-up questions and provide your answers.");
+        if let Some(tx) = EVENT_SENDER.get() {
+            let _ = tx.send(AgentEvent::AwaitingFeedback(Workflow::Interview));
+        }
+    } else {
+        // Summary round.
+        log("Generating interview summary...");
+
+        let prompt = build_interview_summary_prompt(
+            &open_issues,
+            &open_prs,
+            &recent_commits,
+            &status,
+            &issues_md,
+            &crate_tree,
+            &answers,
+        );
+
+        if cfg.dry_run {
+            log_resolved_agent_launch(cfg, &[]);
+            log("[dry-run] Would run interview summary");
+            if let Some(tx) = EVENT_SENDER.get() {
+                let _ = tx.send(AgentEvent::Done);
+            }
+            return;
+        }
+
+        run_agent(cfg, &prompt);
+        if stop_requested() {
+            log("Stop requested. Interview summary cancelled.");
+        } else {
+            log("Interview complete — summary generated above.");
+        }
+
+        // Clear state.
+        if let Ok(mut guard) = INTERVIEW_ANSWERS.lock() {
+            guard.clear();
+        }
+
+        if let Some(tx) = EVENT_SENDER.get() {
+            let _ = tx.send(AgentEvent::Done);
+        }
+    }
 }
 
 pub fn run_code_review(cfg: &Config) {
