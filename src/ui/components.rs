@@ -335,6 +335,12 @@ body {
     color: var(--fg-muted);
 }
 
+/* ── Bot setup collapsible ── */
+.bot-setup-details { width: 100%; }
+.bot-setup-details summary { list-style: none; cursor: pointer; }
+.bot-setup-details summary::-webkit-details-marker { display: none; }
+.bot-setup-details[open] > :not(summary) { margin-top: 8px; }
+
 /* ── Issue tree ── */
 .issue-tree { list-style: none; }
 .issue-node {

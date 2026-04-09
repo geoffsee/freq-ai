@@ -207,70 +207,73 @@ pub fn Sidebar(
                         }
                         span { "Advanced" }
                     }
-                    label { class: "advanced-field",
-                        span { class: "control-label", "Review bot auth" }
-                        select {
-                            class: "select",
-                            value: "{config.read().bot_settings.mode}",
-                            onchange: move |evt| {
-                                if let Ok(mode) = evt.value().parse::<BotAuthMode>() {
-                                    config.write().bot_settings.mode = mode;
+                    details { class: "bot-setup-details",
+                        summary { class: "btn btn-sm btn-action", "GitHub Bot Setup" }
+                        label { class: "advanced-field",
+                            span { class: "control-label", "Review bot auth" }
+                            select {
+                                class: "select",
+                                value: "{config.read().bot_settings.mode}",
+                                onchange: move |evt| {
+                                    if let Ok(mode) = evt.value().parse::<BotAuthMode>() {
+                                        config.write().bot_settings.mode = mode;
+                                    }
+                                },
+                                option { value: "disabled", "Disabled" }
+                                option { value: "token", "Token" }
+                                option { value: "github_app", "GitHub App" }
+                            }
+                        }
+                        if config.read().bot_settings.mode == BotAuthMode::Token {
+                            label { class: "advanced-field",
+                                span { class: "control-label", "GitHub token" }
+                                input {
+                                    class: "text-input",
+                                    r#type: "password",
+                                    value: "{config.read().bot_settings.token}",
+                                    placeholder: "github_pat_...",
+                                    oninput: move |evt| {
+                                        config.write().bot_settings.token = evt.value();
+                                    },
                                 }
-                            },
-                            option { value: "disabled", "Disabled" }
-                            option { value: "token", "Token" }
-                            option { value: "github_app", "GitHub App" }
-                        }
-                    }
-                    if config.read().bot_settings.mode == BotAuthMode::Token {
-                        label { class: "advanced-field",
-                            span { class: "control-label", "GitHub token" }
-                            input {
-                                class: "text-input",
-                                r#type: "password",
-                                value: "{config.read().bot_settings.token}",
-                                placeholder: "github_pat_...",
-                                oninput: move |evt| {
-                                    config.write().bot_settings.token = evt.value();
-                                },
                             }
                         }
-                    }
-                    if config.read().bot_settings.mode == BotAuthMode::GitHubApp {
-                        label { class: "advanced-field",
-                            span { class: "control-label", "App ID" }
-                            input {
-                                class: "text-input",
-                                r#type: "text",
-                                value: "{config.read().bot_settings.app_id}",
-                                placeholder: "123456",
-                                oninput: move |evt| {
-                                    config.write().bot_settings.app_id = evt.value();
-                                },
+                        if config.read().bot_settings.mode == BotAuthMode::GitHubApp {
+                            label { class: "advanced-field",
+                                span { class: "control-label", "App ID" }
+                                input {
+                                    class: "text-input",
+                                    r#type: "text",
+                                    value: "{config.read().bot_settings.app_id}",
+                                    placeholder: "123456",
+                                    oninput: move |evt| {
+                                        config.write().bot_settings.app_id = evt.value();
+                                    },
+                                }
                             }
-                        }
-                        label { class: "advanced-field",
-                            span { class: "control-label", "Installation ID" }
-                            input {
-                                class: "text-input",
-                                r#type: "text",
-                                value: "{config.read().bot_settings.installation_id}",
-                                placeholder: "78901234",
-                                oninput: move |evt| {
-                                    config.write().bot_settings.installation_id = evt.value();
-                                },
+                            label { class: "advanced-field",
+                                span { class: "control-label", "Installation ID" }
+                                input {
+                                    class: "text-input",
+                                    r#type: "text",
+                                    value: "{config.read().bot_settings.installation_id}",
+                                    placeholder: "78901234",
+                                    oninput: move |evt| {
+                                        config.write().bot_settings.installation_id = evt.value();
+                                    },
+                                }
                             }
-                        }
-                        label { class: "advanced-field",
-                            span { class: "control-label", "Private key PEM" }
-                            textarea {
-                                class: "text-input",
-                                rows: "6",
-                                value: "{config.read().bot_settings.private_key_pem}",
-                                placeholder: "-----BEGIN RSA PRIVATE KEY-----",
-                                oninput: move |evt| {
-                                    config.write().bot_settings.private_key_pem = evt.value();
-                                },
+                            label { class: "advanced-field",
+                                span { class: "control-label", "Private key PEM" }
+                                textarea {
+                                    class: "text-input",
+                                    rows: "6",
+                                    value: "{config.read().bot_settings.private_key_pem}",
+                                    placeholder: "-----BEGIN RSA PRIVATE KEY-----",
+                                    oninput: move |evt| {
+                                        config.write().bot_settings.private_key_pem = evt.value();
+                                    },
+                                }
                             }
                         }
                     }
@@ -331,11 +334,6 @@ pub fn Sidebar(
                                     },
                                 }
                             }
-                        }
-                    }
-                    div { class: "advanced-group",
-                        div { class: "advanced-hint",
-                            "Save writes non-secret settings to `dev.toml` and stores tokens, PEM keys, and API keys in the OS credential vault."
                         }
                         button {
                             class: "btn btn-sm btn-action",
