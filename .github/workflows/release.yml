@@ -54,31 +54,23 @@ jobs:
         run: |
           sudo dpkg --add-architecture arm64
 
-          # Pin existing sources to amd64 only — use a fresh file to avoid
-          # corrupting vendor lists (e.g. microsoft-prod.list).
-          sudo tee /etc/apt/sources.list.d/amd64-pinned.list > /dev/null <<'LIST'
+          # Nuke all existing sources — both legacy .list and DEB822 .sources
+          sudo rm -f /etc/apt/sources.list
+          for f in /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            [ -e "$f" ] && sudo mv "$f" "$f.disabled"
+          done
+
+          # Write arch-pinned sources from scratch
+          sudo tee /etc/apt/sources.list.d/amd64.list > /dev/null <<'EOF'
           deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble main restricted universe multiverse
           deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ noble-updates main restricted universe multiverse
           deb [arch=amd64] http://security.ubuntu.com/ubuntu/ noble-security main restricted universe multiverse
-          LIST
+          EOF
 
-          # Add arm64 ports
-          sudo tee /etc/apt/sources.list.d/arm64-ports.list > /dev/null <<'LIST'
+          sudo tee /etc/apt/sources.list.d/arm64.list > /dev/null <<'EOF'
           deb [arch=arm64] http://ports.ubuntu.com/ noble main restricted universe multiverse
           deb [arch=arm64] http://ports.ubuntu.com/ noble-updates main restricted universe multiverse
-          LIST
-
-          # Remove the default sources list so only our arch-pinned lists are used
-          sudo rm -f /etc/apt/sources.list
-          # Disable any vendor lists that don't specify an arch (they break multiarch)
-          for f in /etc/apt/sources.list.d/*.list; do
-            case "$f" in
-              */amd64-pinned.list|*/arm64-ports.list) continue ;;
-            esac
-            if grep -q '^\s*deb\s' "$f" 2>/dev/null && ! grep -q '\[.*arch=' "$f" 2>/dev/null; then
-              sudo mv "$f" "$f.disabled"
-            fi
-          done
+          EOF
 
           sudo apt-get update
           sudo apt-get install -y \
