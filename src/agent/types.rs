@@ -33,6 +33,37 @@ impl std::fmt::Display for Workflow {
     }
 }
 
+impl Workflow {
+    /// Map a workflow YAML `id` string to the corresponding enum variant.
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "ideation" => Some(Self::Ideation),
+            "report_research" => Some(Self::ReportResearch),
+            "strategic_review" => Some(Self::StrategicReview),
+            "roadmapper" => Some(Self::Roadmapper),
+            "sprint_planning" => Some(Self::SprintPlanning),
+            "retrospective" => Some(Self::Retrospective),
+            "housekeeping" => Some(Self::Housekeeping),
+            "interview" => Some(Self::Interview),
+            _ => None,
+        }
+    }
+
+    /// Return the YAML `id` string for this workflow variant.
+    pub fn to_id(&self) -> &'static str {
+        match self {
+            Self::Ideation => "ideation",
+            Self::ReportResearch => "report_research",
+            Self::StrategicReview => "strategic_review",
+            Self::Roadmapper => "roadmapper",
+            Self::SprintPlanning => "sprint_planning",
+            Self::Retrospective => "retrospective",
+            Self::Housekeeping => "housekeeping",
+            Self::Interview => "interview",
+        }
+    }
+}
+
 /// A single turn in the interview dialog, used by the UI to render the
 /// conversation view.
 #[derive(Clone, Debug, PartialEq)]

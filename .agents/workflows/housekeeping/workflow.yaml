@@ -1,0 +1,22 @@
+name: Housekeeping
+id: housekeeping
+description: Audit and clean up orphaned, stale, and drifted project artifacts
+pattern: two_phase
+context: housekeeping
+
+ui:
+  category: maintenance
+  order: 70
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting housekeeping audit..."
+    log_complete: "Audit complete — review the findings above and approve actions."
+  finalize:
+    template: finalize.md
+    log_start: "Executing approved housekeeping actions..."
+    log_complete: "Housekeeping complete."

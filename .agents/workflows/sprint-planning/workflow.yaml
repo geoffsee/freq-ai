@@ -1,0 +1,23 @@
+name: Sprint Planning
+id: sprint_planning
+description: Plan the next development sprint based on strategic review recommendations
+pattern: two_phase
+context: sprint
+
+ui:
+  category: planning
+  order: 50
+  visible: true
+
+depends_on:
+  - strategic_review
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting sprint planning draft..."
+    log_complete: "Draft complete — review the plan above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising sprint plan with feedback..."
+    log_complete: "Sprint planning complete."

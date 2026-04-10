@@ -1,0 +1,56 @@
+name: Strategic Review
+id: strategic_review
+description: Multi-perspective analysis synthesizing a unified strategic recommendation
+pattern: two_phase
+context: strategic
+
+ui:
+  category: planning
+  order: 30
+  visible: true
+
+depends_on:
+  - report_research
+
+extra_context:
+  - name: report_synthesis
+    label: uxr-synthesis
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting strategic review draft..."
+    log_complete: "Draft complete — review the analysis above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising strategic review with feedback..."
+    log_complete: "Strategic review complete — issues filed."
+
+fragments:
+  strategic_perspectives: |
+    ## Conduct the review from each perspective in turn:
+
+    ### 1. Product Stakeholder
+    - What business value has been delivered so far?
+    - Where are the gaps between what exists and what users/operators need?
+    - What capabilities would unlock the most adoption or differentiation?
+    - Are there external pressures (compliance, market, ecosystem) to account for?
+
+    ### 2. Business Analyst
+    - Are there missing user stories or acceptance criteria in open issues?
+    - Which requirements are implicit in the architecture but not tracked?
+    - What cross-cutting concerns (observability, documentation, onboarding) are under-specified?
+    - Draft 3-5 concrete user stories for the highest-priority gap.
+
+    ### 3. Lead Engineer
+    - What technical debt is accumulating? Where are the architectural risks?
+    - Are there scalability bottlenecks or single points of failure?
+    - Which "Future Enhancements" listed in ISSUES.md are now urgent vs. deferrable?
+    - What refactoring would pay dividends across multiple future features?
+    - Review open PRs — are any stale, conflicting, or blocking other work?
+
+    ### 4. UX / DX Researcher
+    - How is the developer experience for someone deploying their first app?
+    - What friction exists in the CLI, the manifest format, or the error messages?
+    - Are logs, status output, and diagnostics actionable?
+    - What documentation or examples are missing?

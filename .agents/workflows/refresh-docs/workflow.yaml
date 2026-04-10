@@ -1,0 +1,13 @@
+name: Refresh Docs
+id: refresh_docs
+description: Update README, STATUS, and documentation files
+pattern: one_shot
+context: none
+
+ui:
+  category: maintenance
+  order: 90
+  visible: true
+
+depends_on: []
+phases: {}

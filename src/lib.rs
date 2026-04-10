@@ -35,13 +35,10 @@ use agent::config_store::{
 };
 use agent::shell::{
     clear_stop_request, parse_args, preflight, request_stop, run_code_review,
-    run_housekeeping_draft, run_housekeeping_finalize, run_ideation_draft, run_ideation_finalize,
     run_interview_draft, run_interview_respond, run_loop, run_pr_review_fix, run_refresh_agents,
-    run_refresh_docs, run_report_draft, run_report_finalize, run_retrospective_draft,
-    run_retrospective_finalize, run_roadmapper_draft, run_roadmapper_finalize,
-    run_security_code_review, run_single_issue, run_sprint_planning_draft,
-    run_sprint_planning_finalize, run_strategic_review_draft, run_strategic_review_finalize,
+    run_refresh_docs, run_security_code_review, run_single_issue, run_workflow_draft,
 };
+use agent::workflow::load_sidebar_entries;
 use agent::tracker::{
     DEFAULT_REVIEW_BOT_LOGIN, PendingIssue, PrSummary, TrackerInfo, current_branch_pr,
     enable_auto_merge, fetch_unresolved_thread_counts, find_tracker, get_tracker_body,
@@ -153,13 +150,13 @@ where
         Some(Commands::FixPr { pr }) => {
             run_pr_review_fix(&config, pr);
         }
-        Some(Commands::Ideation) => run_ideation_draft(&config),
-        Some(Commands::UxrSynth) => run_report_draft(&config),
-        Some(Commands::StrategicReview) => run_strategic_review_draft(&config),
-        Some(Commands::Roadmapper) => run_roadmapper_draft(&config),
-        Some(Commands::SprintPlanning) => run_sprint_planning_draft(&config),
-        Some(Commands::Retrospective) => run_retrospective_draft(&config),
-        Some(Commands::Housekeeping) => run_housekeeping_draft(&config),
+        Some(Commands::Ideation) => run_workflow_draft(&config, "ideation"),
+        Some(Commands::UxrSynth) => run_workflow_draft(&config, "report_research"),
+        Some(Commands::StrategicReview) => run_workflow_draft(&config, "strategic_review"),
+        Some(Commands::Roadmapper) => run_workflow_draft(&config, "roadmapper"),
+        Some(Commands::SprintPlanning) => run_workflow_draft(&config, "sprint_planning"),
+        Some(Commands::Retrospective) => run_workflow_draft(&config, "retrospective"),
+        Some(Commands::Housekeeping) => run_workflow_draft(&config, "housekeeping"),
         Some(Commands::Interview) => run_interview_draft(&config),
         Some(Commands::CodeReview) => run_code_review(&config),
         Some(Commands::SecurityReview) => run_security_code_review(&config),
@@ -222,6 +219,7 @@ fn App() -> Element {
     let follow_mode = use_signal(|| true);
     let bottom_el = use_signal(|| None::<std::rc::Rc<MountedData>>);
     let mut theme = use_signal(Theme::tokyo_night);
+    let workflow_entries = use_signal(|| load_sidebar_entries(&config.read().root));
 
     use_effect(move || {
         preflight(&config.read());
@@ -408,129 +406,65 @@ fn App() -> Element {
         });
     };
 
-    let start_sprint_planning = move |_: MouseEvent| {
+    let on_start_workflow = move |workflow_id: String| {
         clear_stop_request();
-        is_working.set(true);
         let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_sprint_planning_draft(&cfg);
-        });
-    };
 
-    let start_code_review = move |_: MouseEvent| {
-        clear_stop_request();
+        // Interview has special state management.
+        if workflow_id == "interview" {
+            is_working.set(true);
+            interview_turns.write().clear();
+            interview_agent_buf.set(String::new());
+            interview_active.set(true);
+            interview_done.set(false);
+            tokio::spawn(async move {
+                run_interview_draft(&cfg);
+            });
+            return;
+        }
+
+        // Security scan (local, non-agent).
+        if workflow_id == "security_scan" {
+            let root = cfg.root.clone();
+            let targets = cfg.scan_targets.clone();
+            info!("Running security review scan...");
+            spawn(async move {
+                let findings =
+                    tokio::task::spawn_blocking(move || run_security_scan(&root, &targets))
+                        .await
+                        .unwrap_or_default();
+                info!("Security scan complete: {} findings", findings.len());
+                security_findings.set(findings);
+            });
+            return;
+        }
+
+        // Auto merge (special).
+        if workflow_id == "auto_merge" {
+            return;
+        }
+
         is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_code_review(&cfg);
-        });
-    };
 
-    let start_strategic_review = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_strategic_review_draft(&cfg);
-        });
-    };
-
-    let start_roadmapper = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_roadmapper_draft(&cfg);
-        });
-    };
-
-    let start_retrospective = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_retrospective_draft(&cfg);
-        });
-    };
-
-    let start_ideation = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_ideation_draft(&cfg);
-        });
-    };
-
-    let start_report = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_report_draft(&cfg);
-        });
-    };
-
-    let start_interview = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        interview_turns.write().clear();
-        interview_agent_buf.set(String::new());
-        interview_active.set(true);
-        interview_done.set(false);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_interview_draft(&cfg);
-        });
-    };
-
-    let start_security_review = move |_: MouseEvent| {
-        let root = config.read().root.clone();
-        let targets = config.read().scan_targets.clone();
-        info!("Running security review scan...");
-        spawn(async move {
-            let findings = tokio::task::spawn_blocking(move || run_security_scan(&root, &targets))
-                .await
-                .unwrap_or_default();
-            info!("Security scan complete: {} findings", findings.len());
-            security_findings.set(findings);
-        });
-    };
-
-    let start_security_code_review = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_security_code_review(&cfg);
-        });
-    };
-
-    let start_housekeeping = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_housekeeping_draft(&cfg);
-        });
-    };
-
-    let start_refresh_agents = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_refresh_agents(&cfg);
-        });
-    };
-
-    let start_refresh_docs = move |_: MouseEvent| {
-        clear_stop_request();
-        is_working.set(true);
-        let cfg = config.read().clone();
-        tokio::spawn(async move {
-            run_refresh_docs(&cfg);
-        });
+        // Workflows with dedicated runners (not yet YAML-templated).
+        match workflow_id.as_str() {
+            "code_review" => {
+                tokio::spawn(async move { run_code_review(&cfg) });
+            }
+            "security_code_review" => {
+                tokio::spawn(async move { run_security_code_review(&cfg) });
+            }
+            "refresh_agents" => {
+                tokio::spawn(async move { run_refresh_agents(&cfg) });
+            }
+            "refresh_docs" => {
+                tokio::spawn(async move { run_refresh_docs(&cfg) });
+            }
+            // All YAML-driven two-phase workflows go through the generic runner.
+            _ => {
+                tokio::spawn(async move { run_workflow_draft(&cfg, &workflow_id) });
+            }
+        }
     };
 
     let save_settings = move |_: MouseEvent| {
@@ -610,14 +544,11 @@ fn App() -> Element {
         let cfg = config.read().clone();
         tokio::spawn(async move {
             match wf {
-                Some(Workflow::Ideation) => run_ideation_finalize(&cfg, &fb),
-                Some(Workflow::ReportResearch) => run_report_finalize(&cfg, &fb),
-                Some(Workflow::StrategicReview) => run_strategic_review_finalize(&cfg, &fb),
-                Some(Workflow::SprintPlanning) => run_sprint_planning_finalize(&cfg, &fb),
-                Some(Workflow::Retrospective) => run_retrospective_finalize(&cfg, &fb),
-                Some(Workflow::Roadmapper) => run_roadmapper_finalize(&cfg, &fb),
-                Some(Workflow::Housekeeping) => run_housekeeping_finalize(&cfg, &fb),
                 Some(Workflow::Interview) => run_interview_respond(&cfg, &fb),
+                Some(w) => {
+                    use agent::shell::run_workflow_finalize;
+                    run_workflow_finalize(&cfg, w.to_id(), &fb);
+                }
                 None => {}
             }
         });
@@ -700,19 +631,8 @@ fn App() -> Element {
                     start_work,
                     start_single_issue,
                     start_pr_fix,
-                    start_sprint_planning,
-                    start_code_review,
-                    start_strategic_review,
-                    start_roadmapper,
-                    start_retrospective,
-                    start_ideation,
-                    start_report,
-                    start_interview,
-                    start_security_review,
-                    start_security_code_review,
-                    start_housekeeping,
-                    start_refresh_agents,
-                    start_refresh_docs,
+                    workflow_entries,
+                    on_start_workflow,
                     save_settings,
                     stop_work,
                     submit_feedback,

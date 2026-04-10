@@ -1,0 +1,13 @@
+name: Security Review
+id: security_scan
+description: Local static security scan for vulnerabilities
+pattern: one_shot
+context: none
+
+ui:
+  category: review
+  order: 15
+  visible: true
+
+depends_on: []
+phases: {}

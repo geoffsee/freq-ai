@@ -3,3 +3,4 @@ pub mod config_store;
 pub mod shell;
 pub mod tracker;
 pub mod types;
+pub mod workflow;

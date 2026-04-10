@@ -1,0 +1,13 @@
+name: Interview
+id: interview
+description: Multi-round discovery dialog to gather project context and priorities
+pattern: multi_round
+context: strategic
+
+ui:
+  category: discovery
+  order: 30
+  visible: true
+
+depends_on: []
+phases: {}

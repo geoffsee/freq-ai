@@ -1,0 +1,13 @@
+name: Auto Merge
+id: auto_merge
+description: Automatically merge approved PRs
+pattern: one_shot
+context: none
+
+ui:
+  category: maintenance
+  order: 100
+  visible: true
+
+depends_on: []
+phases: {}

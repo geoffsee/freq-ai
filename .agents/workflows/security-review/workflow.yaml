@@ -1,0 +1,13 @@
+name: Security Code Review
+id: security_code_review
+description: Comprehensive security-focused code audit with issue filing
+pattern: one_shot
+context: none
+
+ui:
+  category: review
+  order: 20
+  visible: true
+
+depends_on: []
+phases: {}

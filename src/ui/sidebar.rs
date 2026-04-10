@@ -127,19 +127,8 @@ pub fn Sidebar(
     start_work: EventHandler<u32>,
     start_single_issue: EventHandler<u32>,
     start_pr_fix: EventHandler<u32>,
-    start_sprint_planning: EventHandler<MouseEvent>,
-    start_code_review: EventHandler<MouseEvent>,
-    start_strategic_review: EventHandler<MouseEvent>,
-    start_roadmapper: EventHandler<MouseEvent>,
-    start_retrospective: EventHandler<MouseEvent>,
-    start_ideation: EventHandler<MouseEvent>,
-    start_report: EventHandler<MouseEvent>,
-    start_interview: EventHandler<MouseEvent>,
-    start_security_review: EventHandler<MouseEvent>,
-    start_security_code_review: EventHandler<MouseEvent>,
-    start_housekeeping: EventHandler<MouseEvent>,
-    start_refresh_agents: EventHandler<MouseEvent>,
-    start_refresh_docs: EventHandler<MouseEvent>,
+    workflow_entries: Signal<Vec<crate::agent::workflow::WorkflowEntry>>,
+    on_start_workflow: EventHandler<String>,
     save_settings: EventHandler<MouseEvent>,
     stop_work: EventHandler<MouseEvent>,
     submit_feedback: EventHandler<MouseEvent>,
@@ -349,91 +338,56 @@ pub fn Sidebar(
                 }
             }
 
-            // Actions section
+            // Actions section — dynamically rendered from .agents/workflows/
             div { class: "sidebar-section",
                 div { class: "section-header", "ACTIONS" }
                 div { class: "sidebar-buttons sidebar-buttons-col",
-                    button {
-                        class: "btn btn-sm btn-ideation",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_ideation.call(evt),
-                        if working { "Working..." } else { "Ideation" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-report",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_report.call(evt),
-                        if working { "Working..." } else { "UXR Synth" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-strategy",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_strategic_review.call(evt),
-                        if working { "Working..." } else { "Strategic Review" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-strategy",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_roadmapper.call(evt),
-                        if working { "Working..." } else { "Roadmapper" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-action",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_sprint_planning.call(evt),
-                        if working { "Working..." } else { "Sprint Planning" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-interview",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_interview.call(evt),
-                        if working { "Working..." } else { "Interview" }
-                    }
-                    hr { class: "sidebar-buttons-divider" }
-                    button {
-                        class: "btn btn-sm btn-action",
-                        disabled: working || awaiting.is_some() || !has_bot,
-                        title: if !has_bot { "Bot credentials required. Configure a token or GitHub App in the Configuration section." } else { "" },
-                        onclick: move |evt| start_code_review.call(evt),
-                        if !has_bot { "Code Review (no bot)" } else if working { "Working..." } else { "Code Review" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-security",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_security_review.call(evt),
-                        if working { "Working..." } else { "Security Review" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-retro",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_retrospective.call(evt),
-                        if working { "Working..." } else { "Retrospective" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-security",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_security_code_review.call(evt),
-                        if working { "Working..." } else { "Security Code Review" }
+                    {
+                        let entries = workflow_entries.read();
+                        let categories: Vec<&str> = {
+                            let mut cats: Vec<&str> = entries.iter().map(|e| e.category.as_str()).collect();
+                            cats.dedup();
+                            cats
+                        };
+                        rsx! {
+                            for (ci, cat) in categories.iter().enumerate() {
+                                if ci > 0 {
+                                    hr { class: "sidebar-buttons-divider" }
+                                }
+                                for entry in entries.iter().filter(|e| e.category.as_str() == *cat) {
+                                    {
+                                        let wf_id = entry.id.clone();
+                                        let name = entry.name.clone();
+                                        let needs_bot = entry.requires_bot;
+                                        let btn_class = format!("btn btn-sm btn-{}", entry.category);
+                                        let is_disabled = working || awaiting.is_some() || (needs_bot && !has_bot);
+                                        let label = if needs_bot && !has_bot {
+                                            format!("{name} (no bot)")
+                                        } else if working {
+                                            "Working...".to_string()
+                                        } else {
+                                            name
+                                        };
+                                        let title = if needs_bot && !has_bot {
+                                            "Bot credentials required. Configure a token or GitHub App in the Configuration section."
+                                        } else {
+                                            ""
+                                        };
+                                        rsx! {
+                                            button {
+                                                class: "{btn_class}",
+                                                disabled: is_disabled,
+                                                title: "{title}",
+                                                onclick: move |_| on_start_workflow.call(wf_id.clone()),
+                                                "{label}"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                     hr { class: "sidebar-buttons-divider" }
-                    button {
-                        class: "btn btn-sm btn-action",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_housekeeping.call(evt),
-                        if working { "Working..." } else { "Housekeeping" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-action",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_refresh_agents.call(evt),
-                        if working { "Working..." } else { "Refresh Agents" }
-                    }
-                    button {
-                        class: "btn btn-sm btn-action",
-                        disabled: working || awaiting.is_some(),
-                        onclick: move |evt| start_refresh_docs.call(evt),
-                        if working { "Working..." } else { "Refresh Docs" }
-                    }
                     button {
                         class: if auto_merge { "btn btn-sm btn-merge btn-merge-active" } else { "btn btn-sm btn-merge" },
                         disabled: working || awaiting.is_some() || auto_merge,

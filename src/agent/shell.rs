@@ -3,20 +3,14 @@ use crate::agent::config_store::{
     load_bot_private_key_pem, load_bot_token, load_local_inference_api_key,
 };
 use crate::agent::tracker::{
-    DEFAULT_REVIEW_BOT_LOGIN, build_code_review_prompt, build_housekeeping_draft_prompt,
-    build_housekeeping_finalize_prompt, build_ideation_draft_prompt,
-    build_ideation_finalize_prompt, build_interview_draft_prompt,
+    DEFAULT_REVIEW_BOT_LOGIN, build_code_review_prompt, build_interview_draft_prompt,
     build_interview_followup_prompt, build_interview_summary_prompt, build_lint_fix_prompt,
     build_pr_review_fix_prompt, build_prompt, build_refresh_agents_prompt,
-    build_refresh_docs_prompt, build_report_draft_prompt, build_report_finalize_prompt,
-    build_retrospective_draft_prompt, build_retrospective_finalize_prompt,
-    build_roadmapper_draft_prompt, build_roadmapper_finalize_prompt,
-    build_security_review_prompt, build_sprint_planning_draft_prompt,
-    build_sprint_planning_finalize_prompt, build_strategic_review_draft_prompt,
-    build_strategic_review_finalize_prompt, build_test_fix_prompt, check_off_issue, close_issue,
-    fetch_issue, fetch_unresolved_review_threads, find_retro_issues, find_tracker,
-    find_upstream_branch, get_tracker_body, is_ready, list_open_prs, parse_completed,
-    parse_pending, pr_body, pr_diff, pr_head_branch, resolve_review_thread,
+    build_refresh_docs_prompt, build_security_review_prompt, build_test_fix_prompt,
+    check_off_issue, close_issue, fetch_issue, fetch_unresolved_review_threads,
+    find_retro_issues, find_upstream_branch, get_tracker_body, is_ready,
+    list_open_prs, parse_completed, parse_pending, pr_body, pr_diff, pr_head_branch,
+    resolve_review_thread,
 };
 use crate::agent::types::Workflow;
 use crate::agent::types::{
@@ -1280,49 +1274,43 @@ pub fn run_single_issue(cfg: &Config, issue_num: u32) {
     }
 }
 
-// ── Sprint planning (two-phase) ──
+// ── Generic YAML-driven workflow runners ──
 
-fn gather_sprint_context(cfg: &Config) -> (String, String, String, String) {
-    let open_issues = cmd_stdout(
-        "gh",
-        &[
-            "issue",
-            "list",
-            "--state",
-            "open",
-            "--json",
-            "number,title,labels",
-            "--limit",
-            "50",
-        ],
-    )
-    .unwrap_or_else(|| "[]".to_string());
-
-    let prs = list_open_prs();
-    let open_prs = serde_json::to_string_pretty(&prs).unwrap_or_else(|_| "[]".to_string());
-
-    let status = std::fs::read_to_string(format!("{}/STATUS.md", cfg.root)).unwrap_or_default();
-    let issues_md = std::fs::read_to_string(format!("{}/ISSUES.md", cfg.root)).unwrap_or_default();
-
-    (open_issues, open_prs, status, issues_md)
+/// Inject standard variables that all workflows may need.
+fn inject_common_vars(cfg: &Config, vars: &mut serde_json::Value) {
+    vars["project_name"] = serde_json::Value::String(cfg.project_name.clone());
+    vars["dry_run"] = serde_json::Value::Bool(cfg.dry_run);
+    vars["user_personas_skill_path"] =
+        serde_json::Value::String(cfg.skill_paths.user_personas.clone());
 }
 
-pub fn run_sprint_planning_draft(cfg: &Config) {
-    preflight(cfg);
-    log("Starting sprint planning draft...");
+/// Run the draft phase of any two-phase workflow loaded from YAML.
+pub fn run_workflow_draft(cfg: &Config, workflow_id: &str) {
+    use crate::agent::workflow::{
+        fetch_extra_context, gather_context_as_json, load_and_render, load_workflows,
+    };
 
-    let (open_issues, open_prs, status, issues_md) = gather_sprint_context(cfg);
-    let prompt = build_sprint_planning_draft_prompt(
-        &cfg.project_name,
-        &open_issues,
-        &open_prs,
-        &status,
-        &issues_md,
-    );
+    let workflows = load_workflows(&cfg.root);
+    let wf = workflows.get(workflow_id).unwrap_or_else(|| {
+        die(&format!("Unknown workflow: {workflow_id}"));
+    });
+    let phase_cfg = wf.phases.get("draft").unwrap_or_else(|| {
+        die(&format!("No draft phase in workflow '{workflow_id}'"));
+    });
+
+    preflight(cfg);
+    log(&phase_cfg.log_start);
+
+    let mut vars = gather_context_as_json(cfg, &wf.context);
+    inject_common_vars(cfg, &mut vars);
+    fetch_extra_context(wf, &mut vars);
+
+    let prompt = load_and_render(&cfg.root, wf, "draft", &vars)
+        .unwrap_or_else(|e| die(&format!("Prompt render failed: {e}")));
 
     if cfg.dry_run {
         log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would run sprint planning draft");
+        log(&format!("[dry-run] Would run {} draft", wf.name));
         if let Some(tx) = EVENT_SENDER.get() {
             let _ = tx.send(AgentEvent::Done);
         }
@@ -1331,756 +1319,148 @@ pub fn run_sprint_planning_draft(cfg: &Config) {
 
     run_agent(cfg, &prompt);
     if stop_requested() {
-        log("Stop requested. Sprint planning draft cancelled.");
+        log(&format!("Stop requested. {} draft cancelled.", wf.name));
         if let Some(tx) = EVENT_SENDER.get() {
             let _ = tx.send(AgentEvent::Done);
         }
         return;
     }
 
-    log("Draft complete — review the plan above and provide feedback.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::AwaitingFeedback(Workflow::SprintPlanning));
+    log(&phase_cfg.log_complete);
+    if let Some(wf_enum) = Workflow::from_id(workflow_id) {
+        if let Some(tx) = EVENT_SENDER.get() {
+            let _ = tx.send(AgentEvent::AwaitingFeedback(wf_enum));
+        }
+    } else if let Some(tx) = EVENT_SENDER.get() {
+        let _ = tx.send(AgentEvent::Done);
     }
 }
 
-pub fn run_sprint_planning_finalize(cfg: &Config, feedback: &str) {
-    preflight(cfg);
-    log("Finalising sprint plan with feedback...");
+/// Run the finalize phase of any two-phase workflow loaded from YAML.
+pub fn run_workflow_finalize(cfg: &Config, workflow_id: &str, feedback: &str) {
+    use crate::agent::workflow::{
+        fetch_extra_context, gather_context_as_json, load_and_render, load_workflows,
+    };
 
-    let (open_issues, open_prs, status, issues_md) = gather_sprint_context(cfg);
-    let prompt = build_sprint_planning_finalize_prompt(
-        &cfg.project_name,
-        &open_issues,
-        &open_prs,
-        &status,
-        &issues_md,
-        feedback,
-    );
+    let workflows = load_workflows(&cfg.root);
+    let wf = workflows.get(workflow_id).unwrap_or_else(|| {
+        die(&format!("Unknown workflow: {workflow_id}"));
+    });
+    let phase_cfg = wf.phases.get("finalize").unwrap_or_else(|| {
+        die(&format!("No finalize phase in workflow '{workflow_id}'"));
+    });
+
+    preflight(cfg);
+    log(&phase_cfg.log_start);
+
+    let mut vars = gather_context_as_json(cfg, &wf.context);
+    inject_common_vars(cfg, &mut vars);
+    fetch_extra_context(wf, &mut vars);
+    vars["feedback"] = serde_json::Value::String(feedback.to_string());
+
+    let prompt = load_and_render(&cfg.root, wf, "finalize", &vars)
+        .unwrap_or_else(|e| die(&format!("Prompt render failed: {e}")));
 
     run_agent(cfg, &prompt);
     if stop_requested() {
-        log("Stop requested. Sprint planning finalization cancelled.");
+        log(&format!(
+            "Stop requested. {} finalization cancelled.",
+            wf.name
+        ));
         if let Some(tx) = EVENT_SENDER.get() {
             let _ = tx.send(AgentEvent::Done);
         }
         return;
     }
 
-    log("Sprint planning complete.");
+    log(&phase_cfg.log_complete);
     if let Some(tx) = EVENT_SENDER.get() {
         let _ = tx.send(AgentEvent::Done);
     }
+}
+
+// ── Sprint planning (two-phase) ──
+
+pub fn run_sprint_planning_draft(cfg: &Config) {
+    run_workflow_draft(cfg, "sprint_planning");
+}
+
+pub fn run_sprint_planning_finalize(cfg: &Config, feedback: &str) {
+    run_workflow_finalize(cfg, "sprint_planning", feedback);
+}
+
+/// Gather strategic context as a tuple (used by interview workflow which
+/// hasn't been migrated to YAML templates yet).
+fn gather_strategic_context_base(cfg: &Config) -> (String, String, String, String, String, String) {
+    let ctx = crate::agent::workflow::gather_context_as_json(cfg, "strategic");
+    (
+        ctx["open_issues"].as_str().unwrap_or("[]").to_string(),
+        ctx["open_prs"].as_str().unwrap_or("[]").to_string(),
+        ctx["recent_commits"].as_str().unwrap_or("").to_string(),
+        ctx["crate_tree"].as_str().unwrap_or("").to_string(),
+        ctx["status"].as_str().unwrap_or("").to_string(),
+        ctx["issues_md"].as_str().unwrap_or("").to_string(),
+    )
 }
 
 // ── Strategic review (two-phase) ──
 
-fn gather_strategic_context_base(cfg: &Config) -> (String, String, String, String, String, String) {
-    let open_issues = cmd_stdout(
-        "gh",
-        &[
-            "issue",
-            "list",
-            "--state",
-            "open",
-            "--json",
-            "number,title,labels",
-            "--limit",
-            "50",
-        ],
-    )
-    .unwrap_or_else(|| "[]".to_string());
-
-    let prs = list_open_prs();
-    let open_prs = serde_json::to_string_pretty(&prs).unwrap_or_else(|_| "[]".to_string());
-
-    let recent_commits =
-        cmd_stdout("git", &["log", "--oneline", "--no-decorate", "-30"]).unwrap_or_default();
-
-    let crate_tree = cmd_stdout("ls", &["-1", &format!("{}/crates", cfg.root)]).unwrap_or_default();
-
-    let status = std::fs::read_to_string(format!("{}/STATUS.md", cfg.root)).unwrap_or_default();
-    let issues_md = std::fs::read_to_string(format!("{}/ISSUES.md", cfg.root)).unwrap_or_default();
-
-    (
-        open_issues,
-        open_prs,
-        recent_commits,
-        crate_tree,
-        status,
-        issues_md,
-    )
-}
-
-fn fetch_report_synthesis() -> String {
-    cmd_stdout(
-        "gh",
-        &[
-            "issue",
-            "list",
-            "--label",
-            "uxr-synthesis",
-            "--state",
-            "open",
-            "--limit",
-            "1",
-            "--json",
-            "number,title,body",
-            "--jq",
-            ".[0] // empty | \"# \\(.title)\\n\\n\\(.body)\"",
-        ],
-    )
-    .unwrap_or_default()
-}
-
 pub fn run_strategic_review_draft(cfg: &Config) {
-    preflight(cfg);
-    log("Starting strategic review draft...");
-
-    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
-        gather_strategic_context_base(cfg);
-    let report_synthesis = fetch_report_synthesis();
-
-    let prompt = build_strategic_review_draft_prompt(
-        &cfg.project_name,
-        &open_issues,
-        &open_prs,
-        &recent_commits,
-        &status,
-        &issues_md,
-        &crate_tree,
-        &report_synthesis,
-    );
-
-    if cfg.dry_run {
-        log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would run strategic review draft");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Strategic review draft cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Draft complete — review the analysis above and provide feedback.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::AwaitingFeedback(Workflow::StrategicReview));
-    }
+    run_workflow_draft(cfg, "strategic_review");
 }
 
 pub fn run_strategic_review_finalize(cfg: &Config, feedback: &str) {
-    preflight(cfg);
-    log("Finalising strategic review with feedback...");
-
-    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
-        gather_strategic_context_base(cfg);
-    let report_synthesis = fetch_report_synthesis();
-
-    let prompt = build_strategic_review_finalize_prompt(
-        &cfg.project_name,
-        &open_issues,
-        &open_prs,
-        &recent_commits,
-        &status,
-        &issues_md,
-        &crate_tree,
-        &report_synthesis,
-        feedback,
-    );
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Strategic review finalization cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Strategic review complete — issues filed.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::Done);
-    }
+    run_workflow_finalize(cfg, "strategic_review", feedback);
 }
 
 // ── Roadmapper (two-phase) ──
 
-fn fetch_strategic_review() -> String {
-    cmd_stdout(
-        "gh",
-        &[
-            "issue",
-            "list",
-            "--label",
-            "strategic-review",
-            "--state",
-            "open",
-            "--limit",
-            "1",
-            "--json",
-            "number,title,body",
-            "--jq",
-            ".[0] // empty | \"# \\(.title)\\n\\n\\(.body)\"",
-        ],
-    )
-    .unwrap_or_default()
-}
-
 pub fn run_roadmapper_draft(cfg: &Config) {
-    preflight(cfg);
-    log("Starting roadmapper draft...");
-
-    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
-        gather_strategic_context_base(cfg);
-    let strategic_review = fetch_strategic_review();
-
-    let prompt = build_roadmapper_draft_prompt(
-        &cfg.project_name,
-        &open_issues,
-        &open_prs,
-        &recent_commits,
-        &status,
-        &issues_md,
-        &crate_tree,
-        &strategic_review,
-    );
-
-    if cfg.dry_run {
-        log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would run roadmapper draft");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Roadmapper draft cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Draft complete — review the roadmap above and provide feedback.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::AwaitingFeedback(Workflow::Roadmapper));
-    }
+    run_workflow_draft(cfg, "roadmapper");
 }
 
 pub fn run_roadmapper_finalize(cfg: &Config, feedback: &str) {
-    preflight(cfg);
-    log("Finalising roadmap with feedback...");
-
-    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
-        gather_strategic_context_base(cfg);
-    let strategic_review = fetch_strategic_review();
-
-    let prompt = build_roadmapper_finalize_prompt(
-        &cfg.project_name,
-        &open_issues,
-        &open_prs,
-        &recent_commits,
-        &status,
-        &issues_md,
-        &crate_tree,
-        &strategic_review,
-        feedback,
-    );
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Roadmapper finalization cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Roadmap complete — issues filed.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::Done);
-    }
+    run_workflow_finalize(cfg, "roadmapper", feedback);
 }
 
 // ── Ideation (two-phase) ──
 
 pub fn run_ideation_draft(cfg: &Config) {
-    preflight(cfg);
-    log("Starting ideation draft...");
-
-    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
-        gather_strategic_context_base(cfg);
-
-    let prompt = build_ideation_draft_prompt(
-        &open_issues,
-        &open_prs,
-        &recent_commits,
-        &status,
-        &issues_md,
-        &crate_tree,
-    );
-
-    if cfg.dry_run {
-        log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would run ideation draft");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Ideation draft cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Draft complete — review the ideas above and provide feedback.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::AwaitingFeedback(Workflow::Ideation));
-    }
+    run_workflow_draft(cfg, "ideation");
 }
 
 pub fn run_ideation_finalize(cfg: &Config, feedback: &str) {
-    preflight(cfg);
-    log("Finalising ideation with feedback...");
-
-    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
-        gather_strategic_context_base(cfg);
-
-    let prompt = build_ideation_finalize_prompt(
-        &open_issues,
-        &open_prs,
-        &recent_commits,
-        &status,
-        &issues_md,
-        &crate_tree,
-        feedback,
-        cfg.dry_run,
-    );
-
-    if cfg.dry_run {
-        log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would run ideation finalize and publish ideation as GitHub issue");
-        log(&format!("[dry-run] Prompt length: {} chars", prompt.len()));
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Ideation finalization cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Ideation complete — ideation published as GitHub issue (label: ideation).");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::Done);
-    }
+    run_workflow_finalize(cfg, "ideation", feedback);
 }
 
 // ── UXR Synth (two-phase) ──
 
-fn fetch_ideation_issue() -> String {
-    cmd_stdout(
-        "gh",
-        &[
-            "issue",
-            "list",
-            "--label",
-            "ideation",
-            "--state",
-            "open",
-            "--limit",
-            "1",
-            "--json",
-            "number,title,body",
-            "--jq",
-            ".[0] // empty | \"# \\(.title)\\n\\n\\(.body)\"",
-        ],
-    )
-    .unwrap_or_default()
-}
-
 pub fn run_report_draft(cfg: &Config) {
-    preflight(cfg);
-    log("Generating report draft...");
-
-    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
-        gather_strategic_context_base(cfg);
-    let ideation = fetch_ideation_issue();
-
-    let prompt = build_report_draft_prompt(
-        &cfg.project_name,
-        &open_issues,
-        &open_prs,
-        &recent_commits,
-        &status,
-        &issues_md,
-        &crate_tree,
-        &ideation,
-        &cfg.skill_paths,
-    );
-
-    if cfg.dry_run {
-        log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would run UXR Synth draft");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Report draft cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Draft complete — review the report above and provide feedback.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::AwaitingFeedback(Workflow::ReportResearch));
-    }
+    run_workflow_draft(cfg, "report_research");
 }
 
 pub fn run_report_finalize(cfg: &Config, feedback: &str) {
-    preflight(cfg);
-    log("Finalising report with feedback...");
-
-    let (open_issues, open_prs, recent_commits, crate_tree, status, issues_md) =
-        gather_strategic_context_base(cfg);
-    let ideation = fetch_ideation_issue();
-
-    let prompt = build_report_finalize_prompt(
-        &cfg.project_name,
-        &open_issues,
-        &open_prs,
-        &recent_commits,
-        &status,
-        &issues_md,
-        &crate_tree,
-        &ideation,
-        feedback,
-        cfg.dry_run,
-        &cfg.skill_paths,
-    );
-
-    if cfg.dry_run {
-        log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would run UXR Synth finalize and publish synthesis as GitHub issue");
-        log(&format!("[dry-run] Prompt length: {} chars", prompt.len()));
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Report finalization cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Report complete — UXR synthesis published as GitHub issue (label: uxr-synthesis).");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::Done);
-    }
+    run_workflow_finalize(cfg, "report_research", feedback);
 }
 
 // ── Retrospective (two-phase) ──
 
-fn gather_retro_context(cfg: &Config) -> (String, String, String, String, String, String, String) {
-    let recent_commits =
-        cmd_stdout("git", &["log", "--oneline", "--no-decorate", "-50"]).unwrap_or_default();
-
-    let closed_issues = cmd_stdout(
-        "gh",
-        &[
-            "issue",
-            "list",
-            "--state",
-            "closed",
-            "--json",
-            "number,title,closedAt",
-            "--limit",
-            "30",
-        ],
-    )
-    .unwrap_or_else(|| "[]".to_string());
-
-    let merged_prs = cmd_stdout(
-        "gh",
-        &[
-            "pr",
-            "list",
-            "--state",
-            "merged",
-            "--json",
-            "number,title,mergedAt",
-            "--limit",
-            "30",
-        ],
-    )
-    .unwrap_or_else(|| "[]".to_string());
-
-    let open_issues = cmd_stdout(
-        "gh",
-        &[
-            "issue",
-            "list",
-            "--state",
-            "open",
-            "--json",
-            "number,title,labels",
-            "--limit",
-            "50",
-        ],
-    )
-    .unwrap_or_else(|| "[]".to_string());
-
-    let prs = list_open_prs();
-    let open_prs = serde_json::to_string_pretty(&prs).unwrap_or_else(|_| "[]".to_string());
-
-    let status = std::fs::read_to_string(format!("{}/STATUS.md", cfg.root)).unwrap_or_default();
-    let issues_md = std::fs::read_to_string(format!("{}/ISSUES.md", cfg.root)).unwrap_or_default();
-
-    (
-        recent_commits,
-        closed_issues,
-        merged_prs,
-        open_issues,
-        open_prs,
-        status,
-        issues_md,
-    )
-}
-
 pub fn run_retrospective_draft(cfg: &Config) {
-    preflight(cfg);
-    log("Starting retrospective draft...");
-
-    let (recent_commits, closed_issues, merged_prs, open_issues, open_prs, status, issues_md) =
-        gather_retro_context(cfg);
-
-    let prompt = build_retrospective_draft_prompt(
-        &cfg.project_name,
-        &recent_commits,
-        &closed_issues,
-        &merged_prs,
-        &open_issues,
-        &open_prs,
-        &status,
-        &issues_md,
-    );
-
-    if cfg.dry_run {
-        log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would run retrospective draft");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Retrospective draft cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Draft complete — review the retrospective above and provide feedback.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::AwaitingFeedback(Workflow::Retrospective));
-    }
+    run_workflow_draft(cfg, "retrospective");
 }
 
 pub fn run_retrospective_finalize(cfg: &Config, feedback: &str) {
-    preflight(cfg);
-    log("Finalising retrospective with feedback...");
-
-    let (recent_commits, closed_issues, merged_prs, open_issues, open_prs, status, issues_md) =
-        gather_retro_context(cfg);
-
-    let prompt = build_retrospective_finalize_prompt(
-        &cfg.project_name,
-        &recent_commits,
-        &closed_issues,
-        &merged_prs,
-        &open_issues,
-        &open_prs,
-        &status,
-        &issues_md,
-        feedback,
-    );
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Retrospective finalization cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Retrospective complete — action items filed.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::Done);
-    }
+    run_workflow_finalize(cfg, "retrospective", feedback);
 }
 
 // ── Housekeeping (two-phase) ──
 
-fn gather_housekeeping_context(cfg: &Config) -> (String, String, String, String, String, String) {
-    let open_issues = cmd_stdout(
-        "gh",
-        &[
-            "issue",
-            "list",
-            "--state",
-            "open",
-            "--json",
-            "number,title,labels,updatedAt,assignees",
-            "--limit",
-            "100",
-        ],
-    )
-    .unwrap_or_else(|| "[]".to_string());
-
-    let prs = list_open_prs();
-    let open_prs = serde_json::to_string_pretty(&prs).unwrap_or_else(|_| "[]".to_string());
-
-    let local_branches =
-        cmd_stdout("git", &["branch", "--format=%(refname:short)"]).unwrap_or_default();
-
-    // Gather tracker bodies
-    let trackers = find_tracker();
-    let mut tracker_bodies = String::new();
-    for t in &trackers {
-        let body = get_tracker_body(t.number);
-        tracker_bodies.push_str(&format!(
-            "### Tracker #{} — {}\n{}\n\n",
-            t.number, t.title, body
-        ));
-    }
-
-    let status = std::fs::read_to_string(format!("{}/STATUS.md", cfg.root)).unwrap_or_default();
-    let issues_md = std::fs::read_to_string(format!("{}/ISSUES.md", cfg.root)).unwrap_or_default();
-
-    (
-        open_issues,
-        open_prs,
-        local_branches,
-        tracker_bodies,
-        status,
-        issues_md,
-    )
-}
-
 pub fn run_housekeeping_draft(cfg: &Config) {
-    preflight(cfg);
-    log("Starting housekeeping audit...");
-
-    let (open_issues, open_prs, local_branches, tracker_bodies, status, issues_md) =
-        gather_housekeeping_context(cfg);
-    let prompt = build_housekeeping_draft_prompt(
-        &open_issues,
-        &open_prs,
-        &local_branches,
-        &tracker_bodies,
-        &status,
-        &issues_md,
-    );
-
-    if cfg.dry_run {
-        log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would run housekeeping audit (read-only sweep)");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Housekeeping audit cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Audit complete — review the findings above and provide feedback.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::AwaitingFeedback(Workflow::Housekeeping));
-    }
+    run_workflow_draft(cfg, "housekeeping");
 }
 
 pub fn run_housekeeping_finalize(cfg: &Config, feedback: &str) {
-    preflight(cfg);
-    log("Executing approved housekeeping actions...");
-
-    let (open_issues, open_prs, local_branches, tracker_bodies, status, issues_md) =
-        gather_housekeeping_context(cfg);
-    let prompt = build_housekeeping_finalize_prompt(
-        &open_issues,
-        &open_prs,
-        &local_branches,
-        &tracker_bodies,
-        &status,
-        &issues_md,
-        feedback,
-    );
-
-    if cfg.dry_run {
-        log_resolved_agent_launch(cfg, &[]);
-        log("[dry-run] Would execute housekeeping finalize and file audit issue");
-        log(&format!("[dry-run] Prompt length: {} chars", prompt.len()));
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    run_agent(cfg, &prompt);
-    if stop_requested() {
-        log("Stop requested. Housekeeping finalization cancelled.");
-        if let Some(tx) = EVENT_SENDER.get() {
-            let _ = tx.send(AgentEvent::Done);
-        }
-        return;
-    }
-
-    log("Housekeeping complete — audit trail issue filed.");
-    if let Some(tx) = EVENT_SENDER.get() {
-        let _ = tx.send(AgentEvent::Done);
-    }
+    run_workflow_finalize(cfg, "housekeeping", feedback);
 }
 
 // ── Security Review (one-shot) ──
