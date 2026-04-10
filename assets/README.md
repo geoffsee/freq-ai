@@ -3,7 +3,8 @@
 Bundled agent skills and workflow definitions for freq-ai. This directory is
 the compile-time source — skills are embedded via `rust-embed` and bootstrapped
 into the target repo's `.agents/skills/` at runtime. Workflow templates are
-read directly from `assets/workflows/{preset}/` at runtime.
+loaded from bundled `assets/workflows/{preset}/` and may be extended or overridden
+by project-local `.agents/workflows/{preset}/`.
 
 This keeps the target repo's `.agents/` directory clean for its own agent configuration.
 
@@ -44,9 +45,15 @@ workflows/
 
 ### Presets
 
-A preset is a folder directly under `workflows/`. The sidebar loads whichever preset is selected and renders its workflows as action buttons. When only one preset exists, no selector is shown. When multiple presets exist, a dropdown appears in the sidebar.
+A preset is a folder directly under `workflows/`. The sidebar loads whichever preset is selected and renders its workflows as action buttons. Project-local presets in `.agents/workflows/` are also discovered and can add new workflows or override bundled ones with the same workflow id.
 
-To create a new preset, copy the `default/` directory and remove the workflows you don't need, or start from scratch with just the ones you want.
+Built-in presets:
+- `default` — the standard full development lifecycle
+- `xp` — a pure Extreme Programming preset focused on story discovery, customer signal review, XP strategy, iteration planning, collective code review, and retrospectives
+
+The preset selector is always shown in the sidebar when presets are available. If only one preset exists, the selector is disabled until another preset folder is added.
+
+To create a new preset, start from scratch with only the workflows you want, or copy a preset intentionally when you really want its full workflow shape.
 
 The active preset is stored in `dev.toml` as `workflow_preset` (defaults to `"default"`).
 
@@ -57,7 +64,7 @@ Each workflow subdirectory contains:
 - `workflow.yaml` — Metadata (name, display order, category, dependencies, context gatherer, phases)
 - `draft.md` / `finalize.md` — Handlebars prompt templates with `{{variable}}` placeholders
 
-To add a new workflow to a preset, create a subdirectory with a `workflow.yaml`. The sidebar picks it up on next launch.
+To add a new workflow to a preset, create a subdirectory with a `workflow.yaml` in either `assets/workflows/<preset>/` for a bundled preset or `.agents/workflows/<preset>/` for a project-local preset. The sidebar picks it up on next launch.
 
 ### workflow.yaml reference
 
@@ -114,3 +121,15 @@ fragments:                            # reusable text blocks, included via {{> n
 | `housekeeping` | maintenance | two-phase |
 | `refresh-agents` | maintenance | one-shot |
 | `refresh-docs` | maintenance | one-shot |
+
+### XP workflows
+
+| Workflow | Category | Pattern |
+| :--- | :--- | :--- |
+| `ideation` | discovery | two-phase |
+| `interview` | discovery | multi-round |
+| `report-research` | discovery | two-phase |
+| `strategic-review` | planning | two-phase |
+| `sprint-planning` | planning | two-phase |
+| `code-review` | review | one-shot |
+| `retrospective` | review | two-phase |

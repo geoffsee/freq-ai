@@ -1,0 +1,22 @@
+name: Story Discovery
+id: ideation
+description: Generate small user-story and engineering ideas shaped for XP
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 10
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting XP story discovery draft..."
+    log_complete: "Draft complete — review the story ideas above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising XP story discovery with feedback..."
+    log_complete: "Story discovery complete."

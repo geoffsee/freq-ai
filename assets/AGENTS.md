@@ -17,14 +17,17 @@ Project-specific agent skills are available in `skills/`. Load them when relevan
 
 ## Workflows
 
-Workflow definitions live in `assets/workflows/`. Each preset subdirectory
-contains workflow directories with a `workflow.yaml` (metadata, display order,
-dependencies) and Handlebars prompt templates (`draft.md`, `finalize.md`, etc.).
+Workflow definitions live in bundled `assets/workflows/` presets and may be
+extended or overridden by project-local `.agents/workflows/` presets. Each preset
+subdirectory contains workflow directories with a `workflow.yaml` (metadata,
+display order, dependencies) and Handlebars prompt templates (`draft.md`,
+`finalize.md`, etc.).
 
 The sidebar renders action buttons from the active preset — add a new workflow
-by creating a subdirectory with a `workflow.yaml`. The `ui.category`
-field controls grouping (discovery, planning, review, maintenance) and `ui.order`
-controls sort position within a category.
+by creating a subdirectory with a `workflow.yaml`. Local `.agents/workflows/`
+entries with the same workflow id override bundled ones for that preset. The
+`ui.category` field controls grouping (discovery, planning, review, maintenance)
+and `ui.order` controls sort position within a category.
 
 Two-phase workflows (draft → human feedback → finalize) are driven entirely by
 YAML config + templates via the generic `run_workflow_draft` / `run_workflow_finalize`

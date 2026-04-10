@@ -392,9 +392,9 @@ pub fn Sidebar(
                         }
                         div { class: "advanced-hint",
                             if presets.read().len() < 2 {
-                                "Each preset is a folder under assets/workflows/. Add another preset folder to make switching available."
+                                "This project currently exposes one workflow preset. Add another preset to compare or switch working styles."
                             } else {
-                                "Each preset is a folder under assets/workflows/ containing workflow definitions. Create a new folder to add a preset."
+                                "Choose the workflow style for this run. Presets change which actions appear in the sidebar and how those workflows guide planning and review."
                             }
                         }
                     }

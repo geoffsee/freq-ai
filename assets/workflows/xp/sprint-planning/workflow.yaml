@@ -1,0 +1,23 @@
+name: Iteration Planning
+id: sprint_planning
+description: Turn strategy into small XP stories with explicit test-first starts
+pattern: two_phase
+context: sprint
+
+ui:
+  category: planning
+  order: 20
+  visible: true
+
+depends_on:
+  - strategic_review
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting XP iteration planning draft..."
+    log_complete: "Draft complete — review the iteration plan above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising XP iteration plan with feedback..."
+    log_complete: "Iteration planning complete."

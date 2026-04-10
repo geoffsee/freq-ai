@@ -1,0 +1,23 @@
+name: XP Retrospective
+id: retrospective
+description: Review iteration outcomes and XP practice health
+pattern: two_phase
+context: retro
+
+ui:
+  category: review
+  order: 20
+  visible: true
+
+depends_on:
+  - sprint_planning
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting XP retrospective draft..."
+    log_complete: "Draft complete — review the retrospective above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising XP retrospective with feedback..."
+    log_complete: "XP retrospective complete."

@@ -1,0 +1,27 @@
+name: XP Strategy
+id: strategic_review
+description: Choose the next thin slices and process corrections for the iteration
+pattern: two_phase
+context: strategic
+
+ui:
+  category: planning
+  order: 10
+  visible: true
+
+depends_on:
+  - report_research
+
+extra_context:
+  - name: report_synthesis
+    label: uxr-synthesis
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting XP strategy draft..."
+    log_complete: "Draft complete — review the strategy above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising XP strategy with feedback..."
+    log_complete: "XP strategy complete."

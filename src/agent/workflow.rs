@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::agent::shell::{cmd_stdout, log};
 use crate::agent::tracker::list_open_prs;
@@ -140,27 +140,48 @@ fn default_true() -> bool {
     true
 }
 
+fn bundled_workflows_dir(root: &str) -> PathBuf {
+    Path::new(root).join("assets/workflows")
+}
+
+fn local_workflows_dir(root: &str) -> PathBuf {
+    Path::new(root).join(".agents/workflows")
+}
+
+fn preset_dir_roots(root: &str) -> [PathBuf; 2] {
+    [bundled_workflows_dir(root), local_workflows_dir(root)]
+}
+
+fn preset_dirs(root: &str, preset: &str) -> [PathBuf; 2] {
+    [
+        bundled_workflows_dir(root).join(preset),
+        local_workflows_dir(root).join(preset),
+    ]
+}
+
 // ── Loader ───────────────────────────────────────────────────────────────
 
-/// List available preset names by scanning subdirectories of `.agents/workflows/`.
+/// List available preset names by scanning bundled and project-local workflow roots.
 pub fn list_presets(root: &str) -> Vec<String> {
-    let base = Path::new(root).join("assets/workflows");
     let mut presets = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(&base) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir()
-                && path
-                    .join(".")
-                    .read_dir()
-                    .is_ok_and(|mut d| d.next().is_some())
-                && let Some(name) = path.file_name().and_then(|n| n.to_str())
-            {
-                presets.push(name.to_string());
+    for base in preset_dir_roots(root) {
+        if let Ok(entries) = std::fs::read_dir(&base) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir()
+                    && path
+                        .join(".")
+                        .read_dir()
+                        .is_ok_and(|mut d| d.next().is_some())
+                    && let Some(name) = path.file_name().and_then(|n| n.to_str())
+                {
+                    presets.push(name.to_string());
+                }
             }
         }
     }
     presets.sort();
+    presets.dedup();
     // Ensure "default" comes first if present.
     if let Some(pos) = presets.iter().position(|p| p == "default") {
         presets.remove(pos);
@@ -169,35 +190,36 @@ pub fn list_presets(root: &str) -> Vec<String> {
     presets
 }
 
-/// Scan `.agents/workflows/{preset}/*/workflow.yaml` and return a map
-/// keyed by workflow `id`.
+/// Scan bundled and project-local workflow directories for the selected preset.
+/// Project-local workflows override bundled workflows with the same `id`.
 pub fn load_workflows(root: &str, preset: &str) -> HashMap<String, WorkflowConfig> {
     let mut map = HashMap::new();
-    let base = Path::new(root).join("assets/workflows").join(preset);
-    let entries = match std::fs::read_dir(&base) {
-        Ok(e) => e,
-        Err(_) => return map,
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
-        let yaml_path = path.join("workflow.yaml");
-        let content = match std::fs::read_to_string(&yaml_path) {
-            Ok(c) => c,
+    for base in preset_dirs(root, preset) {
+        let entries = match std::fs::read_dir(&base) {
+            Ok(e) => e,
             Err(_) => continue,
         };
-        match serde_yaml::from_str::<WorkflowConfig>(&content) {
-            Ok(wf) => {
-                map.insert(wf.id.clone(), wf);
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
             }
-            Err(e) => {
-                log(&format!(
-                    "WARNING: failed to parse {}: {e}",
-                    yaml_path.display()
-                ));
+            let yaml_path = path.join("workflow.yaml");
+            let content = match std::fs::read_to_string(&yaml_path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            match serde_yaml::from_str::<WorkflowConfig>(&content) {
+                Ok(wf) => {
+                    map.insert(wf.id.clone(), wf);
+                }
+                Err(e) => {
+                    log(&format!(
+                        "WARNING: failed to parse {}: {e}",
+                        yaml_path.display()
+                    ));
+                }
             }
         }
     }
@@ -206,18 +228,21 @@ pub fn load_workflows(root: &str, preset: &str) -> HashMap<String, WorkflowConfi
 
 /// Read a prompt template file from a workflow directory within a preset.
 pub fn load_template(root: &str, preset: &str, workflow_dir: &str, filename: &str) -> String {
-    let path = Path::new(root)
-        .join("assets/workflows")
+    for base in [local_workflows_dir(root), bundled_workflows_dir(root)] {
+        let path = base.join(preset).join(workflow_dir).join(filename);
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            return content;
+        }
+    }
+    let path = local_workflows_dir(root)
         .join(preset)
         .join(workflow_dir)
         .join(filename);
-    std::fs::read_to_string(&path).unwrap_or_else(|e| {
-        log(&format!(
-            "WARNING: failed to read template {}: {e}",
-            path.display()
-        ));
-        String::new()
-    })
+    log(&format!(
+        "WARNING: failed to read template {}",
+        path.display()
+    ));
+    String::new()
 }
 
 // ── Template rendering ───────────────────────────────────────────────────
@@ -387,41 +412,6 @@ pub fn gather_context_as_json(cfg: &Config, gatherer: &str) -> serde_json::Value
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sidebar_entries_group_by_category_then_order() {
-        let root = env!("CARGO_MANIFEST_DIR");
-        let entries = load_sidebar_entries(root, "default");
-        let labels: Vec<(&str, &str)> = entries
-            .iter()
-            .map(|entry| (entry.category.as_str(), entry.name.as_str()))
-            .collect();
-
-        assert_eq!(
-            labels,
-            vec![
-                ("discovery", "Ideation"),
-                ("discovery", "UXR Synth"),
-                ("discovery", "Interview"),
-                ("planning", "Strategic Review"),
-                ("planning", "Roadmapper"),
-                ("planning", "Sprint Planning"),
-                ("review", "Code Review"),
-                ("review", "Security Review"),
-                ("review", "Security Code Review"),
-                ("review", "Retrospective"),
-                ("maintenance", "Housekeeping"),
-                ("maintenance", "Refresh Agents"),
-                ("maintenance", "Refresh Docs"),
-                ("maintenance", "Auto Merge"),
-            ]
-        );
-    }
-}
-
 /// Fetch extra context variables declared in `extra_context` and inject them
 /// into the vars map.
 pub fn fetch_extra_context(wf: &WorkflowConfig, vars: &mut serde_json::Value) {
@@ -480,4 +470,167 @@ fn open_prs_json() -> String {
 
 fn read_project_file(root: &str, name: &str) -> String {
     std::fs::read_to_string(format!("{root}/{name}")).unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn write_file(path: &Path, content: &str) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("create parent dirs");
+        }
+        fs::write(path, content).expect("write file");
+    }
+
+    fn temp_root() -> TempDir {
+        tempfile::tempdir().expect("tempdir")
+    }
+
+    #[test]
+    fn list_presets_includes_built_in_xp() {
+        let root = env!("CARGO_MANIFEST_DIR");
+        assert_eq!(
+            list_presets(root),
+            vec!["default".to_string(), "xp".to_string()]
+        );
+    }
+
+    #[test]
+    fn sidebar_entries_group_by_category_then_order() {
+        let root = env!("CARGO_MANIFEST_DIR");
+        let entries = load_sidebar_entries(root, "default");
+        let labels: Vec<(&str, &str)> = entries
+            .iter()
+            .map(|entry| (entry.category.as_str(), entry.name.as_str()))
+            .collect();
+
+        assert_eq!(
+            labels,
+            vec![
+                ("discovery", "Ideation"),
+                ("discovery", "UXR Synth"),
+                ("discovery", "Interview"),
+                ("planning", "Strategic Review"),
+                ("planning", "Roadmapper"),
+                ("planning", "Sprint Planning"),
+                ("review", "Code Review"),
+                ("review", "Security Review"),
+                ("review", "Security Code Review"),
+                ("review", "Retrospective"),
+                ("maintenance", "Housekeeping"),
+                ("maintenance", "Refresh Agents"),
+                ("maintenance", "Refresh Docs"),
+                ("maintenance", "Auto Merge"),
+            ]
+        );
+    }
+
+    #[test]
+    fn xp_preset_loads_sidebar_entries() {
+        let root = env!("CARGO_MANIFEST_DIR");
+        let entries = load_sidebar_entries(root, "xp");
+        assert_eq!(entries.len(), 7);
+        assert!(entries.iter().any(|entry| entry.id == "sprint_planning"));
+        assert!(entries.iter().any(|entry| entry.id == "report_research"));
+        assert!(!entries.iter().any(|entry| entry.id == "roadmapper"));
+        assert!(!entries.iter().any(|entry| entry.id == "housekeeping"));
+    }
+
+    #[test]
+    fn xp_sprint_planning_prompt_mentions_xp_practices() {
+        let root = env!("CARGO_MANIFEST_DIR");
+        let template = load_template(root, "xp", "sprint-planning", "draft.md");
+        assert!(template.contains("XP iteration"));
+        assert!(template.contains("failing-then-passing test"));
+        assert!(template.contains("pairing"));
+    }
+
+    #[test]
+    fn list_presets_includes_project_local_presets() {
+        let root = temp_root();
+        write_file(
+            &root
+                .path()
+                .join(".agents/workflows/custom/story/workflow.yaml"),
+            r#"
+name: Story
+id: story
+pattern: one_shot
+context: none
+"#,
+        );
+
+        assert_eq!(
+            list_presets(root.path().to_str().unwrap()),
+            vec!["custom".to_string()]
+        );
+    }
+
+    #[test]
+    fn local_workflow_overrides_bundled_config_and_template() {
+        let root = temp_root();
+        write_file(
+            &root
+                .path()
+                .join("assets/workflows/default/example/workflow.yaml"),
+            r#"
+name: Bundled Name
+id: example
+pattern: two_phase
+context: none
+ui:
+  category: discovery
+  order: 10
+phases:
+  draft:
+    template: draft.md
+"#,
+        );
+        write_file(
+            &root
+                .path()
+                .join("assets/workflows/default/example/draft.md"),
+            "bundled template",
+        );
+        write_file(
+            &root
+                .path()
+                .join(".agents/workflows/default/example/workflow.yaml"),
+            r#"
+name: Local Name
+id: example
+pattern: two_phase
+context: none
+ui:
+  category: planning
+  order: 20
+phases:
+  draft:
+    template: draft.md
+"#,
+        );
+        write_file(
+            &root
+                .path()
+                .join(".agents/workflows/default/example/draft.md"),
+            "local template",
+        );
+
+        let workflows = load_workflows(root.path().to_str().unwrap(), "default");
+        let wf = workflows.get("example").expect("example workflow");
+        assert_eq!(wf.name, "Local Name");
+        assert_eq!(wf.ui.category, "planning");
+        assert_eq!(
+            load_template(
+                root.path().to_str().unwrap(),
+                "default",
+                "example",
+                "draft.md"
+            ),
+            "local template"
+        );
+    }
 }

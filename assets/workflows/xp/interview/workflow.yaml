@@ -1,0 +1,13 @@
+name: Customer Conversation
+id: interview
+description: Run a focused conversation to clarify stories, pains, and acceptance signals
+pattern: multi_round
+context: strategic
+
+ui:
+  category: discovery
+  order: 20
+  visible: true
+
+depends_on: []
+phases: {}

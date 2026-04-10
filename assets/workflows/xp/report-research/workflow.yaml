@@ -1,0 +1,27 @@
+name: Customer Signal Review
+id: report_research
+description: Synthesize user signals into small, testable XP-oriented next steps
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 30
+  visible: true
+
+depends_on:
+  - ideation
+
+extra_context:
+  - name: ideation
+    label: ideation
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting customer signal review draft..."
+    log_complete: "Draft complete — review the synthesis above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising customer signal review with feedback..."
+    log_complete: "Customer signal review complete."

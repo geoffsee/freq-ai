@@ -1,0 +1,15 @@
+name: Collective Code Review
+id: code_review
+description: Review PRs for test-first discipline, simplicity, and mergeability
+pattern: one_shot
+context: none
+runner: code_review
+
+ui:
+  category: review
+  order: 10
+  visible: true
+  requires_bot: true
+
+depends_on: []
+phases: {}
