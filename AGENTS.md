@@ -12,7 +12,28 @@ Project-specific agent skills are available in `.agents/skills/`. Load them when
 - `user-personas` — Adopter personas for UXR synthesis
 - `issue-tracking` — Guidance on GitHub issue/PR hygiene
 - `testing` — Test commands and verification workflow
-- `code-explorer` — Use toak CLI for codebase snapshots and semantic search
+- `code-explorer` — Use toak CLI for codebase snapshots and LLM context
+
+## Workflows
+
+Workflow definitions live in `.agents/workflows/`. Each subdirectory contains a
+`workflow.yaml` (metadata, display order, dependencies) and Handlebars prompt
+templates (`draft.md`, `finalize.md`, etc.).
+
+The sidebar renders action buttons directly from this directory — add a new
+workflow by creating a new subdirectory with a `workflow.yaml`. The `ui.category`
+field controls grouping (discovery, planning, review, maintenance) and `ui.order`
+controls sort position within a category.
+
+Two-phase workflows (draft → human feedback → finalize) are driven entirely by
+YAML config + templates via the generic `run_workflow_draft` / `run_workflow_finalize`
+runners. Workflows with complex execution logic (interview, code-review, work-on-issue)
+keep dedicated Rust runners but can still externalize their prompt templates.
+
+Template variables use `{{variable}}` syntax (Handlebars). Context data is gathered
+automatically based on the `context` field in `workflow.yaml` (sprint, strategic,
+retro, housekeeping). Extra GitHub issue lookups are declared via `extra_context`
+entries that fetch issue bodies by label.
 
 ## Key Rules
 
@@ -23,7 +44,7 @@ Project-specific agent skills are available in `.agents/skills/`. Load them when
 ## Label Conventions
 
 All GitHub issue labels are declared in `.github/labels.yml` (source of truth) and
-exposed as constants in `crates/dev/src/agent/tracker.rs` → `pub mod labels`.
+exposed as constants in `src/agent/tracker.rs` → `pub mod labels`.
 
 ### Workflow labels (no prefix)
 
@@ -61,8 +82,10 @@ exposed as constants in `crates/dev/src/agent/tracker.rs` → `pub mod labels`.
 
 ### In code
 
-All `gh issue create` invocations in prompt builders must use constants from
-`crates/dev/src/agent/tracker.rs::labels` — never hardcode label strings in prompts.
+Label constants live in `src/agent/tracker.rs::labels` and are used by Rust code
+that calls `gh` programmatically. Prompt templates in `.agents/workflows/` use
+literal label strings (e.g. `--label "strategic-review"`) since those are
+instructions to the AI agent, not compiled code.
 
 ### Operator contract: keeping live labels in sync
 
@@ -78,7 +101,7 @@ To add a new workflow label:
      idempotent — uses `--force` so it updates existing labels in place), OR
    - Running `gh label create "<name>" --description "..." --color "..." --force`
      directly if you only need to add one or two labels.
-3. Add the constant to `crates/dev/src/agent/tracker.rs::labels` (the `pub mod
+3. Add the constant to `src/agent/tracker.rs::labels` (the `pub mod
    labels` block at the top of the file).
 4. Reference the constant via `labels::*` in any prompt builder that emits the
    new label — never hardcode the string.
@@ -90,20 +113,27 @@ issues never reference a label that no longer exists.
 
 Workflows that consume an upstream artifact (UXR Synth → Ideation, Strategic
 Review → UXR Synth, Roadmapper → Strategic Review) discover that artifact by
-**canonical label**, not by file path or title search. The lookup helpers live
-in `crates/dev/src/agent/shell.rs` as `fetch_*` functions and they all use the
-same shape:
+**canonical label**, not by file path or title search. Extra context fetches are
+declared in each workflow's `workflow.yaml` under `extra_context`:
 
-```rust
+```yaml
+extra_context:
+  - name: report_synthesis
+    label: uxr-synthesis
+```
+
+The generic runner calls `fetch_issue_by_label` (in `src/agent/workflow.rs`)
+which uses the same shape:
+
+```
 gh issue list --label <canonical-label> --state open --limit 1 --json number,title,body
 ```
 
-If you add a new artifact-producing workflow, add a matching `fetch_*` helper
-that filters by the canonical label, and call it from the consuming workflow's
-draft + finalize entry points. Do not introduce title-keyword search — that path
-was deprecated in favour of label filtering (#88) and the test guard in
-`tracker.rs::find_tracker_uses_label_filter_not_title_search` exists to prevent
-regressions.
+If you add a new artifact-producing workflow, add a matching `extra_context`
+entry in the consuming workflow's `workflow.yaml`. Do not introduce
+title-keyword search — that path was deprecated in favour of label filtering
+(#88) and the test guard in `tracker.rs::find_tracker_uses_label_filter_not_title_search`
+exists to prevent regressions.
 
 ## Amendments
 
