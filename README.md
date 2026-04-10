@@ -347,6 +347,7 @@ freq-ai [OPTIONS] [COMMAND]
 | `--agent <name>` | AI agent (`claude`, `cline`, `codex`, `copilot`, `gemini`, `grok`, `junie`, `xai`) | `claude` |
 | `--auto` | Unattended mode (skip permission prompts) | off |
 | `--dry-run` | Show what would happen without executing | off |
+| `--create-labels` | Write the bundled label taxonomy to `.github/labels.yml` and exit | — |
 
 ## Tips
 

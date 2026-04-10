@@ -74,6 +74,10 @@ struct Cli {
 
     #[arg(long)]
     dry_run: bool,
+
+    /// Write the bundled label taxonomy to .github/labels.yml and exit
+    #[arg(long)]
+    create_labels: bool,
 }
 
 #[derive(Subcommand)]
@@ -131,6 +135,18 @@ where
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
+
+    if cli.create_labels {
+        let config = parse_args();
+        let content = agent::assets::LABELS_YML.replace("{{project_name}}", &config.project_name);
+        let dir = std::path::Path::new(".github");
+        let _ = std::fs::create_dir_all(dir);
+        let dest = dir.join("labels.yml");
+        std::fs::write(&dest, content).expect("failed to write .github/labels.yml");
+        println!("wrote {}", dest.display());
+        return;
+    }
+
     let mut config = parse_args();
     config.agent = cli.agent;
     // Load persisted model for the selected agent.

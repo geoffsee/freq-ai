@@ -2,6 +2,8 @@ use rust_embed::RustEmbed;
 use std::path::PathBuf;
 
 pub const AGENTS_MD: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/AGENTS.md"));
+pub const LABELS_YML: &str =
+    include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/labels.yml"));
 
 #[derive(RustEmbed)]
 #[folder = "assets/skills/"]
