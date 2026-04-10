@@ -452,6 +452,8 @@ pub struct Config {
     pub skill_paths: SkillPaths,
     #[serde(default = "default_bootstrap_agent_files")]
     pub bootstrap_agent_files: bool,
+    #[serde(default = "default_workflow_preset")]
+    pub workflow_preset: String,
     #[serde(skip)]
     pub bot_settings: BotSettings,
     #[serde(skip)]
@@ -472,6 +474,10 @@ impl Config {
 
 fn default_bootstrap_agent_files() -> bool {
     true
+}
+
+fn default_workflow_preset() -> String {
+    "default".to_string()
 }
 
 fn is_none<T>(value: &Option<T>) -> bool {
@@ -591,6 +597,8 @@ pub struct DevConfig {
     pub bootstrap_agent_files: Option<bool>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub bot: BotSettingsFile,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_preset: Option<String>,
 }
 
 /// Optional overrides for scan target paths in `dev.toml`.
@@ -775,6 +783,11 @@ pub fn save_dev_config(root: &str, cfg: &Config) -> Result<(), String> {
             issue_tracking: Some(cfg.skill_paths.issue_tracking.clone()),
         },
         bootstrap_agent_files: Some(cfg.bootstrap_agent_files),
+        workflow_preset: if cfg.workflow_preset == "default" {
+            None
+        } else {
+            Some(cfg.workflow_preset.clone())
+        },
         bot,
     };
 
@@ -1102,6 +1115,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: None,
         };
@@ -1176,6 +1190,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::Token("ghp_test123".into())),
         };
@@ -1203,6 +1218,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::Token("ghp_test123".into())),
         };
@@ -1230,6 +1246,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::GitHubApp {
                 app_id: "12345".into(),
@@ -1279,6 +1296,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::GitHubApp {
                 app_id: "12345".into(),
@@ -1333,6 +1351,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            workflow_preset: "default".to_string(),
             bot_settings: BotSettings {
                 mode: BotAuthMode::GitHubApp,
                 app_id: "12345".into(),

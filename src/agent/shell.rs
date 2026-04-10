@@ -1324,7 +1324,7 @@ pub fn run_workflow_draft(cfg: &Config, workflow_id: &str) {
         fetch_extra_context, gather_context_as_json, load_and_render, load_workflows,
     };
 
-    let workflows = load_workflows(&cfg.root);
+    let workflows = load_workflows(&cfg.root, &cfg.workflow_preset);
     let wf = workflows.get(workflow_id).unwrap_or_else(|| {
         die(&format!("Unknown workflow: {workflow_id}"));
     });
@@ -1339,7 +1339,7 @@ pub fn run_workflow_draft(cfg: &Config, workflow_id: &str) {
     inject_common_vars(cfg, &mut vars);
     fetch_extra_context(wf, &mut vars);
 
-    let prompt = load_and_render(&cfg.root, wf, "draft", &vars)
+    let prompt = load_and_render(&cfg.root, &cfg.workflow_preset, wf, "draft", &vars)
         .unwrap_or_else(|e| die(&format!("Prompt render failed: {e}")));
 
     if cfg.dry_run {
@@ -1376,7 +1376,7 @@ pub fn run_workflow_finalize(cfg: &Config, workflow_id: &str, feedback: &str) {
         fetch_extra_context, gather_context_as_json, load_and_render, load_workflows,
     };
 
-    let workflows = load_workflows(&cfg.root);
+    let workflows = load_workflows(&cfg.root, &cfg.workflow_preset);
     let wf = workflows.get(workflow_id).unwrap_or_else(|| {
         die(&format!("Unknown workflow: {workflow_id}"));
     });
@@ -1392,7 +1392,7 @@ pub fn run_workflow_finalize(cfg: &Config, workflow_id: &str, feedback: &str) {
     fetch_extra_context(wf, &mut vars);
     vars["feedback"] = serde_json::Value::String(feedback.to_string());
 
-    let prompt = load_and_render(&cfg.root, wf, "finalize", &vars)
+    let prompt = load_and_render(&cfg.root, &cfg.workflow_preset, wf, "finalize", &vars)
         .unwrap_or_else(|e| die(&format!("Prompt render failed: {e}")));
 
     run_agent(cfg, &prompt);
@@ -2476,6 +2476,7 @@ pub fn parse_args() -> Config {
         scan_targets,
         skill_paths,
         bootstrap_agent_files,
+        workflow_preset: dev_cfg.workflow_preset.unwrap_or_else(|| "default".to_string()),
         bot_settings,
         bot_credentials,
     }
@@ -2498,6 +2499,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            workflow_preset: "default".to_string(),
             bot_settings: Default::default(),
             bot_credentials: None,
         }

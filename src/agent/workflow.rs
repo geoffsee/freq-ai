@@ -85,9 +85,9 @@ pub struct WorkflowEntry {
     pub requires_bot: bool,
 }
 
-/// Load all workflow configs and return sorted sidebar entries.
-pub fn load_sidebar_entries(root: &str) -> Vec<WorkflowEntry> {
-    let workflows = load_workflows(root);
+/// Load all workflow configs and return sorted sidebar entries for a preset.
+pub fn load_sidebar_entries(root: &str, preset: &str) -> Vec<WorkflowEntry> {
+    let workflows = load_workflows(root, preset);
     let mut entries: Vec<WorkflowEntry> = workflows
         .values()
         .filter(|wf| wf.ui.visible)
@@ -127,11 +127,35 @@ fn default_true() -> bool {
 
 // ── Loader ───────────────────────────────────────────────────────────────
 
-/// Scan `.agents/workflows/*/workflow.yaml` under `root` and return a map
+/// List available preset names by scanning subdirectories of `.agents/workflows/`.
+pub fn list_presets(root: &str) -> Vec<String> {
+    let base = Path::new(root).join("assets/workflows");
+    let mut presets = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&base) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() && path.join(".").read_dir().map_or(false, |mut d| d.next().is_some())
+            {
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    presets.push(name.to_string());
+                }
+            }
+        }
+    }
+    presets.sort();
+    // Ensure "default" comes first if present.
+    if let Some(pos) = presets.iter().position(|p| p == "default") {
+        presets.remove(pos);
+        presets.insert(0, "default".to_string());
+    }
+    presets
+}
+
+/// Scan `.agents/workflows/{preset}/*/workflow.yaml` and return a map
 /// keyed by workflow `id`.
-pub fn load_workflows(root: &str) -> HashMap<String, WorkflowConfig> {
+pub fn load_workflows(root: &str, preset: &str) -> HashMap<String, WorkflowConfig> {
     let mut map = HashMap::new();
-    let base = Path::new(root).join(".agents/workflows");
+    let base = Path::new(root).join("assets/workflows").join(preset);
     let entries = match std::fs::read_dir(&base) {
         Ok(e) => e,
         Err(_) => return map,
@@ -162,10 +186,11 @@ pub fn load_workflows(root: &str) -> HashMap<String, WorkflowConfig> {
     map
 }
 
-/// Read a prompt template file from a workflow directory.
-pub fn load_template(root: &str, workflow_dir: &str, filename: &str) -> String {
+/// Read a prompt template file from a workflow directory within a preset.
+pub fn load_template(root: &str, preset: &str, workflow_dir: &str, filename: &str) -> String {
     let path = Path::new(root)
-        .join(".agents/workflows")
+        .join("assets/workflows")
+        .join(preset)
         .join(workflow_dir)
         .join(filename);
     std::fs::read_to_string(&path).unwrap_or_else(|e| {
@@ -197,6 +222,7 @@ pub fn render_prompt(
 /// Convenience: load a workflow's phase template and render it.
 pub fn load_and_render(
     root: &str,
+    preset: &str,
     wf: &WorkflowConfig,
     phase: &str,
     vars: &serde_json::Value,
@@ -208,7 +234,7 @@ pub fn load_and_render(
 
     // Derive the directory name from the workflow id (underscore → hyphen)
     let dir = wf.id.replace('_', "-");
-    let template = load_template(root, &dir, &phase_cfg.template);
+    let template = load_template(root, preset, &dir, &phase_cfg.template);
     if template.is_empty() {
         return Err(format!(
             "Empty template '{}' for workflow '{}'",

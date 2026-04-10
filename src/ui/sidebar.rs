@@ -128,6 +128,8 @@ pub fn Sidebar(
     start_single_issue: EventHandler<u32>,
     start_pr_fix: EventHandler<u32>,
     workflow_entries: Signal<Vec<crate::agent::workflow::WorkflowEntry>>,
+    presets: Signal<Vec<String>>,
+    on_preset_change: EventHandler<String>,
     on_start_workflow: EventHandler<String>,
     save_settings: EventHandler<MouseEvent>,
     stop_work: EventHandler<MouseEvent>,
@@ -338,9 +340,34 @@ pub fn Sidebar(
                 }
             }
 
-            // Actions section — dynamically rendered from .agents/workflows/
+            // Actions section — dynamically rendered from assets/workflows/{preset}/
             div { class: "sidebar-section",
                 div { class: "section-header", "ACTIONS" }
+                if presets.read().len() > 1 {
+                    div { class: "sidebar-controls",
+                        label { class: "advanced-field",
+                            span { class: "control-label", "Preset" }
+                            select {
+                                class: "config-select",
+                                value: "{config.read().workflow_preset}",
+                                onchange: move |evt| on_preset_change.call(evt.value()),
+                                for preset in presets.read().iter() {
+                                    option { value: "{preset}", "{preset}" }
+                                }
+                            }
+                        }
+                        div { class: "advanced-hint",
+                            "Each preset is a folder under assets/workflows/ containing workflow definitions. "
+                            "Create a new folder to add a preset."
+                        }
+                    }
+                }
+                if workflow_entries.read().is_empty() {
+                    div { class: "advanced-hint",
+                        "No workflows found in assets/workflows/{config.read().workflow_preset}/. "
+                        "Add a subdirectory with a workflow.yaml to create a workflow."
+                    }
+                }
                 div { class: "sidebar-buttons sidebar-buttons-col",
                     {
                         let entries = workflow_entries.read();
@@ -552,7 +579,7 @@ mod tests {
     #[test]
     fn bundled_skill_md_yields_nonempty_trigger_list() {
         let bundled = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(".agents/skills/issue-tracking/SKILL.md");
+            .join("assets/skills/issue-tracking/SKILL.md");
         let skill_md = std::fs::read_to_string(&bundled)
             .unwrap_or_else(|e| panic!("read {}: {e}", bundled.display()));
         let parsed = parse_skill_triggers(&skill_md)

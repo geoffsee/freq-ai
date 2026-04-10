@@ -39,7 +39,7 @@ use agent::shell::{
     run_interview_draft, run_interview_respond, run_loop, run_pr_review_fix, run_refresh_agents,
     run_refresh_docs, run_security_code_review, run_single_issue, run_workflow_draft,
 };
-use agent::workflow::load_sidebar_entries;
+use agent::workflow::{list_presets, load_sidebar_entries};
 use agent::tracker::{
     DEFAULT_REVIEW_BOT_LOGIN, PendingIssue, PrSummary, TrackerInfo, current_branch_pr,
     enable_auto_merge, fetch_unresolved_thread_counts, find_tracker, get_tracker_body,
@@ -191,7 +191,7 @@ static CONFIG_OVERRIDE: std::sync::OnceLock<Config> = std::sync::OnceLock::new()
 
 #[component]
 fn App() -> Element {
-    let config = use_signal(|| {
+    let mut config = use_signal(|| {
         // Prefer the override stashed by `run_with_overrides` so any custom
         // `skill_paths` / `bootstrap_agent_files` survive into the GUI.
         CONFIG_OVERRIDE
@@ -220,7 +220,11 @@ fn App() -> Element {
     let follow_mode = use_signal(|| true);
     let bottom_el = use_signal(|| None::<std::rc::Rc<MountedData>>);
     let mut theme = use_signal(Theme::tokyo_night);
-    let workflow_entries = use_signal(|| load_sidebar_entries(&config.read().root));
+    let presets = use_signal(|| list_presets(&config.read().root));
+    let mut workflow_entries = use_signal(|| {
+        let cfg = config.read();
+        load_sidebar_entries(&cfg.root, &cfg.workflow_preset)
+    });
 
     use_effect(move || {
         preflight(&config.read());
@@ -405,6 +409,11 @@ fn App() -> Element {
         tokio::spawn(async move {
             run_pr_review_fix(&cfg, pr_num);
         });
+    };
+
+    let on_preset_change = move |preset: String| {
+        config.write().workflow_preset = preset.clone();
+        workflow_entries.set(load_sidebar_entries(&config.read().root, &preset));
     };
 
     let on_start_workflow = move |workflow_id: String| {
@@ -626,6 +635,8 @@ fn App() -> Element {
                     start_single_issue,
                     start_pr_fix,
                     workflow_entries,
+                    presets,
+                    on_preset_change,
                     on_start_workflow,
                     save_settings,
                     stop_work,
