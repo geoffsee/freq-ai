@@ -22,7 +22,7 @@ Pre-built binaries are available for:
 ### Prerequisites
 
 - `gh` CLI authenticated (`gh auth login`)
-- An AI agent on PATH (`claude`, `codex`, `copilot`, `gemini`, or `junie`)
+- An AI agent on PATH (`claude`, `codex`, `copilot`, `gemini`, `junie`, or `xai`)
 
 ## Quick Start
 
@@ -327,8 +327,8 @@ Outside the lifecycle loop, two one-shot hygiene actions keep the project's writ
 
 | Action | Scope | Reads as ground truth | Never edits |
 |---|---|---|---|
-| **Refresh Docs** (sidebar button) | `README.md`, `STATUS.md`, `ISSUES.md`, and every `*.md` file under `docs/` | The current repo: crate layout, shipped workflows, tracker state | `AGENTS.md`, `.agents/skills/**`, `CLAUDE.md`, `GEMINI.md`, `COPILOT.md`, `JUNIE.md`, source code, tests, manifests |
-| **Refresh Agents** (sidebar button) | `AGENTS.md` and every `.agents/skills/*/SKILL.md`, plus optional vendor files (`CLAUDE.md`, `GEMINI.md`, `COPILOT.md`, `JUNIE.md`) | The current repo: actual file paths, scripts, ops, macros, crate names | `README.md`, `STATUS.md`, `ISSUES.md`, `docs/**`, source code, tests, manifests |
+| **Refresh Docs** (sidebar button) | `README.md`, `STATUS.md`, `ISSUES.md`, and every `*.md` file under `docs/` | The current repo: crate layout, shipped workflows, tracker state | `AGENTS.md`, `.agents/skills/**`, `CLAUDE.md`, `GEMINI.md`, `COPILOT.md`, `JUNIE.md`, `XAI.md`, source code, tests, manifests |
+| **Refresh Agents** (sidebar button) | `AGENTS.md` and every `.agents/skills/*/SKILL.md`, plus optional vendor files (`CLAUDE.md`, `GEMINI.md`, `COPILOT.md`, `JUNIE.md`, `XAI.md`) | The current repo: actual file paths, scripts, ops, macros, crate names | `README.md`, `STATUS.md`, `ISSUES.md`, `docs/**`, source code, tests, manifests |
 
 Each action enumerates its in-scope file set, runs the agent against a prompt that forbids touching out-of-scope files, then opens a PR scoped to its own file set. No-op runs (no drift detected) exit cleanly without opening a PR. Both support `--dry-run`.
 
@@ -344,7 +344,7 @@ freq-ai [OPTIONS] [COMMAND]
 
 | Flag | Description | Default |
 |---|---|---|
-| `--agent <name>` | AI agent (`claude`, `codex`, `copilot`, `gemini`, `junie`) | `claude` |
+| `--agent <name>` | AI agent (`claude`, `codex`, `copilot`, `gemini`, `junie`, `xai`) | `claude` |
 | `--auto` | Unattended mode (skip permission prompts) | off |
 | `--dry-run` | Show what would happen without executing | off |
 
@@ -424,6 +424,7 @@ into the OS credential vault instead of plaintext project files.
 | Junie | `junie` | `--yolo` | stream-json | Full structured event streaming (same parser as Claude). |
 | Codex | `codex` | `--dangerously-bypass-approvals-and-sandbox` | JSONL (`exec --json`) | Streams assistant/tool/result events into the same UI timeline. |
 | Copilot | `copilot` | `--yolo` | unknown | GitHub Copilot CLI (standalone binary, not `gh copilot`). |
+| xAI | `copilot` | `--yolo` | unknown | Proxies the GitHub Copilot CLI with xAI-compatible BYOK settings via environment variables. |
 
 ## Project Structure
 

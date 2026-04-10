@@ -435,7 +435,7 @@ fn local_inference_overrides(cfg: &Config) -> AgentLaunchOverrides {
                 .args
                 .extend(["-c".to_string(), format!("openai_base_url={base_url:?}")]);
         }
-        Agent::Copilot | Agent::Gemini | Agent::Junie => return AgentLaunchOverrides::default(),
+        Agent::Copilot | Agent::Gemini | Agent::Junie | Agent::Xai => return AgentLaunchOverrides::default(),
     }
 
     if !model.is_empty() {
@@ -496,7 +496,8 @@ fn run_claude_native_with_env(
         .env("ANTHROPIC_API_KEY", "")
         .env("OPENAI_API_KEY", "")
         .env("GEMINI_API_KEY", "")
-        .env("JUNIE_API_KEY", "");
+        .env("JUNIE_API_KEY", "")
+        .env("XAI_API_KEY", "");
     if let Some(p) = cwd {
         cmd.current_dir(p);
     }
@@ -720,7 +721,8 @@ fn run_codex_native_with_env(
         .env("ANTHROPIC_API_KEY", "")
         .env("OPENAI_API_KEY", "")
         .env("GEMINI_API_KEY", "")
-        .env("JUNIE_API_KEY", "");
+        .env("JUNIE_API_KEY", "")
+        .env("XAI_API_KEY", "");
     if let Some(p) = cwd {
         cmd.current_dir(p);
     }
@@ -839,6 +841,38 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
             for (k, v) in &merged_env {
                 cmd.env(k, v);
             }
+            cmd.status().map(|s| s.success()).unwrap_or(false)
+        }
+
+        Agent::Xai => {
+            let mut cmd = Command::new("copilot");
+            let mut args = vec!["-p".to_string(), prompt.to_string()];
+            if cfg.auto_mode {
+                args.push("--yolo".to_string());
+            }
+            cmd.args(&args);
+            if let Some(p) = cwd {
+                cmd.current_dir(p);
+            }
+            for (k, v) in &merged_env {
+                cmd.env(k, v);
+            }
+
+            cmd.env("COPILOT_PROVIDER_TYPE", "openai");
+            if let Ok(v) = env::var("XAI_BASE_URL") {
+                cmd.env("COPILOT_PROVIDER_BASE_URL", v);
+            } else if env::var("COPILOT_PROVIDER_BASE_URL").is_err() {
+                cmd.env("COPILOT_PROVIDER_BASE_URL", "https://api.x.ai/v1");
+            }
+            if let Ok(v) = env::var("XAI_API_KEY") {
+                cmd.env("COPILOT_PROVIDER_API_KEY", v);
+            }
+            if let Ok(v) = env::var("XAI_MODEL") {
+                cmd.env("COPILOT_MODEL", v);
+            } else if env::var("COPILOT_MODEL").is_err() {
+                cmd.env("COPILOT_MODEL", "grok-beta");
+            }
+
             cmd.status().map(|s| s.success()).unwrap_or(false)
         }
 
@@ -1549,7 +1583,7 @@ pub fn run_security_code_review(cfg: &Config) {
 // ── Refresh Agents (one-shot) ──
 
 /// Enumerate agent-facing files: AGENTS.md, .agents/skills/*/SKILL.md,
-/// and optional vendor files (CLAUDE.md, GEMINI.md, COPILOT.md, JUNIE.md).
+/// and optional vendor files (CLAUDE.md, GEMINI.md, COPILOT.md, JUNIE.md, XAI.md).
 fn enumerate_agent_files(root: &str) -> Vec<String> {
     let root_path = Path::new(root);
     let mut files = BTreeSet::new();
@@ -1575,7 +1609,7 @@ fn enumerate_agent_files(root: &str) -> Vec<String> {
         }
     }
 
-    for name in &["CLAUDE.md", "GEMINI.md", "COPILOT.md", "JUNIE.md"] {
+    for name in &["CLAUDE.md", "GEMINI.md", "COPILOT.md", "JUNIE.md", "XAI.md"] {
         let p = root_path.join(name);
         if p.exists() {
             files.insert(name.to_string());
