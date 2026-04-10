@@ -53,6 +53,16 @@ struct AgentLaunchOverrides {
     env: Vec<(String, String)>,
 }
 
+/// Log the elapsed time for a labelled operation.
+macro_rules! timed {
+    ($label:expr, $body:expr) => {{
+        let _t0 = Instant::now();
+        let _result = $body;
+        log(&format!("[timing] {} completed in {:.2?}", $label, _t0.elapsed()));
+        _result
+    }};
+}
+
 pub fn die(msg: &str) -> ! {
     eprintln!("ERROR: {msg}");
     process::exit(1);
@@ -757,6 +767,7 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
     }
     let launch_overrides = local_inference_overrides(cfg);
     let merged_env = merged_agent_env(cfg, extra_env);
+    let t0 = Instant::now();
 
     let ok = match cfg.agent {
         Agent::Claude => {
@@ -814,6 +825,8 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
             run_claude_native_with_env("gemini", &args, &merged_env, cwd)
         }
     };
+
+    log(&format!("[timing] agent run completed in {:.2?}", t0.elapsed()));
 
     if !ok {
         if stop_requested() {
@@ -903,6 +916,7 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     if stop_requested() {
         return;
     }
+    let issue_t0 = Instant::now();
     let (title, body) = fetch_issue(issue_num);
     log(&format!("Issue #{issue_num}: {title}"));
 
@@ -913,10 +927,11 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     };
 
     if cfg.dry_run {
-        let codebase = if env::var("ENABLE_TOAK").is_ok_and(|v| v == "1") {
-            generate_codebase_snapshot(&cfg.root)
-        } else {
+        let codebase = if env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
+            log("Skipping toak snapshot (DISABLE_TOAK=1)");
             String::new()
+        } else {
+            generate_codebase_snapshot(&cfg.root)
         };
         let prompt = build_prompt(
             &cfg.project_name,
@@ -951,12 +966,14 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     cmd_run("git", &["branch", "-D", &branch]); // remove stale branch if any
     cmd_run("git", &["checkout", "-b", &branch]);
 
-    let codebase = if env::var("ENABLE_TOAK").is_ok_and(|v| v == "1") {
-        generate_codebase_snapshot(&cfg.root)
-    } else {
-        log("Skipping toak snapshot (set ENABLE_TOAK=1 to enable)");
-        String::new()
-    };
+    let codebase = timed!("snapshot", {
+        if env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
+            log("Skipping toak snapshot (DISABLE_TOAK=1)");
+            String::new()
+        } else {
+            generate_codebase_snapshot(&cfg.root)
+        }
+    });
     run_agent(
         cfg,
         &build_prompt(
@@ -974,55 +991,63 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
         return;
     }
 
-    log("Running tests...");
-    if !cmd_run("./scripts/test-examples.sh", &[]) {
-        log(&format!(
-            "Tests failed for #{issue_num} — invoking agent to fix..."
-        ));
-        let (_, test_out) =
-            cmd_capture("cargo", &["test", "--workspace", "--exclude", "hello-wasm"]);
-        let fix_prompt = build_test_fix_prompt(issue_num, &test_out);
-        run_agent(cfg, &fix_prompt);
-        cmd_run("cargo", &["fmt", "--all"]);
-    }
+    timed!("tests", {
+        log("Running tests...");
+        if !cmd_run("./scripts/test-examples.sh", &[]) {
+            log(&format!(
+                "Tests failed for #{issue_num} — invoking agent to fix..."
+            ));
+            let (_, test_out) =
+                cmd_capture("cargo", &["test", "--workspace", "--exclude", "hello-wasm"]);
+            let fix_prompt = build_test_fix_prompt(issue_num, &test_out);
+            run_agent(cfg, &fix_prompt);
+            cmd_run("cargo", &["fmt", "--all"]);
+        }
+    });
 
     let commit_msg = format!(
         "implement #{issue_num}: {title}\n\nCloses #{issue_num}\n\n{}",
         cfg.agent.co_author()
     );
-    commit_with_retries(cfg, issue_num, &branch, &commit_msg);
+    timed!("commit", commit_with_retries(cfg, issue_num, &branch, &commit_msg));
 
     // Push the branch and open a pull request targeting the upstream branch.
     // The pre-push hook runs `cargo test`, so failures here mean test failures.
     // Retry by invoking the agent to fix the failing tests, then recommit and push.
-    push_with_retries(cfg, issue_num, &branch, &commit_msg);
+    timed!("push", push_with_retries(cfg, issue_num, &branch, &commit_msg));
 
-    let pr_body_text = format!("Closes #{issue_num}\n\n{}", cfg.agent.co_author());
-    let (pr_ok, pr_out) = cmd_capture(
-        "gh",
-        &[
-            "pr",
-            "create",
-            "--title",
-            &format!("#{issue_num}: {title}"),
-            "--body",
-            &pr_body_text,
-            "--base",
-            &base,
-            "--head",
-            &branch,
-        ],
-    );
-    if pr_ok {
-        log(&format!("Opened PR for #{issue_num}: {}", pr_out.trim()));
-    } else {
-        log(&format!(
-            "WARNING: failed to create PR for #{issue_num}: {pr_out}"
-        ));
-    }
+    timed!("pr-create", {
+        let pr_body_text = format!("Closes #{issue_num}\n\n{}", cfg.agent.co_author());
+        let (pr_ok, pr_out) = cmd_capture(
+            "gh",
+            &[
+                "pr",
+                "create",
+                "--title",
+                &format!("#{issue_num}: {title}"),
+                "--body",
+                &pr_body_text,
+                "--base",
+                &base,
+                "--head",
+                &branch,
+            ],
+        );
+        if pr_ok {
+            log(&format!("Opened PR for #{issue_num}: {}", pr_out.trim()));
+        } else {
+            log(&format!(
+                "WARNING: failed to create PR for #{issue_num}: {pr_out}"
+            ));
+        }
+    });
 
     // Return to master for the next iteration.
     cmd_run("git", &["checkout", "master"]);
+    log(&format!(
+        "[timing] issue #{issue_num} total: {:.2?}",
+        issue_t0.elapsed()
+    ));
 }
 
 pub fn commit_with_retries(cfg: &Config, issue_num: u32, branch: &str, msg: &str) {
@@ -2066,11 +2091,11 @@ pub fn run_security_code_review(cfg: &Config) {
 
     let crate_tree = cmd_stdout("ls", &["-1", &format!("{}/crates", cfg.root)]).unwrap_or_default();
 
-    let codebase = if env::var("ENABLE_TOAK").is_ok_and(|v| v == "1") {
-        generate_codebase_snapshot(&cfg.root)
-    } else {
-        log("Skipping toak snapshot (set ENABLE_TOAK=1 to enable)");
+    let codebase = if env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
+        log("Skipping toak snapshot (DISABLE_TOAK=1)");
         String::new()
+    } else {
+        generate_codebase_snapshot(&cfg.root)
     };
 
     let prompt =
