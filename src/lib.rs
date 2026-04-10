@@ -33,6 +33,7 @@ use agent::config_store::{
     clear_bot_private_key_pem, clear_bot_token, clear_local_inference_api_key,
     store_bot_private_key_pem, store_bot_token, store_local_inference_api_key,
 };
+use agent::actions::{ActionContext, lookup_action};
 use agent::shell::{
     clear_stop_request, parse_args, preflight, request_stop, run_code_review,
     run_interview_draft, run_interview_respond, run_loop, run_pr_review_fix, run_refresh_agents,
@@ -446,24 +447,17 @@ fn App() -> Element {
 
         is_working.set(true);
 
-        // Workflows with dedicated runners (not yet YAML-templated).
-        match workflow_id.as_str() {
-            "code_review" => {
-                tokio::spawn(async move { run_code_review(&cfg) });
-            }
-            "security_code_review" => {
-                tokio::spawn(async move { run_security_code_review(&cfg) });
-            }
-            "refresh_agents" => {
-                tokio::spawn(async move { run_refresh_agents(&cfg) });
-            }
-            "refresh_docs" => {
-                tokio::spawn(async move { run_refresh_docs(&cfg) });
-            }
-            // All YAML-driven two-phase workflows go through the generic runner.
-            _ => {
-                tokio::spawn(async move { run_workflow_draft(&cfg, &workflow_id) });
-            }
+        // Look up a registered action runner, otherwise use the generic YAML runner.
+        if let Some(action) = lookup_action(&workflow_id) {
+            let action = *action;
+            tokio::spawn(async move {
+                let mut ctx = ActionContext::new(&workflow_id);
+                if let Err(e) = action(&cfg, &mut ctx) {
+                    agent::shell::log(&format!("Workflow '{}' failed: {e}", ctx.workflow_id));
+                }
+            });
+        } else {
+            tokio::spawn(async move { run_workflow_draft(&cfg, &workflow_id) });
         }
     };
 

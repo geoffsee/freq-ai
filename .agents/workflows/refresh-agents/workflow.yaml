@@ -3,6 +3,7 @@ id: refresh_agents
 description: Update AGENTS.md and skill definitions to match current codebase
 pattern: one_shot
 context: none
+runner: refresh_agents
 
 ui:
   category: maintenance

@@ -3,6 +3,7 @@ id: refresh_docs
 description: Update README, STATUS, and documentation files
 pattern: one_shot
 context: none
+runner: refresh_docs
 
 ui:
   category: maintenance

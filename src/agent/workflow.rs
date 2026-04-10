@@ -22,6 +22,10 @@ pub struct WorkflowConfig {
     pub ui: UiConfig,
     #[serde(default)]
     pub depends_on: Vec<String>,
+    /// Named action from the registry. When set, the generic dispatch calls
+    /// this action instead of `run_workflow_draft`.
+    #[serde(default)]
+    pub runner: Option<String>,
     #[serde(default)]
     pub extra_context: Vec<ExtraContextFetch>,
     #[serde(default)]

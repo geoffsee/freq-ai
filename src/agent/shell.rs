@@ -69,6 +69,40 @@ pub fn log(msg: &str) {
     }
 }
 
+// ── Action wrappers for the registry ─────────────────────────────────────
+
+pub fn action_code_review(
+    cfg: &Config,
+    _ctx: &mut crate::agent::actions::ActionContext,
+) -> Result<(), String> {
+    run_code_review(cfg);
+    Ok(())
+}
+
+pub fn action_security_code_review(
+    cfg: &Config,
+    _ctx: &mut crate::agent::actions::ActionContext,
+) -> Result<(), String> {
+    run_security_code_review(cfg);
+    Ok(())
+}
+
+pub fn action_refresh_agents(
+    cfg: &Config,
+    _ctx: &mut crate::agent::actions::ActionContext,
+) -> Result<(), String> {
+    run_refresh_agents(cfg);
+    Ok(())
+}
+
+pub fn action_refresh_docs(
+    cfg: &Config,
+    _ctx: &mut crate::agent::actions::ActionContext,
+) -> Result<(), String> {
+    run_refresh_docs(cfg);
+    Ok(())
+}
+
 /// Run a command, return trimmed stdout or None on failure.
 pub fn cmd_stdout(program: &str, args: &[&str]) -> Option<String> {
     Command::new(program)

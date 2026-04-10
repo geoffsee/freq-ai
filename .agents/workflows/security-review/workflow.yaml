@@ -3,6 +3,7 @@ id: security_code_review
 description: Comprehensive security-focused code audit with issue filing
 pattern: one_shot
 context: none
+runner: security_code_review
 
 ui:
   category: review
