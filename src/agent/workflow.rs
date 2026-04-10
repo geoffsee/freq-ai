@@ -85,6 +85,16 @@ pub struct WorkflowEntry {
     pub requires_bot: bool,
 }
 
+fn category_rank(category: &str) -> (u8, &str) {
+    match category {
+        "discovery" => (0, category),
+        "planning" => (1, category),
+        "review" => (2, category),
+        "maintenance" => (3, category),
+        _ => (4, category),
+    }
+}
+
 /// Load all workflow configs and return sorted sidebar entries for a preset.
 pub fn load_sidebar_entries(root: &str, preset: &str) -> Vec<WorkflowEntry> {
     let workflows = load_workflows(root, preset);
@@ -99,7 +109,12 @@ pub fn load_sidebar_entries(root: &str, preset: &str) -> Vec<WorkflowEntry> {
             requires_bot: wf.ui.requires_bot,
         })
         .collect();
-    entries.sort_by(|a, b| a.order.cmp(&b.order));
+    entries.sort_by(|a, b| {
+        category_rank(&a.category)
+            .cmp(&category_rank(&b.category))
+            .then_with(|| a.order.cmp(&b.order))
+            .then_with(|| a.name.cmp(&b.name))
+    });
     entries
 }
 
@@ -369,6 +384,41 @@ pub fn gather_context_as_json(cfg: &Config, gatherer: &str) -> serde_json::Value
             })
         }
         _ => serde_json::json!({}),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sidebar_entries_group_by_category_then_order() {
+        let root = env!("CARGO_MANIFEST_DIR");
+        let entries = load_sidebar_entries(root, "default");
+        let labels: Vec<(&str, &str)> = entries
+            .iter()
+            .map(|entry| (entry.category.as_str(), entry.name.as_str()))
+            .collect();
+
+        assert_eq!(
+            labels,
+            vec![
+                ("discovery", "Ideation"),
+                ("discovery", "UXR Synth"),
+                ("discovery", "Interview"),
+                ("planning", "Strategic Review"),
+                ("planning", "Roadmapper"),
+                ("planning", "Sprint Planning"),
+                ("review", "Code Review"),
+                ("review", "Security Review"),
+                ("review", "Security Code Review"),
+                ("review", "Retrospective"),
+                ("maintenance", "Housekeeping"),
+                ("maintenance", "Refresh Agents"),
+                ("maintenance", "Refresh Docs"),
+                ("maintenance", "Auto Merge"),
+            ]
+        );
     }
 }
 

@@ -376,13 +376,14 @@ pub fn Sidebar(
             // Actions section — dynamically rendered from assets/workflows/{preset}/
             div { class: "sidebar-section",
                 div { class: "section-header", "ACTIONS" }
-                if presets.read().len() > 1 {
+                if !presets.read().is_empty() {
                     div { class: "sidebar-controls",
                         label { class: "advanced-field",
                             span { class: "control-label", "Preset" }
                             select {
                                 class: "config-select",
                                 value: "{config.read().workflow_preset}",
+                                disabled: presets.read().len() < 2,
                                 onchange: move |evt| on_preset_change.call(evt.value()),
                                 for preset in presets.read().iter() {
                                     option { value: "{preset}", "{preset}" }
@@ -390,8 +391,11 @@ pub fn Sidebar(
                             }
                         }
                         div { class: "advanced-hint",
-                            "Each preset is a folder under assets/workflows/ containing workflow definitions. "
-                            "Create a new folder to add a preset."
+                            if presets.read().len() < 2 {
+                                "Each preset is a folder under assets/workflows/. Add another preset folder to make switching available."
+                            } else {
+                                "Each preset is a folder under assets/workflows/ containing workflow definitions. Create a new folder to add a preset."
+                            }
                         }
                     }
                 }
