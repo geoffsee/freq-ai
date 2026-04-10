@@ -1,3 +1,5 @@
+use crate::agent::assets::materialize_assets;
+#[cfg(test)]
 use crate::agent::assets::{AGENTS_MD, SkillAssets};
 use crate::agent::config_store::{
     load_bot_private_key_pem, load_bot_token, load_local_inference_api_key,
@@ -7,15 +9,14 @@ use crate::agent::tracker::{
     build_interview_followup_prompt, build_interview_summary_prompt, build_lint_fix_prompt,
     build_pr_review_fix_prompt, build_prompt, build_refresh_agents_prompt,
     build_refresh_docs_prompt, build_security_review_prompt, build_test_fix_prompt,
-    check_off_issue, close_issue, fetch_issue, fetch_unresolved_review_threads,
-    find_retro_issues, find_upstream_branch, get_tracker_body, is_ready,
-    list_open_prs, parse_completed, parse_pending, pr_body, pr_diff, pr_head_branch,
-    resolve_review_thread,
+    check_off_issue, close_issue, fetch_issue, fetch_unresolved_review_threads, find_retro_issues,
+    find_upstream_branch, get_tracker_body, is_ready, list_open_prs, parse_completed,
+    parse_pending, pr_body, pr_diff, pr_head_branch, resolve_review_thread,
 };
 use crate::agent::types::Workflow;
 use crate::agent::types::{
-    Agent, AgentEvent, AssistantMessage, BRANCH_PREFIX, BotCredentials, BotSettings,
-    ClaudeEvent, Config, ContentBlock, EVENT_SENDER, MAX_COMMIT_ATTEMPTS, MAX_PUSH_ATTEMPTS,
+    Agent, AgentEvent, AssistantMessage, BRANCH_PREFIX, BotCredentials, BotSettings, ClaudeEvent,
+    Config, ContentBlock, EVENT_SENDER, MAX_COMMIT_ATTEMPTS, MAX_PUSH_ATTEMPTS,
 };
 use std::collections::BTreeSet;
 use std::env;
@@ -52,7 +53,11 @@ macro_rules! timed {
     ($label:expr, $body:expr) => {{
         let _t0 = Instant::now();
         let _result = $body;
-        log(&format!("[timing] {} completed in {:.2?}", $label, _t0.elapsed()));
+        log(&format!(
+            "[timing] {} completed in {:.2?}",
+            $label,
+            _t0.elapsed()
+        ));
         _result
     }};
 }
@@ -435,7 +440,9 @@ fn local_inference_overrides(cfg: &Config) -> AgentLaunchOverrides {
                 .args
                 .extend(["-c".to_string(), format!("openai_base_url={base_url:?}")]);
         }
-        Agent::Copilot | Agent::Gemini | Agent::Junie | Agent::Xai => return AgentLaunchOverrides::default(),
+        Agent::Cline | Agent::Copilot | Agent::Gemini | Agent::Grok | Agent::Junie | Agent::Xai => {
+            return AgentLaunchOverrides::default();
+        }
     }
 
     if !model.is_empty() {
@@ -447,8 +454,51 @@ fn local_inference_overrides(cfg: &Config) -> AgentLaunchOverrides {
     overrides
 }
 
+/// Generate CLI arguments and/or env vars to pass the user's model selection
+/// to the agent subprocess. Returns empty overrides when the model is "Default"
+/// (empty string) or when local_inference already provides a model override.
+fn model_selection_overrides(cfg: &Config) -> AgentLaunchOverrides {
+    // Local inference model takes priority.
+    if cfg.local_inference.advanced
+        && !cfg.local_inference.base_url.trim().is_empty()
+        && !cfg.local_inference.model.trim().is_empty()
+    {
+        return AgentLaunchOverrides::default();
+    }
+
+    let model = cfg.model.trim();
+    if model.is_empty() {
+        return AgentLaunchOverrides::default();
+    }
+
+    let mut overrides = AgentLaunchOverrides::default();
+
+    match cfg.agent {
+        Agent::Claude | Agent::Junie => {
+            overrides.args.extend(["--model".into(), model.into()]);
+        }
+        Agent::Codex => {
+            overrides
+                .args
+                .extend(["-c".into(), format!("model={model:?}")]);
+        }
+        Agent::Gemini | Agent::Grok => {
+            overrides.args.extend(["-m".into(), model.into()]);
+        }
+        Agent::Xai => {
+            overrides.env.push(("COPILOT_MODEL".into(), model.into()));
+        }
+        Agent::Cline | Agent::Copilot => {
+            // No model flag available.
+        }
+    }
+
+    overrides
+}
+
 fn merged_agent_env(cfg: &Config, extra_env: &[(String, String)]) -> Vec<(String, String)> {
     let mut env = local_inference_overrides(cfg).env;
+    env.extend(model_selection_overrides(cfg).env);
     env.extend(extra_env.iter().cloned());
     env
 }
@@ -462,7 +512,9 @@ fn redact_launch_env_value(key: &str, value: &str) -> String {
 }
 
 fn log_resolved_agent_launch(cfg: &Config, extra_env: &[(String, String)]) {
-    let overrides = local_inference_overrides(cfg);
+    let mut overrides = local_inference_overrides(cfg);
+    let model_ov = model_selection_overrides(cfg);
+    overrides.args.extend(model_ov.args);
     let env = merged_agent_env(cfg, extra_env);
     let args = if overrides.args.is_empty() {
         "(none)".to_string()
@@ -496,6 +548,7 @@ fn run_claude_native_with_env(
         .env("ANTHROPIC_API_KEY", "")
         .env("OPENAI_API_KEY", "")
         .env("GEMINI_API_KEY", "")
+        .env("GROK_API_KEY", "")
         .env("JUNIE_API_KEY", "")
         .env("XAI_API_KEY", "");
     if let Some(p) = cwd {
@@ -721,6 +774,7 @@ fn run_codex_native_with_env(
         .env("ANTHROPIC_API_KEY", "")
         .env("OPENAI_API_KEY", "")
         .env("GEMINI_API_KEY", "")
+        .env("GROK_API_KEY", "")
         .env("JUNIE_API_KEY", "")
         .env("XAI_API_KEY", "");
     if let Some(p) = cwd {
@@ -797,8 +851,12 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
     } else {
         log(&format!("Running {}...", cfg.agent));
     }
-    let launch_overrides = local_inference_overrides(cfg);
+    let mut launch_overrides = local_inference_overrides(cfg);
+    let model_ov = model_selection_overrides(cfg);
+    launch_overrides.args.extend(model_ov.args);
+    launch_overrides.env.extend(model_ov.env);
     let merged_env = merged_agent_env(cfg, extra_env);
+    let assets = crate::agent::assets::assets_dir();
     let t0 = Instant::now();
 
     let ok = match cfg.agent {
@@ -808,6 +866,8 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
                 "--verbose".to_string(),
                 "--output-format".to_string(),
                 "stream-json".to_string(),
+                "--add-dir".to_string(),
+                assets.display().to_string(),
             ];
             args.extend(launch_overrides.args.iter().cloned());
             if cfg.auto_mode {
@@ -817,8 +877,34 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
             run_claude_native_with_env("claude", &args, &merged_env, cwd)
         }
 
+        Agent::Cline => {
+            let mut cmd = Command::new("cline");
+            let mut args = vec![prompt.to_string()];
+            args.extend(launch_overrides.args.iter().cloned());
+            if cfg.auto_mode {
+                args.push("--no-interactive".to_string());
+            }
+            args.push("--output-format".to_string());
+            args.push("plain".to_string());
+            args.push("--workspace".to_string());
+            args.push(assets.display().to_string());
+            cmd.args(&args);
+            if let Some(p) = cwd {
+                cmd.current_dir(p);
+            }
+            for (k, v) in &merged_env {
+                cmd.env(k, v);
+            }
+            cmd.status().map(|s| s.success()).unwrap_or(false)
+        }
+
         Agent::Codex => {
-            let mut args = vec!["exec".to_string(), "--json".to_string()];
+            let mut args = vec![
+                "exec".to_string(),
+                "--json".to_string(),
+                "--add-dir".to_string(),
+                assets.display().to_string(),
+            ];
             args.extend(launch_overrides.args.iter().cloned());
             if cfg.auto_mode {
                 args.push("--dangerously-bypass-approvals-and-sandbox".to_string());
@@ -840,6 +926,34 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
             }
             for (k, v) in &merged_env {
                 cmd.env(k, v);
+            }
+            cmd.status().map(|s| s.success()).unwrap_or(false)
+        }
+
+        Agent::Grok => {
+            let mut cmd = Command::new("grok");
+            let mut args = vec![
+                "--prompt".to_string(),
+                prompt.to_string(),
+                "--format".to_string(),
+                "json".to_string(),
+            ];
+            args.extend(launch_overrides.args.iter().cloned());
+            if cfg.auto_mode {
+                args.push("--sandbox".to_string());
+            }
+            cmd.args(&args);
+            if let Some(p) = cwd {
+                cmd.current_dir(p);
+                cmd.args(["-d".to_string(), p.display().to_string()]);
+            }
+            for (k, v) in &merged_env {
+                cmd.env(k, v);
+            }
+            if let Ok(v) = env::var("GROK_API_KEY") {
+                cmd.env("GROK_API_KEY", v);
+            } else if let Ok(v) = env::var("XAI_API_KEY") {
+                cmd.env("GROK_API_KEY", v);
             }
             cmd.status().map(|s| s.success()).unwrap_or(false)
         }
@@ -867,10 +981,14 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
             if let Ok(v) = env::var("XAI_API_KEY") {
                 cmd.env("COPILOT_PROVIDER_API_KEY", v);
             }
-            if let Ok(v) = env::var("XAI_MODEL") {
-                cmd.env("COPILOT_MODEL", v);
-            } else if env::var("COPILOT_MODEL").is_err() {
-                cmd.env("COPILOT_MODEL", "grok-beta");
+            // Only apply env-var/default COPILOT_MODEL if model_selection_overrides
+            // did not already set it via merged_env.
+            if !merged_env.iter().any(|(k, _)| k == "COPILOT_MODEL") {
+                if let Ok(v) = env::var("XAI_MODEL") {
+                    cmd.env("COPILOT_MODEL", v);
+                } else if env::var("COPILOT_MODEL").is_err() {
+                    cmd.env("COPILOT_MODEL", "grok-beta");
+                }
             }
 
             cmd.status().map(|s| s.success()).unwrap_or(false)
@@ -882,7 +1000,10 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
                 prompt.to_string(),
                 "--output-format".to_string(),
                 "stream-json".to_string(),
+                "--include-directories".to_string(),
+                assets.display().to_string(),
             ];
+            args.extend(launch_overrides.args.iter().cloned());
             if cfg.auto_mode {
                 args.push("--yolo".to_string());
             }
@@ -891,19 +1012,23 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
 
         Agent::Junie => {
             let mut args = vec![
-                "-p".to_string(),
+                "--task".to_string(),
                 prompt.to_string(),
                 "--output-format".to_string(),
-                "stream-json".to_string(),
+                "json-stream".to_string(),
             ];
+            args.extend(launch_overrides.args.iter().cloned());
             if cfg.auto_mode {
-                args.push("--yolo".to_string());
+                args.push("--brave".to_string());
             }
             run_claude_native_with_env("junie", &args, &merged_env, cwd)
         }
     };
 
-    log(&format!("[timing] agent run completed in {:.2?}", t0.elapsed()));
+    log(&format!(
+        "[timing] agent run completed in {:.2?}",
+        t0.elapsed()
+    ));
 
     if !ok {
         if stop_requested() {
@@ -1086,12 +1211,18 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
         "implement #{issue_num}: {title}\n\nCloses #{issue_num}\n\n{}",
         cfg.agent.co_author()
     );
-    timed!("commit", commit_with_retries(cfg, issue_num, &branch, &commit_msg));
+    timed!(
+        "commit",
+        commit_with_retries(cfg, issue_num, &branch, &commit_msg)
+    );
 
     // Push the branch and open a pull request targeting the upstream branch.
     // The pre-push hook runs `cargo test`, so failures here mean test failures.
     // Retry by invoking the agent to fix the failing tests, then recommit and push.
-    timed!("push", push_with_retries(cfg, issue_num, &branch, &commit_msg));
+    timed!(
+        "push",
+        push_with_retries(cfg, issue_num, &branch, &commit_msg)
+    );
 
     timed!("pr-create", {
         let pr_body_text = format!("Closes #{issue_num}\n\n{}", cfg.agent.co_author());
@@ -1250,34 +1381,11 @@ pub fn preflight(cfg: &Config) {
     }
 }
 
-/// Ensure `AGENTS.md` and standard skills exist on disk, bootstrapping missing
-/// files from compile-time defaults. Existing repo files remain authoritative.
-fn ensure_agent_files(cfg: &Config) {
-    let root = Path::new(&cfg.root);
-
-    // 1. Ensure AGENTS.md exists.
-    let agents_md_path = root.join("AGENTS.md");
-    if !agents_md_path.exists() {
-        log("Initializing missing AGENTS.md from embedded defaults...");
-        let _ = std::fs::write(&agents_md_path, AGENTS_MD.as_bytes());
-    }
-
-    // 2. Ensure standard skills and their bundled support files exist.
-    for file in SkillAssets::iter() {
-        let path = root.join(".agents/skills").join(file.as_ref());
-        if !path.exists() {
-            if let Some(parent) = path.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            if let Some(embedded) = SkillAssets::get(file.as_ref()) {
-                log(&format!(
-                    "Initializing missing skill asset `{}` from embedded defaults...",
-                    file
-                ));
-                let _ = std::fs::write(&path, embedded.data);
-            }
-        }
-    }
+/// Materialize embedded AGENTS.md and skills into the app-data directory
+/// (`~/.local/share/freq-ai`). The target repo is never mutated.
+fn ensure_agent_files(_cfg: &Config) {
+    let dir = materialize_assets();
+    log(&format!("Assets materialized to {}", dir.display()));
 }
 
 pub fn run_loop(cfg: &Config, tracker_num: u32) {
@@ -1582,34 +1690,41 @@ pub fn run_security_code_review(cfg: &Config) {
 
 // ── Refresh Agents (one-shot) ──
 
-/// Enumerate agent-facing files: AGENTS.md, .agents/skills/*/SKILL.md,
-/// and optional vendor files (CLAUDE.md, GEMINI.md, COPILOT.md, JUNIE.md, XAI.md).
+/// Enumerate agent-facing files: AGENTS.md and skills from the app-data dir,
+/// plus optional vendor files (CLAUDE.md, CLINE.md, etc.) from the repo root.
 fn enumerate_agent_files(root: &str) -> Vec<String> {
     let root_path = Path::new(root);
+    let assets = crate::agent::assets::assets_dir();
     let mut files = BTreeSet::new();
 
-    let agents_md = root_path.join("AGENTS.md");
+    let agents_md = assets.join("AGENTS.md");
     if agents_md.exists() {
-        files.insert("AGENTS.md".to_string());
+        files.insert(agents_md.to_string_lossy().to_string());
     }
 
-    let skills_dir = root_path.join(".agents/skills");
+    let skills_dir = assets.join("skills");
     if skills_dir.is_dir()
         && let Ok(entries) = std::fs::read_dir(&skills_dir)
     {
         for entry in entries.flatten() {
             if entry.path().is_dir() {
                 let skill_md = entry.path().join("SKILL.md");
-                if skill_md.exists()
-                    && let Ok(rel) = skill_md.strip_prefix(root_path)
-                {
-                    files.insert(rel.to_string_lossy().to_string());
+                if skill_md.exists() {
+                    files.insert(skill_md.to_string_lossy().to_string());
                 }
             }
         }
     }
 
-    for name in &["CLAUDE.md", "GEMINI.md", "COPILOT.md", "JUNIE.md", "XAI.md"] {
+    for name in &[
+        "CLAUDE.md",
+        "CLINE.md",
+        "GEMINI.md",
+        "COPILOT.md",
+        "GROK.md",
+        "JUNIE.md",
+        "XAI.md",
+    ] {
         let p = root_path.join(name);
         if p.exists() {
             files.insert(name.to_string());
@@ -2178,7 +2293,10 @@ pub fn run_code_review(cfg: &Config) {
     log("Starting code review...");
 
     // Resolve bot token so the review subprocess runs under the bot identity.
-    let bot_token = cfg.effective_bot_credentials().as_ref().and_then(resolve_bot_token);
+    let bot_token = cfg
+        .effective_bot_credentials()
+        .as_ref()
+        .and_then(resolve_bot_token);
 
     if bot_token.is_none() {
         log(
@@ -2401,7 +2519,10 @@ fn do_pr_review_fix(cfg: &Config, pr_num: u32) {
     // additional PR context) run as the bot. The push itself uses the
     // user's git credentials, which is fine — clicking the Fix button is
     // an explicit authorization to push.
-    let bot_token = cfg.effective_bot_credentials().as_ref().and_then(resolve_bot_token);
+    let bot_token = cfg
+        .effective_bot_credentials()
+        .as_ref()
+        .and_then(resolve_bot_token);
     let extra_env: Vec<(String, String)> = bot_token
         .as_deref()
         .map(|t| vec![("GH_TOKEN".to_string(), t.to_string())])
@@ -2517,6 +2638,7 @@ pub fn parse_args() -> Config {
 
     Config {
         agent: Agent::Claude, // Default, will be overridden by CLI
+        model: String::new(), // Default, will be overridden after agent is set
         auto_mode: false,     // Default, will be overridden by CLI
         dry_run: false,       // Default, will be overridden by CLI
         local_inference,
@@ -2525,7 +2647,9 @@ pub fn parse_args() -> Config {
         scan_targets,
         skill_paths,
         bootstrap_agent_files,
-        workflow_preset: dev_cfg.workflow_preset.unwrap_or_else(|| "default".to_string()),
+        workflow_preset: dev_cfg
+            .workflow_preset
+            .unwrap_or_else(|| "default".to_string()),
         bot_settings,
         bot_credentials,
     }
@@ -2540,6 +2664,7 @@ mod tests {
     fn test_config(agent: Agent) -> Config {
         Config {
             agent,
+            model: String::new(),
             auto_mode: false,
             dry_run: false,
             local_inference: LocalInferenceConfig::default(),
@@ -2741,6 +2866,77 @@ mod tests {
         );
     }
 
+    // ── Model selection overrides ──
+
+    #[test]
+    fn claude_model_selection_passes_model_flag() {
+        let mut cfg = test_config(Agent::Claude);
+        cfg.model = "claude-opus-4-6".into();
+        let ov = model_selection_overrides(&cfg);
+        assert_eq!(ov.args, vec!["--model", "claude-opus-4-6"]);
+        assert!(ov.env.is_empty());
+    }
+
+    #[test]
+    fn codex_model_selection_passes_config_arg() {
+        let mut cfg = test_config(Agent::Codex);
+        cfg.model = "o4-mini".into();
+        let ov = model_selection_overrides(&cfg);
+        assert_eq!(ov.args, vec!["-c", "model=\"o4-mini\""]);
+        assert!(ov.env.is_empty());
+    }
+
+    #[test]
+    fn gemini_model_selection_passes_m_flag() {
+        let mut cfg = test_config(Agent::Gemini);
+        cfg.model = "gemini-2.5-flash".into();
+        let ov = model_selection_overrides(&cfg);
+        assert_eq!(ov.args, vec!["-m", "gemini-2.5-flash"]);
+    }
+
+    #[test]
+    fn grok_model_selection_passes_m_flag() {
+        let mut cfg = test_config(Agent::Grok);
+        cfg.model = "grok-code-fast-1".into();
+        let ov = model_selection_overrides(&cfg);
+        assert_eq!(ov.args, vec!["-m", "grok-code-fast-1"]);
+    }
+
+    #[test]
+    fn xai_model_selection_sets_copilot_model_env() {
+        let mut cfg = test_config(Agent::Xai);
+        cfg.model = "grok-3".into();
+        let ov = model_selection_overrides(&cfg);
+        assert!(ov.args.is_empty());
+        assert_eq!(ov.env, vec![("COPILOT_MODEL".into(), "grok-3".into())]);
+    }
+
+    #[test]
+    fn copilot_model_selection_is_noop() {
+        let mut cfg = test_config(Agent::Copilot);
+        cfg.model = "anything".into();
+        let ov = model_selection_overrides(&cfg);
+        assert_eq!(ov, AgentLaunchOverrides::default());
+    }
+
+    #[test]
+    fn local_inference_model_overrides_model_selection() {
+        let mut cfg = test_config(Agent::Claude);
+        cfg.model = "claude-opus-4-6".into();
+        cfg.local_inference.advanced = true;
+        cfg.local_inference.base_url = "http://localhost:8000/v1".into();
+        cfg.local_inference.model = "local-model".into();
+        let ov = model_selection_overrides(&cfg);
+        assert_eq!(ov, AgentLaunchOverrides::default());
+    }
+
+    #[test]
+    fn default_model_produces_no_overrides() {
+        let cfg = test_config(Agent::Claude);
+        let ov = model_selection_overrides(&cfg);
+        assert_eq!(ov, AgentLaunchOverrides::default());
+    }
+
     #[test]
     fn api_keys_are_redacted_in_dry_run_logs() {
         assert_eq!(
@@ -2824,54 +3020,43 @@ mod tests {
     }
 
     #[test]
-    fn ensure_agent_files_bootstraps_missing_defaults_only() {
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path();
-        let cfg = test_config_at(root, Agent::Codex);
+    fn materialize_assets_populates_app_data_dir() {
+        let dir = materialize_assets();
 
-        ensure_agent_files(&cfg);
-
-        assert_eq!(
-            fs::read_to_string(root.join("AGENTS.md")).unwrap(),
-            AGENTS_MD
-        );
         assert!(
-            !root.join(".agents/README.md").exists(),
-            "bootstrap should not materialize unrelated .agents files"
+            dir.join("AGENTS.md").exists(),
+            "AGENTS.md should be materialized"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.join("AGENTS.md")).unwrap(),
+            AGENTS_MD
         );
 
         for file in SkillAssets::iter() {
-            let path = root.join(".agents/skills").join(file.as_ref());
+            let path = dir.join("skills").join(file.as_ref());
             assert!(
                 path.exists(),
-                "missing bootstrapped skill: {}",
+                "missing materialized skill: {}",
                 path.display()
             );
-            let embedded = SkillAssets::get(file.as_ref()).unwrap();
-            assert_eq!(fs::read(path).unwrap(), embedded.data.as_ref());
         }
     }
 
     #[test]
-    fn ensure_agent_files_preserves_existing_repo_copies() {
+    fn ensure_agent_files_does_not_mutate_repo() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path();
         let cfg = test_config_at(root, Agent::Codex);
 
-        fs::write(root.join("AGENTS.md"), "custom agents\n").unwrap();
-        let testing_skill = root.join(".agents/skills/testing/SKILL.md");
-        fs::create_dir_all(testing_skill.parent().unwrap()).unwrap();
-        fs::write(&testing_skill, "custom testing skill\n").unwrap();
-
         ensure_agent_files(&cfg);
 
-        assert_eq!(
-            fs::read_to_string(root.join("AGENTS.md")).unwrap(),
-            "custom agents\n"
+        assert!(
+            !root.join("AGENTS.md").exists(),
+            "AGENTS.md must not be written into the repo"
         );
-        assert_eq!(
-            fs::read_to_string(&testing_skill).unwrap(),
-            "custom testing skill\n"
+        assert!(
+            !root.join(".agents").exists(),
+            ".agents/ must not be created in the repo"
         );
     }
 

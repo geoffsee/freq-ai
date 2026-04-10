@@ -5,3 +5,8 @@ target
 /claude-help.txt
 /codex-help.txt
 /gemini-help.txt
+/.grok
+/.claude
+/scripts/list-models-*.sh
+/.agents/skills/**/*.txt
+/samples/*

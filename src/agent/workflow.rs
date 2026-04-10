@@ -134,11 +134,14 @@ pub fn list_presets(root: &str) -> Vec<String> {
     if let Ok(entries) = std::fs::read_dir(&base) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() && path.join(".").read_dir().map_or(false, |mut d| d.next().is_some())
+            if path.is_dir()
+                && path
+                    .join(".")
+                    .read_dir()
+                    .is_ok_and(|mut d| d.next().is_some())
+                && let Some(name) = path.file_name().and_then(|n| n.to_str())
             {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    presets.push(name.to_string());
-                }
+                presets.push(name.to_string());
             }
         }
     }
@@ -194,7 +197,10 @@ pub fn load_template(root: &str, preset: &str, workflow_dir: &str, filename: &st
         .join(workflow_dir)
         .join(filename);
     std::fs::read_to_string(&path).unwrap_or_else(|e| {
-        log(&format!("WARNING: failed to read template {}: {e}", path.display()));
+        log(&format!(
+            "WARNING: failed to read template {}: {e}",
+            path.display()
+        ));
         String::new()
     })
 }
@@ -264,9 +270,8 @@ pub fn gather_context_as_json(cfg: &Config, gatherer: &str) -> serde_json::Value
         "strategic" => {
             let open_issues = gh_open_issues(50);
             let open_prs = open_prs_json();
-            let recent_commits =
-                cmd_stdout("git", &["log", "--oneline", "--no-decorate", "-30"])
-                    .unwrap_or_default();
+            let recent_commits = cmd_stdout("git", &["log", "--oneline", "--no-decorate", "-30"])
+                .unwrap_or_default();
             let crate_tree =
                 cmd_stdout("ls", &["-1", &format!("{}/crates", cfg.root)]).unwrap_or_default();
             let status = read_project_file(&cfg.root, "STATUS.md");
@@ -281,22 +286,33 @@ pub fn gather_context_as_json(cfg: &Config, gatherer: &str) -> serde_json::Value
             })
         }
         "retro" => {
-            let recent_commits =
-                cmd_stdout("git", &["log", "--oneline", "--no-decorate", "-50"])
-                    .unwrap_or_default();
+            let recent_commits = cmd_stdout("git", &["log", "--oneline", "--no-decorate", "-50"])
+                .unwrap_or_default();
             let closed_issues = cmd_stdout(
                 "gh",
                 &[
-                    "issue", "list", "--state", "closed", "--json",
-                    "number,title,closedAt", "--limit", "30",
+                    "issue",
+                    "list",
+                    "--state",
+                    "closed",
+                    "--json",
+                    "number,title,closedAt",
+                    "--limit",
+                    "30",
                 ],
             )
             .unwrap_or_else(|| "[]".to_string());
             let merged_prs = cmd_stdout(
                 "gh",
                 &[
-                    "pr", "list", "--state", "merged", "--json",
-                    "number,title,mergedAt", "--limit", "30",
+                    "pr",
+                    "list",
+                    "--state",
+                    "merged",
+                    "--json",
+                    "number,title,mergedAt",
+                    "--limit",
+                    "30",
                 ],
             )
             .unwrap_or_else(|| "[]".to_string());
@@ -318,8 +334,14 @@ pub fn gather_context_as_json(cfg: &Config, gatherer: &str) -> serde_json::Value
             let open_issues = cmd_stdout(
                 "gh",
                 &[
-                    "issue", "list", "--state", "open", "--json",
-                    "number,title,labels,updatedAt,assignees", "--limit", "100",
+                    "issue",
+                    "list",
+                    "--state",
+                    "open",
+                    "--json",
+                    "number,title,labels,updatedAt,assignees",
+                    "--limit",
+                    "100",
                 ],
             )
             .unwrap_or_else(|| "[]".to_string());

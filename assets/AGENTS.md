@@ -4,7 +4,7 @@ This project is a software application. Your goal is to help build, maintain, an
 
 ## Skills
 
-Project-specific agent skills are available in `.agents/skills/`. Load them when relevant:
+Project-specific agent skills are available in `skills/`. Load them when relevant:
 
 - `project-context` — Core project priorities and key resources
 - `architecture` — High-level system design and component overview
@@ -13,6 +13,7 @@ Project-specific agent skills are available in `.agents/skills/`. Load them when
 - `issue-tracking` — Guidance on GitHub issue/PR hygiene
 - `testing` — Test commands and verification workflow
 - `code-explorer` — Use toak CLI for codebase snapshots and LLM context
+- `agent-cli-reference` — Expanded help text and flag mapping for all supported coding agent CLIs
 
 ## Workflows
 

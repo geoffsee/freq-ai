@@ -11,15 +11,12 @@
 //! ```no_run
 //! use freq_ai::SkillPaths;
 //!
-//! fn main() {
-//!     freq_ai::run_with_overrides(|config| {
-//!         config.skill_paths = SkillPaths {
-//!             user_personas: ".agents/skills/freq-cloud-user-personas/SKILL.md".into(),
-//!             issue_tracking: ".agents/skills/freq-cloud-issue-tracking/SKILL.md".into(),
-//!         };
-//!         config.bootstrap_agent_files = false;
-//!     });
-//! }
+//! freq_ai::run_with_overrides(|config| {
+//!     config.skill_paths = SkillPaths {
+//!         user_personas: "/custom/skills/user-personas/SKILL.md".into(),
+//!         issue_tracking: "/custom/skills/issue-tracking/SKILL.md".into(),
+//!     };
+//! });
 //! ```
 #![allow(non_snake_case)]
 
@@ -29,26 +26,26 @@ pub mod ui;
 
 pub use agent::types::{Agent, Config, SkillPaths};
 
+use agent::actions::{ActionContext, lookup_action};
 use agent::config_store::{
     clear_bot_private_key_pem, clear_bot_token, clear_local_inference_api_key,
     store_bot_private_key_pem, store_bot_token, store_local_inference_api_key,
 };
-use agent::actions::{ActionContext, lookup_action};
 use agent::shell::{
-    clear_stop_request, parse_args, preflight, request_stop, run_code_review,
-    run_interview_draft, run_interview_respond, run_loop, run_pr_review_fix, run_refresh_agents,
-    run_refresh_docs, run_security_code_review, run_single_issue, run_workflow_draft,
+    clear_stop_request, parse_args, preflight, request_stop, run_code_review, run_interview_draft,
+    run_interview_respond, run_loop, run_pr_review_fix, run_refresh_agents, run_refresh_docs,
+    run_security_code_review, run_single_issue, run_workflow_draft,
 };
-use agent::workflow::{list_presets, load_sidebar_entries};
 use agent::tracker::{
     DEFAULT_REVIEW_BOT_LOGIN, PendingIssue, PrSummary, TrackerInfo, current_branch_pr,
     enable_auto_merge, fetch_unresolved_thread_counts, find_tracker, get_tracker_body,
     is_auto_merge_enabled, list_open_prs, open_pr_map_from, parse_pending,
 };
 use agent::types::{
-    save_dev_config, AgentEvent, BotAuthMode, ChangedFile, ClaudeEvent, ContentBlock, EVENT_SENDER,
-    FileChangeKind, InterviewTurn, Workflow,
+    AgentEvent, BotAuthMode, ChangedFile, ClaudeEvent, ContentBlock, EVENT_SENDER, FileChangeKind,
+    InterviewTurn, Workflow, save_dev_config,
 };
+use agent::workflow::{list_presets, load_sidebar_entries};
 use clap::{Parser, Subcommand};
 use custom_themes::Theme;
 use dioxus::prelude::*;
@@ -136,6 +133,13 @@ where
     let cli = Cli::parse();
     let mut config = parse_args();
     config.agent = cli.agent;
+    // Load persisted model for the selected agent.
+    let dev_cfg = agent::types::load_dev_config(&config.root);
+    config.model = dev_cfg
+        .agent_models
+        .get(&config.agent.to_string())
+        .cloned()
+        .unwrap_or_default();
     config.auto_mode = cli.auto;
     config.dry_run = cli.dry_run;
     overrides(&mut config);
@@ -194,10 +198,7 @@ fn App() -> Element {
     let mut config = use_signal(|| {
         // Prefer the override stashed by `run_with_overrides` so any custom
         // `skill_paths` / `bootstrap_agent_files` survive into the GUI.
-        CONFIG_OVERRIDE
-            .get()
-            .cloned()
-            .unwrap_or_else(parse_args)
+        CONFIG_OVERRIDE.get().cloned().unwrap_or_else(parse_args)
     });
     let mut tracker_ids = use_signal(Vec::<TrackerInfo>::new);
     let mut issues = use_signal(Vec::<PendingIssue>::new);
@@ -294,16 +295,16 @@ fn App() -> Element {
                         _ => {}
                     }
                     // Accumulate agent text into the interview buffer.
-                    if *interview_active.peek() {
-                        if let AgentEvent::Claude(ClaudeEvent::Assistant { ref message }) = ev {
-                            for block in &message.content {
-                                if let ContentBlock::Text { text } = block {
-                                    let mut buf = interview_agent_buf.write();
-                                    if !buf.is_empty() {
-                                        buf.push('\n');
-                                    }
-                                    buf.push_str(text);
+                    if *interview_active.peek()
+                        && let AgentEvent::Claude(ClaudeEvent::Assistant { ref message }) = ev
+                    {
+                        for block in &message.content {
+                            if let ContentBlock::Text { text } = block {
+                                let mut buf = interview_agent_buf.write();
+                                if !buf.is_empty() {
+                                    buf.push('\n');
                                 }
+                                buf.push_str(text);
                             }
                         }
                     }
@@ -517,8 +518,9 @@ fn App() -> Element {
             .and_then(|r| r);
 
             match result {
-                Ok(()) => settings_status
-                    .set(Some("Configuration saved. Secrets use the OS credential vault.".into())),
+                Ok(()) => settings_status.set(Some(
+                    "Configuration saved. Secrets use the OS credential vault.".into(),
+                )),
                 Err(err) => {
                     settings_status.set(Some(format!("Failed to save configuration: {err}")))
                 }

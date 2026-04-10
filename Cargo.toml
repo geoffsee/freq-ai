@@ -30,6 +30,7 @@ toak-rs = { version = "6.0.2", default-features = false }
 handlebars = "6"
 serde_yaml = "0.9"
 indexmap = { version = "2", features = ["serde"] }
+dirs = "6"
 
 [dev-dependencies]
 tempfile = "3"

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -150,24 +151,37 @@ pub enum ContentBlock {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Agent {
     Claude,
+    Cline,
     Codex,
     Copilot,
     Gemini,
+    Grok,
     Junie,
     Xai,
 }
 
 impl clap::ValueEnum for Agent {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Claude, Self::Codex, Self::Copilot, Self::Gemini, Self::Junie, Self::Xai]
+        &[
+            Self::Claude,
+            Self::Cline,
+            Self::Codex,
+            Self::Copilot,
+            Self::Gemini,
+            Self::Grok,
+            Self::Junie,
+            Self::Xai,
+        ]
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
         Some(match self {
             Self::Claude => clap::builder::PossibleValue::new("claude"),
+            Self::Cline => clap::builder::PossibleValue::new("cline"),
             Self::Codex => clap::builder::PossibleValue::new("codex"),
             Self::Copilot => clap::builder::PossibleValue::new("copilot"),
             Self::Gemini => clap::builder::PossibleValue::new("gemini"),
+            Self::Grok => clap::builder::PossibleValue::new("grok"),
             Self::Junie => clap::builder::PossibleValue::new("junie"),
             Self::Xai => clap::builder::PossibleValue::new("xai"),
         })
@@ -179,9 +193,11 @@ impl FromStr for Agent {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "claude" => Ok(Agent::Claude),
+            "cline" => Ok(Agent::Cline),
             "codex" => Ok(Agent::Codex),
             "copilot" => Ok(Agent::Copilot),
             "gemini" => Ok(Agent::Gemini),
+            "grok" => Ok(Agent::Grok),
             "junie" => Ok(Agent::Junie),
             "xai" => Ok(Agent::Xai),
             _ => Err(format!("Unknown agent: {}", s)),
@@ -193,9 +209,11 @@ impl fmt::Display for Agent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Agent::Claude => write!(f, "claude"),
+            Agent::Cline => write!(f, "cline"),
             Agent::Codex => write!(f, "codex"),
             Agent::Copilot => write!(f, "copilot"),
             Agent::Gemini => write!(f, "gemini"),
+            Agent::Grok => write!(f, "grok"),
             Agent::Junie => write!(f, "junie"),
             Agent::Xai => write!(f, "xai"),
         }
@@ -206,9 +224,11 @@ impl Agent {
     pub fn binary(self) -> &'static str {
         match self {
             Agent::Claude => "claude",
+            Agent::Cline => "cline",
             Agent::Codex => "codex",
             Agent::Copilot => "copilot",
             Agent::Gemini => "gemini",
+            Agent::Grok => "grok",
             Agent::Junie => "junie",
             Agent::Xai => "copilot", // xAI proxies the copilot CLI
         }
@@ -217,11 +237,59 @@ impl Agent {
     pub fn co_author(self) -> &'static str {
         match self {
             Agent::Claude => "Co-Authored-By: Claude <noreply@anthropic.com>",
+            Agent::Cline => "Co-Authored-By: Cline <noreply@cline.bot>",
             Agent::Codex => "Co-Authored-By: Codex <noreply@openai.com>",
             Agent::Copilot => "Co-Authored-By: GitHub Copilot <noreply@github.com>",
             Agent::Gemini => "Co-Authored-By: Gemini <noreply@google.com>",
+            Agent::Grok => "Co-Authored-By: Grok <noreply@x.ai>",
             Agent::Junie => "Co-Authored-By: Junie <junie@jetbrains.com>",
             Agent::Xai => "Co-Authored-By: xAI <noreply@x.ai>",
+        }
+    }
+
+    /// Models available for selection in the UI dropdown.
+    /// Each entry is (model_id, display_label). Empty slice means the agent
+    /// has no model flag and the dropdown should be hidden.
+    pub fn available_models(self) -> &'static [(&'static str, &'static str)] {
+        match self {
+            Agent::Claude => &[
+                ("claude-sonnet-4-6", "Sonnet 4.6"),
+                ("claude-opus-4-6", "Opus 4.6"),
+                ("claude-haiku-4-5-20251001", "Haiku 4.5"),
+            ],
+            Agent::Cline => &[
+                ("claude-sonnet-4-6", "Claude Sonnet 4.6"),
+                ("claude-opus-4-6", "Claude Opus 4.6"),
+                ("gpt-4.1", "GPT-4.1"),
+                ("gemini-2.5-pro", "Gemini 2.5 Pro"),
+            ],
+            Agent::Codex => &[
+                ("o3", "o3"),
+                ("o4-mini", "o4-mini"),
+                ("gpt-4.1", "GPT-4.1"),
+                ("gpt-4.1-mini", "GPT-4.1 Mini"),
+            ],
+            Agent::Copilot => &[], // No model flag
+            Agent::Gemini => &[
+                ("gemini-2.5-pro", "Gemini 2.5 Pro"),
+                ("gemini-2.5-flash", "Gemini 2.5 Flash"),
+                ("gemini-2.0-flash", "Gemini 2.0 Flash"),
+            ],
+            Agent::Grok => &[
+                ("grok-4-1-fast-reasoning", "Grok 4.1 Fast"),
+                ("grok-4-0709", "Grok 4"),
+                ("grok-code-fast-1", "Grok Code Fast"),
+                ("grok-3", "Grok 3"),
+            ],
+            Agent::Junie => &[
+                ("claude-sonnet-4-6", "Sonnet 4.6"),
+                ("claude-opus-4-6", "Opus 4.6"),
+            ],
+            Agent::Xai => &[
+                ("grok-4-1-fast-reasoning", "Grok 4.1 Fast"),
+                ("grok-3", "Grok 3"),
+                ("grok-3-mini", "Grok 3 Mini"),
+            ],
         }
     }
 }
@@ -453,6 +521,8 @@ impl BotSettings {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Config {
     pub agent: Agent,
+    #[serde(default)]
+    pub model: String,
     pub auto_mode: bool,
     pub dry_run: bool,
     #[serde(default)]
@@ -503,11 +573,10 @@ where
     value == &T::default()
 }
 
-/// Per-skill paths the dev agent reads at runtime. Hardcoded defaults match
-/// freq-ai's own `.agents/skills/` layout, so the standalone freq-ai binary
-/// keeps working unchanged. Library consumers (e.g. a project that organises
-/// its skills under a different prefix) can override these on `Config` before
-/// calling `freq_ai::run`.
+/// Per-skill paths the dev agent reads at runtime. Defaults point to the
+/// app-data directory (`~/.local/share/freq-ai/skills/`) where embedded
+/// assets are materialized, so the target repo is never mutated. Library
+/// consumers can override these on `Config` before calling `freq_ai::run`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SkillPaths {
     /// Path to the user-personas skill, used by the UXR Synthesis prompt
@@ -520,9 +589,13 @@ pub struct SkillPaths {
 
 impl Default for SkillPaths {
     fn default() -> Self {
+        let base = crate::agent::assets::assets_dir().join("skills");
         Self {
-            user_personas: ".agents/skills/user-personas/SKILL.md".into(),
-            issue_tracking: ".agents/skills/issue-tracking/SKILL.md".into(),
+            user_personas: base.join("user-personas/SKILL.md").to_string_lossy().into(),
+            issue_tracking: base
+                .join("issue-tracking/SKILL.md")
+                .to_string_lossy()
+                .into(),
         }
     }
 }
@@ -540,6 +613,7 @@ impl fmt::Debug for Config {
         };
         f.debug_struct("Config")
             .field("agent", &self.agent)
+            .field("model", &self.model)
             .field("auto_mode", &self.auto_mode)
             .field("dry_run", &self.dry_run)
             .field("local_inference", &self.local_inference)
@@ -588,8 +662,7 @@ impl Default for ScanTargets {
 }
 
 /// On-disk `dev.toml` layout. Missing fields fall back to defaults.
-#[derive(Clone, Debug, Default, Deserialize)]
-#[derive(Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(default)]
 pub struct DevConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -611,6 +684,8 @@ pub struct DevConfig {
     pub bot: BotSettingsFile,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_preset: Option<String>,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub agent_models: HashMap<String, String>,
 }
 
 /// Optional overrides for scan target paths in `dev.toml`.
@@ -754,6 +829,15 @@ pub fn load_dev_config(root: &str) -> DevConfig {
 
 pub fn save_dev_config(root: &str, cfg: &Config) -> Result<(), String> {
     let path = std::path::Path::new(root).join("dev.toml");
+
+    // Merge current model selection into the persisted per-agent map.
+    let mut agent_models = load_dev_config(root).agent_models;
+    if cfg.model.trim().is_empty() {
+        agent_models.remove(&cfg.agent.to_string());
+    } else {
+        agent_models.insert(cfg.agent.to_string(), cfg.model.clone());
+    }
+
     let mut local_inference = LocalInferenceConfigFile {
         advanced: Some(cfg.local_inference.advanced),
         preset: Some(cfg.local_inference.preset),
@@ -770,7 +854,8 @@ pub fn save_dev_config(root: &str, cfg: &Config) -> Result<(), String> {
 
     let bot = BotSettingsFile {
         mode: Some(cfg.bot_settings.mode),
-        app_id: (!cfg.bot_settings.app_id.trim().is_empty()).then(|| cfg.bot_settings.app_id.clone()),
+        app_id: (!cfg.bot_settings.app_id.trim().is_empty())
+            .then(|| cfg.bot_settings.app_id.clone()),
         installation_id: (!cfg.bot_settings.installation_id.trim().is_empty())
             .then(|| cfg.bot_settings.installation_id.clone()),
     };
@@ -801,6 +886,7 @@ pub fn save_dev_config(root: &str, cfg: &Config) -> Result<(), String> {
             Some(cfg.workflow_preset.clone())
         },
         bot,
+        agent_models,
     };
 
     let toml = toml::to_string_pretty(&file_cfg).map_err(|e| e.to_string())?;
@@ -873,9 +959,11 @@ mod tests {
     #[test]
     fn agent_from_str_valid() {
         assert_eq!("claude".parse::<Agent>().unwrap(), Agent::Claude);
+        assert_eq!("cline".parse::<Agent>().unwrap(), Agent::Cline);
         assert_eq!("Codex".parse::<Agent>().unwrap(), Agent::Codex);
         assert_eq!("COPILOT".parse::<Agent>().unwrap(), Agent::Copilot);
         assert_eq!("Gemini".parse::<Agent>().unwrap(), Agent::Gemini);
+        assert_eq!("grok".parse::<Agent>().unwrap(), Agent::Grok);
         assert_eq!("Junie".parse::<Agent>().unwrap(), Agent::Junie);
         assert_eq!("xai".parse::<Agent>().unwrap(), Agent::Xai);
     }
@@ -888,7 +976,16 @@ mod tests {
 
     #[test]
     fn agent_display_roundtrip() {
-        for agent in [Agent::Claude, Agent::Codex, Agent::Copilot, Agent::Gemini, Agent::Junie, Agent::Xai] {
+        for agent in [
+            Agent::Claude,
+            Agent::Cline,
+            Agent::Codex,
+            Agent::Copilot,
+            Agent::Gemini,
+            Agent::Grok,
+            Agent::Junie,
+            Agent::Xai,
+        ] {
             let s = agent.to_string();
             assert_eq!(s.parse::<Agent>().unwrap(), agent);
         }
@@ -897,9 +994,11 @@ mod tests {
     #[test]
     fn agent_binary_names() {
         assert_eq!(Agent::Claude.binary(), "claude");
+        assert_eq!(Agent::Cline.binary(), "cline");
         assert_eq!(Agent::Codex.binary(), "codex");
         assert_eq!(Agent::Copilot.binary(), "copilot");
         assert_eq!(Agent::Gemini.binary(), "gemini");
+        assert_eq!(Agent::Grok.binary(), "grok");
         assert_eq!(Agent::Junie.binary(), "junie");
         assert_eq!(Agent::Xai.binary(), "copilot");
     }
@@ -907,9 +1006,11 @@ mod tests {
     #[test]
     fn agent_co_author_contains_name() {
         assert!(Agent::Claude.co_author().contains("Claude"));
+        assert!(Agent::Cline.co_author().contains("Cline"));
         assert!(Agent::Codex.co_author().contains("Codex"));
         assert!(Agent::Copilot.co_author().contains("Copilot"));
         assert!(Agent::Gemini.co_author().contains("Gemini"));
+        assert!(Agent::Grok.co_author().contains("Grok"));
         assert!(Agent::Junie.co_author().contains("Junie"));
         assert!(Agent::Xai.co_author().contains("xAI"));
     }
@@ -1125,6 +1226,7 @@ mod tests {
     fn config_serde_roundtrip() {
         let cfg = Config {
             agent: Agent::Claude,
+            model: String::new(),
             auto_mode: true,
             dry_run: false,
             local_inference: LocalInferenceConfig::default(),
@@ -1143,25 +1245,30 @@ mod tests {
     }
 
     #[test]
-    fn skill_paths_default_unprefixed_paths() {
+    fn skill_paths_default_points_to_app_data() {
         let p = SkillPaths::default();
-        assert_eq!(p.user_personas, ".agents/skills/user-personas/SKILL.md");
-        assert_eq!(p.issue_tracking, ".agents/skills/issue-tracking/SKILL.md");
+        assert!(p.user_personas.contains("freq-ai"));
+        assert!(p.user_personas.ends_with("skills/user-personas/SKILL.md"));
+        assert!(p.issue_tracking.ends_with("skills/issue-tracking/SKILL.md"));
     }
 
     #[test]
     fn skill_paths_file_merges_defaults() {
         let merged = SkillPathsFile {
-            user_personas: Some(".agents/skills/freq-cloud-user-personas/SKILL.md".into()),
+            user_personas: Some("/custom/skills/freq-cloud-user-personas/SKILL.md".into()),
             issue_tracking: None,
         }
         .into_skill_paths();
         assert_eq!(
             merged.user_personas,
-            ".agents/skills/freq-cloud-user-personas/SKILL.md"
+            "/custom/skills/freq-cloud-user-personas/SKILL.md"
         );
         // Falls back to default for the field that wasn't overridden.
-        assert_eq!(merged.issue_tracking, ".agents/skills/issue-tracking/SKILL.md");
+        assert!(
+            merged
+                .issue_tracking
+                .ends_with("skills/issue-tracking/SKILL.md")
+        );
     }
 
     #[test]
@@ -1200,6 +1307,7 @@ mod tests {
         // deserializes back with bot_credentials = None.
         let cfg = Config {
             agent: Agent::Claude,
+            model: String::new(),
             auto_mode: false,
             dry_run: false,
             local_inference: LocalInferenceConfig::default(),
@@ -1228,6 +1336,7 @@ mod tests {
     fn config_debug_redacts_bot_credentials_token() {
         let cfg = Config {
             agent: Agent::Claude,
+            model: String::new(),
             auto_mode: false,
             dry_run: false,
             local_inference: LocalInferenceConfig::default(),
@@ -1256,6 +1365,7 @@ mod tests {
     fn config_debug_redacts_bot_credentials_github_app() {
         let cfg = Config {
             agent: Agent::Claude,
+            model: String::new(),
             auto_mode: false,
             dry_run: false,
             local_inference: LocalInferenceConfig::default(),
@@ -1269,12 +1379,15 @@ mod tests {
             bot_credentials: Some(BotCredentials::GitHubApp {
                 app_id: "12345".into(),
                 installation_id: "67890".into(),
-                private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\nsecret\n-----END RSA PRIVATE KEY-----".into(),
+                private_key_pem:
+                    "-----BEGIN RSA PRIVATE KEY-----\nsecret\n-----END RSA PRIVATE KEY-----".into(),
             }),
         };
         let dbg = format!("{cfg:?}");
         assert!(
-            !dbg.contains("12345") && !dbg.contains("67890") && !dbg.contains("BEGIN RSA PRIVATE KEY"),
+            !dbg.contains("12345")
+                && !dbg.contains("67890")
+                && !dbg.contains("BEGIN RSA PRIVATE KEY"),
             "GitHub App credentials leaked into Debug output: {dbg}"
         );
         assert!(
@@ -1293,7 +1406,9 @@ mod tests {
         let app = BotCredentials::GitHubApp {
             app_id: "appid42".into(),
             installation_id: "instid99".into(),
-            private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\nsuper-secret\n-----END RSA PRIVATE KEY-----".into(),
+            private_key_pem:
+                "-----BEGIN RSA PRIVATE KEY-----\nsuper-secret\n-----END RSA PRIVATE KEY-----"
+                    .into(),
         };
         let dbg = format!("{app:?}");
         assert!(!dbg.contains("appid42"));
@@ -1306,6 +1421,7 @@ mod tests {
     fn config_serde_skips_bot_credentials_github_app() {
         let cfg = Config {
             agent: Agent::Claude,
+            model: String::new(),
             auto_mode: false,
             dry_run: false,
             local_inference: LocalInferenceConfig::default(),
@@ -1319,7 +1435,8 @@ mod tests {
             bot_credentials: Some(BotCredentials::GitHubApp {
                 app_id: "12345".into(),
                 installation_id: "67890".into(),
-                private_key_pem: "-----BEGIN RSA PRIVATE KEY-----\nsecret\n-----END RSA PRIVATE KEY-----".into(),
+                private_key_pem:
+                    "-----BEGIN RSA PRIVATE KEY-----\nsecret\n-----END RSA PRIVATE KEY-----".into(),
             }),
         };
         let json = serde_json::to_string(&cfg).unwrap();
@@ -1338,7 +1455,10 @@ mod tests {
             token: "github_pat_123".into(),
             ..BotSettings::default()
         };
-        assert!(matches!(settings.to_credentials(), Some(BotCredentials::Token(_))));
+        assert!(matches!(
+            settings.to_credentials(),
+            Some(BotCredentials::Token(_))
+        ));
 
         settings.token.clear();
         assert!(settings.to_credentials().is_none());
@@ -1346,7 +1466,8 @@ mod tests {
         settings.mode = BotAuthMode::GitHubApp;
         settings.app_id = "123".into();
         settings.installation_id = "456".into();
-        settings.private_key_pem = "-----BEGIN RSA PRIVATE KEY-----\nsecret\n-----END RSA PRIVATE KEY-----".into();
+        settings.private_key_pem =
+            "-----BEGIN RSA PRIVATE KEY-----\nsecret\n-----END RSA PRIVATE KEY-----".into();
         assert!(matches!(
             settings.to_credentials(),
             Some(BotCredentials::GitHubApp { .. })
@@ -1358,6 +1479,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let cfg = Config {
             agent: Agent::Claude,
+            model: String::new(),
             auto_mode: false,
             dry_run: false,
             local_inference: LocalInferenceConfig {

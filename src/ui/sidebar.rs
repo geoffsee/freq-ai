@@ -160,15 +160,46 @@ pub fn Sidebar(
                             value: "{config.read().agent}",
                             onchange: move |evt| {
                                 if let Ok(agent) = evt.value().parse::<Agent>() {
-                                    config.write().agent = agent;
+                                    let root = config.read().root.clone();
+                                    let dev_cfg = crate::agent::types::load_dev_config(&root);
+                                    let persisted_model = dev_cfg.agent_models
+                                        .get(&agent.to_string())
+                                        .cloned()
+                                        .unwrap_or_default();
+                                    let mut cfg = config.write();
+                                    cfg.agent = agent;
+                                    cfg.model = persisted_model;
                                 }
                             },
                             option { value: "claude", "Claude" }
+                            option { value: "cline", "Cline" }
                             option { value: "codex", "Codex" }
                             option { value: "copilot", "Copilot" }
                             option { value: "gemini", "Gemini" }
+                            option { value: "grok", "Grok" }
                             option { value: "junie", "Junie" }
                             option { value: "xai", "xAI" }
+                        }
+                    }
+                    if !config.read().agent.available_models().is_empty() {
+                        label { class: "control-row",
+                            span { class: "control-label", "Model" }
+                            select {
+                                class: "select",
+                                value: "{config.read().model}",
+                                onchange: move |evt| {
+                                    let val = evt.value();
+                                    config.write().model = if val == "__default__" {
+                                        String::new()
+                                    } else {
+                                        val
+                                    };
+                                },
+                                option { value: "__default__", "Default" }
+                                for &(id, label) in config.read().agent.available_models().iter() {
+                                    option { value: "{id}", "{label}" }
+                                }
+                            }
                         }
                     }
                     label { class: "checkbox-row",

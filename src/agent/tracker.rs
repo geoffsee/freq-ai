@@ -474,7 +474,7 @@ reference — avoid re-reading files that are already included below.
 {codebase}
 
 ## Instructions
-- Read AGENTS.md and the relevant .agents/skills/ for project conventions before starting.
+- Read AGENTS.md and the relevant skills/ for project conventions before starting.
 - Implement the changes described above.
 - Run ./scripts/test-examples.sh to verify nothing is broken.
 - Keep idle memory under 10MB — no unnecessary allocations.
@@ -1018,7 +1018,7 @@ pub fn build_pr_review_fix_prompt(
     format!(
         r#"You are addressing review comments on pull request #{pr_num} for the {project_name} project.
 
-Read AGENTS.md and .agents/skills/ for project conventions and coding standards.
+Read AGENTS.md and skills/ for project conventions and coding standards.
 
 ## Working directory
 
@@ -1058,7 +1058,7 @@ pub fn build_sprint_planning_draft_prompt(
     format!(
         r#"You are a sprint planning assistant for the {project_name} project.
 
-Read AGENTS.md and .agents/skills/ for project conventions.
+Read AGENTS.md and skills/ for project conventions.
 
 ## Current State
 
@@ -1115,7 +1115,7 @@ pub fn build_sprint_planning_finalize_prompt(
     format!(
         r#"You are a sprint planning assistant for the {project_name} project.
 
-Read AGENTS.md and .agents/skills/ for project conventions.
+Read AGENTS.md and skills/ for project conventions.
 
 ## Current State
 
@@ -1269,7 +1269,7 @@ issues so they link back via `Depends On #<synthesis>`.
 multi-perspective analysis, role-playing the viewpoints that typically drive a product
 forward, then synthesise a unified recommendation.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -1344,7 +1344,7 @@ The single strategic-review issue body MUST include
     format!(
         r#"You are a strategic review board for the {project_name} project.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -1466,7 +1466,7 @@ open `strategic-review` GitHub issue). Use it as the primary input for the Roadm
         r#"You are the Roadmapper for the {project_name} project. Your goal is to transform strategic
 intent into a structured, long-term roadmap.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -1534,7 +1534,7 @@ pub fn build_roadmapper_finalize_prompt(
     format!(
         r#"You are the Roadmapper for the {project_name} project.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -1612,7 +1612,7 @@ pub fn build_ideation_draft_prompt(
 a wide, varied set of raw ideas — not to evaluate, prioritise, or structure them.
 Aim for quantity and variety over quality.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -1679,7 +1679,7 @@ pub fn build_ideation_finalize_prompt(
     format!(
         r#"You are an ideation partner for the freq-cloud project.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -1810,7 +1810,7 @@ your filtering rationale in the Executive Summary or Recommended Next Actions.
         r#"You are a project analyst for the {project_name} project. Produce a concise
 **Strategic Report** summarising current state, progress, and recommended next actions.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -1909,7 +1909,7 @@ which were kept and which were filtered out, and why.
     format!(
         r#"You are a project analyst for the {project_name} project.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -2006,7 +2006,7 @@ pub fn build_retrospective_draft_prompt(
     format!(
         r#"You are a sprint retrospective facilitator for the {project_name} project.
 
-Read AGENTS.md and .agents/skills/ for project conventions.
+Read AGENTS.md and skills/ for project conventions.
 
 ## What Happened This Cycle
 
@@ -2090,7 +2090,7 @@ pub fn build_retrospective_finalize_prompt(
     format!(
         r#"You are a sprint retrospective facilitator for the {project_name} project.
 
-Read AGENTS.md and .agents/skills/ for project conventions.
+Read AGENTS.md and skills/ for project conventions.
 
 ## What Happened This Cycle
 
@@ -2189,7 +2189,7 @@ pub fn build_code_review_prompt(
     format!(
         r#"You are a code reviewer for the {project_name} project.
 
-Read AGENTS.md and .agents/skills/ for project conventions and coding standards.
+Read AGENTS.md and skills/ for project conventions and coding standards.
 
 ## Pull Request #{pr_num}: {title}
 
@@ -2206,7 +2206,7 @@ Read AGENTS.md and .agents/skills/ for project conventions and coding standards.
 1. **Correctness** — Does the code do what the PR claims? Logic errors?
 2. **Security** — OWASP top 10, unsafe code, command injection, path traversal.
 3. **Performance** — Unnecessary allocations, blocking in async, O(n²) where O(n) is possible.
-4. **Style** — Consistency with project conventions in .agents/skills/.
+4. **Style** — Consistency with project conventions in skills/.
 5. **Tests** — Adequately tested? Edge cases covered?
 6. **Memory** — Idle memory under 10MB — flag any unnecessary allocations.
 
@@ -2289,7 +2289,7 @@ pub fn build_security_review_prompt(
 ) -> String {
     let snapshot_section = if snapshot.is_empty() {
         "Read the codebase directly using the tools available to you. Start with AGENTS.md, \
-         .agents/skills/, then systematically review each crate under crates/."
+         skills/, then systematically review each crate under crates/."
             .to_string()
     } else {
         format!(
@@ -2303,7 +2303,7 @@ pub fn build_security_review_prompt(
         r#"You are a security auditor performing a comprehensive security-focused code review
 of the {project_name} project.
 
-Read AGENTS.md and .agents/skills/ for full project context and coding standards.
+Read AGENTS.md and skills/ for full project context and coding standards.
 
 ## Project Crates
 ```
@@ -2557,8 +2557,8 @@ Read the listed files and compare each claim against the current repository stat
 You may edit ONLY the following existing project documentation files:
 {file_list}
 
-Do NOT edit source code, tests, Cargo manifests, agent-facing files (AGENTS.md, .agents/skills/**,
-CLAUDE.md, GEMINI.md, COPILOT.md, JUNIE.md, XAI.md), or any other non-documentation files.
+Do NOT edit source code, tests, Cargo manifests, agent-facing files (AGENTS.md, skills/**,
+CLAUDE.md, CLINE.md, GEMINI.md, COPILOT.md, GROK.md, JUNIE.md, XAI.md), or any other non-documentation files.
 
 ## Refresh Objective
 
@@ -2663,7 +2663,7 @@ pub fn build_housekeeping_draft_prompt(
         r#"You are a housekeeping agent for the freq-cloud project. Your job is to audit
 the project for orphaned, stale, and drifted artifacts and produce a structured report.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -2792,7 +2792,7 @@ pub fn build_housekeeping_finalize_prompt(
     format!(
         r#"You are a housekeeping agent for the freq-cloud project.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -2897,7 +2897,7 @@ pub fn build_interview_draft_prompt(
 a structured discovery interview with the project maintainer to surface the gap
 between what currently exists and what the user intends.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -2968,7 +2968,7 @@ pub fn build_interview_followup_prompt(
         r#"You are an interview facilitator for a software project, conducting round {round}
 of a structured discovery interview.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -3038,7 +3038,7 @@ pub fn build_interview_summary_prompt(
         r#"You are an interview facilitator for a software project. You have completed a
 multi-round discovery interview. Now generate the structured summary.
 
-Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
 {context}
 
@@ -3928,7 +3928,15 @@ mod tests {
     fn report_draft_is_draft_not_final() {
         let sp = crate::agent::types::SkillPaths::default();
         let p = build_report_draft_prompt(
-            "test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "", &sp,
+            "test-project",
+            "[i]",
+            "[p]",
+            "[c]",
+            "[s]",
+            "[m]",
+            "[t]",
+            "",
+            &sp,
         );
         assert!(p.contains("DRAFT"));
         assert!(p.contains("Executive Summary"));
@@ -3958,7 +3966,15 @@ mod tests {
     fn report_draft_includes_persona_lens() {
         let sp = crate::agent::types::SkillPaths::default();
         let p = build_report_draft_prompt(
-            "test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "", &sp,
+            "test-project",
+            "[i]",
+            "[p]",
+            "[c]",
+            "[s]",
+            "[m]",
+            "[t]",
+            "",
+            &sp,
         );
         assert!(p.contains(&sp.user_personas));
         assert!(p.contains("Synthesis Lens"));
@@ -3976,21 +3992,37 @@ mod tests {
         // can override the user-personas skill path and have it propagate into
         // the prompt verbatim — drop-in support for prefixed skill layouts.
         let sp = crate::agent::types::SkillPaths {
-            user_personas: ".agents/skills/freq-cloud-user-personas/SKILL.md".into(),
-            issue_tracking: ".agents/skills/freq-cloud-issue-tracking/SKILL.md".into(),
+            user_personas: "/custom/skills/freq-cloud-user-personas/SKILL.md".into(),
+            issue_tracking: "/custom/skills/freq-cloud-issue-tracking/SKILL.md".into(),
         };
         let p = build_report_draft_prompt(
-            "test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "", &sp,
+            "test-project",
+            "[i]",
+            "[p]",
+            "[c]",
+            "[s]",
+            "[m]",
+            "[t]",
+            "",
+            &sp,
         );
-        assert!(p.contains(".agents/skills/freq-cloud-user-personas/SKILL.md"));
-        assert!(!p.contains(".agents/skills/user-personas/SKILL.md"));
+        assert!(p.contains("/custom/skills/freq-cloud-user-personas/SKILL.md"));
+        assert!(!p.contains("user-personas/SKILL.md\n"));
     }
 
     #[test]
     fn report_draft_omits_ideation_when_empty() {
         let sp = crate::agent::types::SkillPaths::default();
         let p = build_report_draft_prompt(
-            "test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "", &sp,
+            "test-project",
+            "[i]",
+            "[p]",
+            "[c]",
+            "[s]",
+            "[m]",
+            "[t]",
+            "",
+            &sp,
         );
         assert!(!p.contains("Prior Ideation"));
     }
@@ -4655,12 +4687,12 @@ mod tests {
             "test-project",
             &[
                 "AGENTS.md".to_string(),
-                ".agents/skills/testing/SKILL.md".to_string(),
+                "skills/testing/SKILL.md".to_string(),
             ],
         );
         assert!(prompt.contains("test-project"));
         assert!(prompt.contains("AGENTS.md"));
-        assert!(prompt.contains(".agents/skills/testing/SKILL.md"));
+        assert!(prompt.contains("skills/testing/SKILL.md"));
         assert!(prompt.contains("Do NOT edit source code"));
         assert!(prompt.contains("REFRESH_AGENTS_SUMMARY_BEGIN"));
         assert!(prompt.contains("REFRESH_AGENTS_NO_CHANGES"));
