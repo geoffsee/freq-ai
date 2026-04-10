@@ -1,0 +1,23 @@
+name: IPM
+id: ipm
+description: Lock the committed XP iteration scope and sequencing
+pattern: two_phase
+context: sprint
+
+ui:
+  category: planning
+  order: 50
+  visible: true
+
+depends_on:
+  - pre_ipm
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting XP IPM draft..."
+    log_complete: "Draft complete — review the IPM commitment above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising XP IPM with feedback..."
+    log_complete: "IPM complete."

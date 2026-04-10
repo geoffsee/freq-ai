@@ -1,0 +1,23 @@
+name: Pre-IPM
+id: pre_ipm
+description: Prepare iteration stories for commitment by tightening scope, dependencies, and acceptance signals
+pattern: two_phase
+context: sprint
+
+ui:
+  category: planning
+  order: 40
+  visible: true
+
+depends_on:
+  - sprint_poker
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting XP pre-IPM draft..."
+    log_complete: "Draft complete — review the pre-IPM packet above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising XP pre-IPM with feedback..."
+    log_complete: "Pre-IPM complete."

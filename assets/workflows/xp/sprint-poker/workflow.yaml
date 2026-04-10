@@ -1,0 +1,23 @@
+name: Sprint Poker
+id: sprint_poker
+description: Estimate XP stories collaboratively and force splits on oversized work
+pattern: two_phase
+context: sprint
+
+ui:
+  category: planning
+  order: 30
+  visible: true
+
+depends_on:
+  - sprint_planning
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting XP sprint poker draft..."
+    log_complete: "Draft complete — review the estimates above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising XP sprint poker with feedback..."
+    log_complete: "Sprint poker complete."

@@ -131,5 +131,8 @@ fragments:                            # reusable text blocks, included via {{> n
 | `report-research` | discovery | two-phase |
 | `strategic-review` | planning | two-phase |
 | `sprint-planning` | planning | two-phase |
+| `sprint-poker` | planning | two-phase |
+| `pre-ipm` | planning | two-phase |
+| `ipm` | planning | two-phase |
 | `code-review` | review | one-shot |
 | `retrospective` | review | two-phase |

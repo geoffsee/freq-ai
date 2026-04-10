@@ -532,8 +532,11 @@ mod tests {
     fn xp_preset_loads_sidebar_entries() {
         let root = env!("CARGO_MANIFEST_DIR");
         let entries = load_sidebar_entries(root, "xp");
-        assert_eq!(entries.len(), 7);
+        assert_eq!(entries.len(), 10);
         assert!(entries.iter().any(|entry| entry.id == "sprint_planning"));
+        assert!(entries.iter().any(|entry| entry.id == "sprint_poker"));
+        assert!(entries.iter().any(|entry| entry.id == "pre_ipm"));
+        assert!(entries.iter().any(|entry| entry.id == "ipm"));
         assert!(entries.iter().any(|entry| entry.id == "report_research"));
         assert!(!entries.iter().any(|entry| entry.id == "roadmapper"));
         assert!(!entries.iter().any(|entry| entry.id == "housekeeping"));
