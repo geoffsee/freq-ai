@@ -153,11 +153,12 @@ pub enum Agent {
     Codex,
     Copilot,
     Gemini,
+    Junie,
 }
 
 impl clap::ValueEnum for Agent {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Claude, Self::Codex, Self::Copilot, Self::Gemini]
+        &[Self::Claude, Self::Codex, Self::Copilot, Self::Gemini, Self::Junie]
     }
 
     fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
@@ -166,6 +167,7 @@ impl clap::ValueEnum for Agent {
             Self::Codex => clap::builder::PossibleValue::new("codex"),
             Self::Copilot => clap::builder::PossibleValue::new("copilot"),
             Self::Gemini => clap::builder::PossibleValue::new("gemini"),
+            Self::Junie => clap::builder::PossibleValue::new("junie"),
         })
     }
 }
@@ -178,6 +180,7 @@ impl FromStr for Agent {
             "codex" => Ok(Agent::Codex),
             "copilot" => Ok(Agent::Copilot),
             "gemini" => Ok(Agent::Gemini),
+            "junie" => Ok(Agent::Junie),
             _ => Err(format!("Unknown agent: {}", s)),
         }
     }
@@ -190,6 +193,7 @@ impl fmt::Display for Agent {
             Agent::Codex => write!(f, "codex"),
             Agent::Copilot => write!(f, "copilot"),
             Agent::Gemini => write!(f, "gemini"),
+            Agent::Junie => write!(f, "junie"),
         }
     }
 }
@@ -201,6 +205,7 @@ impl Agent {
             Agent::Codex => "codex",
             Agent::Copilot => "copilot",
             Agent::Gemini => "gemini",
+            Agent::Junie => "junie",
         }
     }
 
@@ -210,6 +215,7 @@ impl Agent {
             Agent::Codex => "Co-Authored-By: Codex <noreply@openai.com>",
             Agent::Copilot => "Co-Authored-By: GitHub Copilot <noreply@github.com>",
             Agent::Gemini => "Co-Authored-By: Gemini <noreply@google.com>",
+            Agent::Junie => "Co-Authored-By: Junie <junie@jetbrains.com>",
         }
     }
 }
@@ -864,6 +870,7 @@ mod tests {
         assert_eq!("Codex".parse::<Agent>().unwrap(), Agent::Codex);
         assert_eq!("COPILOT".parse::<Agent>().unwrap(), Agent::Copilot);
         assert_eq!("Gemini".parse::<Agent>().unwrap(), Agent::Gemini);
+        assert_eq!("Junie".parse::<Agent>().unwrap(), Agent::Junie);
     }
 
     #[test]
@@ -874,7 +881,7 @@ mod tests {
 
     #[test]
     fn agent_display_roundtrip() {
-        for agent in [Agent::Claude, Agent::Codex, Agent::Copilot, Agent::Gemini] {
+        for agent in [Agent::Claude, Agent::Codex, Agent::Copilot, Agent::Gemini, Agent::Junie] {
             let s = agent.to_string();
             assert_eq!(s.parse::<Agent>().unwrap(), agent);
         }
@@ -886,6 +893,7 @@ mod tests {
         assert_eq!(Agent::Codex.binary(), "codex");
         assert_eq!(Agent::Copilot.binary(), "copilot");
         assert_eq!(Agent::Gemini.binary(), "gemini");
+        assert_eq!(Agent::Junie.binary(), "junie");
     }
 
     #[test]
@@ -894,6 +902,7 @@ mod tests {
         assert!(Agent::Codex.co_author().contains("Codex"));
         assert!(Agent::Copilot.co_author().contains("Copilot"));
         assert!(Agent::Gemini.co_author().contains("Gemini"));
+        assert!(Agent::Junie.co_author().contains("Junie"));
     }
 
     #[test]

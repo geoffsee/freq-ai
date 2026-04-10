@@ -167,6 +167,7 @@ pub fn Sidebar(
                             option { value: "codex", "Codex" }
                             option { value: "copilot", "Copilot" }
                             option { value: "gemini", "Gemini" }
+                            option { value: "junie", "Junie" }
                         }
                     }
                     label { class: "checkbox-row",

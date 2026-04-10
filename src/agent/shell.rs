@@ -435,7 +435,7 @@ fn local_inference_overrides(cfg: &Config) -> AgentLaunchOverrides {
                 .args
                 .extend(["-c".to_string(), format!("openai_base_url={base_url:?}")]);
         }
-        Agent::Copilot | Agent::Gemini => return AgentLaunchOverrides::default(),
+        Agent::Copilot | Agent::Gemini | Agent::Junie => return AgentLaunchOverrides::default(),
     }
 
     if !model.is_empty() {
@@ -495,7 +495,8 @@ fn run_claude_native_with_env(
         // Clear API keys so agents use the user's subscription instead of API credits.
         .env("ANTHROPIC_API_KEY", "")
         .env("OPENAI_API_KEY", "")
-        .env("GEMINI_API_KEY", "");
+        .env("GEMINI_API_KEY", "")
+        .env("JUNIE_API_KEY", "");
     if let Some(p) = cwd {
         cmd.current_dir(p);
     }
@@ -718,7 +719,8 @@ fn run_codex_native_with_env(
         // Clear API keys so agents use the user's subscription instead of API credits.
         .env("ANTHROPIC_API_KEY", "")
         .env("OPENAI_API_KEY", "")
-        .env("GEMINI_API_KEY", "");
+        .env("GEMINI_API_KEY", "")
+        .env("JUNIE_API_KEY", "");
     if let Some(p) = cwd {
         cmd.current_dir(p);
     }
@@ -851,6 +853,19 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
                 args.push("--yolo".to_string());
             }
             run_claude_native_with_env("gemini", &args, &merged_env, cwd)
+        }
+
+        Agent::Junie => {
+            let mut args = vec![
+                "-p".to_string(),
+                prompt.to_string(),
+                "--output-format".to_string(),
+                "stream-json".to_string(),
+            ];
+            if cfg.auto_mode {
+                args.push("--yolo".to_string());
+            }
+            run_claude_native_with_env("junie", &args, &merged_env, cwd)
         }
     };
 
@@ -1534,7 +1549,7 @@ pub fn run_security_code_review(cfg: &Config) {
 // ── Refresh Agents (one-shot) ──
 
 /// Enumerate agent-facing files: AGENTS.md, .agents/skills/*/SKILL.md,
-/// and optional vendor files (CLAUDE.md, GEMINI.md, COPILOT.md).
+/// and optional vendor files (CLAUDE.md, GEMINI.md, COPILOT.md, JUNIE.md).
 fn enumerate_agent_files(root: &str) -> Vec<String> {
     let root_path = Path::new(root);
     let mut files = BTreeSet::new();
@@ -1560,7 +1575,7 @@ fn enumerate_agent_files(root: &str) -> Vec<String> {
         }
     }
 
-    for name in &["CLAUDE.md", "GEMINI.md", "COPILOT.md"] {
+    for name in &["CLAUDE.md", "GEMINI.md", "COPILOT.md", "JUNIE.md"] {
         let p = root_path.join(name);
         if p.exists() {
             files.insert(name.to_string());
@@ -2679,6 +2694,15 @@ mod tests {
 
         assert_eq!(
             local_inference_overrides(&cfg),
+            AgentLaunchOverrides::default()
+        );
+
+        let mut cfg_junie = test_config(Agent::Junie);
+        cfg_junie.local_inference.advanced = true;
+        cfg_junie.local_inference.base_url = "http://localhost:11434/v1".into();
+
+        assert_eq!(
+            local_inference_overrides(&cfg_junie),
             AgentLaunchOverrides::default()
         );
     }

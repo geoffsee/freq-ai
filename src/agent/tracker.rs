@@ -2558,7 +2558,7 @@ You may edit ONLY the following existing project documentation files:
 {file_list}
 
 Do NOT edit source code, tests, Cargo manifests, agent-facing files (AGENTS.md, .agents/skills/**,
-CLAUDE.md, GEMINI.md, COPILOT.md), or any other non-documentation files.
+CLAUDE.md, GEMINI.md, COPILOT.md, JUNIE.md), or any other non-documentation files.
 
 ## Refresh Objective
 
