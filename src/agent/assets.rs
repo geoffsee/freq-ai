@@ -4,6 +4,10 @@ use std::path::PathBuf;
 pub const AGENTS_MD: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/AGENTS.md"));
 pub const LABELS_YML: &str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/labels.yml"));
+pub const AVAILABLE_MODELS_JSON: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/available-models.json"
+));
 
 #[derive(RustEmbed)]
 #[folder = "assets/skills/"]
