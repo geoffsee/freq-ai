@@ -68,6 +68,7 @@ body {
 /* ── Sidebar ── */
 .sidebar {
     width: 220px;
+    height: 100%;
     flex-shrink: 0;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border);
@@ -81,7 +82,8 @@ body {
     border-bottom: 1px solid var(--border);
 }
 .sidebar-section-grow {
-    flex: 1;
+    flex: 3;
+    min-height: 150px;
     border-bottom: none;
     overflow-y: auto;
 }
