@@ -133,6 +133,16 @@ pub fn cmd_run(program: &str, args: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
+/// Run a command in a specific directory, inheriting stdio. Returns success bool.
+pub fn cmd_run_in(program: &str, args: &[&str], dir: &Path) -> bool {
+    Command::new(program)
+        .args(args)
+        .current_dir(dir)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
 /// Run a command, capture combined stdout+stderr. Returns (success, output).
 pub fn cmd_capture(program: &str, args: &[&str]) -> (bool, String) {
     match Command::new(program)
@@ -2569,9 +2579,37 @@ fn do_pr_review_fix(cfg: &Config, pr_num: u32) {
         "fix: address review comments on PR #{pr_num}\n\n{}",
         cfg.agent.co_author()
     );
-    if !cmd_run("git", &["-C", &worktree_str, "commit", "-m", &commit_msg]) {
+    let mut committed = false;
+    for attempt in 1..=MAX_COMMIT_ATTEMPTS {
+        if stop_requested() {
+            log("Stop requested; skipping commit retries.");
+            return;
+        }
+        if cmd_run("git", &["-C", &worktree_str, "commit", "-m", &commit_msg]) {
+            committed = true;
+            break;
+        }
         log(&format!(
-            "ERROR: failed to commit Fix Comments changes for PR #{pr_num}"
+            "Commit attempt {attempt} failed for PR #{pr_num}, auto-fixing and retrying..."
+        ));
+        cmd_run_in("cargo", &["fmt", "--all"], &worktree_path);
+        cmd_run_in(
+            "cargo",
+            &[
+                "clippy",
+                "--workspace",
+                "--all-targets",
+                "--fix",
+                "--allow-dirty",
+                "--allow-staged",
+            ],
+            &worktree_path,
+        );
+        cmd_run("git", &["-C", &worktree_str, "add", "-A"]);
+    }
+    if !committed {
+        log(&format!(
+            "ERROR: failed to commit Fix Comments changes for PR #{pr_num} after {MAX_COMMIT_ATTEMPTS} attempts"
         ));
         return;
     }
