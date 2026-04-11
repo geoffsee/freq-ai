@@ -961,14 +961,21 @@ pub fn ClaudeEventRow(
                 }
             }
         },
-        ClaudeEvent::User { message } => rsx! {
-            div { class: "ev-user",
-                div { class: "label", "USER" }
-                for block in message.content {
-                    ContentBlockRow { block, expand_all, tool_names: tool_names.clone() }
+        ClaudeEvent::User { message } => {
+            let is_tool_result = message
+                .content
+                .iter()
+                .all(|b| matches!(b, ContentBlock::ToolResult { .. }));
+            let label = if is_tool_result { "TOOL" } else { "USER" };
+            rsx! {
+                div { class: "ev-user",
+                    div { class: "label", "{label}" }
+                    for block in message.content {
+                        ContentBlockRow { block, expand_all, tool_names: tool_names.clone() }
+                    }
                 }
             }
-        },
+        }
         ClaudeEvent::Result {
             status, summary, ..
         } => rsx! {
