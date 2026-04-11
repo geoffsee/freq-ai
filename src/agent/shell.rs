@@ -488,8 +488,11 @@ fn model_selection_overrides(cfg: &Config) -> AgentLaunchOverrides {
         Agent::Xai => {
             overrides.env.push(("COPILOT_MODEL".into(), model.into()));
         }
-        Agent::Cline | Agent::Copilot => {
-            // No model flag available.
+        Agent::Copilot => {
+            overrides.args.extend(["--model".into(), model.into()]);
+        }
+        Agent::Cline => {
+            // No runtime model flag; configured via `cline auth`.
         }
     }
 
@@ -2928,8 +2931,16 @@ mod tests {
     }
 
     #[test]
-    fn copilot_model_selection_is_noop() {
+    fn copilot_model_selection_passes_model_flag() {
         let mut cfg = test_config(Agent::Copilot);
+        cfg.model = "gpt-5.2".into();
+        let ov = model_selection_overrides(&cfg);
+        assert_eq!(ov.args, vec!["--model", "gpt-5.2"]);
+    }
+
+    #[test]
+    fn cline_model_selection_is_noop() {
+        let mut cfg = test_config(Agent::Cline);
         cfg.model = "anything".into();
         let ov = model_selection_overrides(&cfg);
         assert_eq!(ov, AgentLaunchOverrides::default());

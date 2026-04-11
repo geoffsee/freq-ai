@@ -269,27 +269,26 @@ impl Agent {
                 ("claude-opus-4-6", "Opus 4.6"),
                 ("claude-haiku-4-5-20251001", "Haiku 4.5"),
             ],
-            Agent::Cline => &[
-                ("claude-sonnet-4-6", "Claude Sonnet 4.6"),
-                ("claude-opus-4-6", "Claude Opus 4.6"),
-                ("gpt-4.1", "GPT-4.1"),
-                ("gemini-2.5-pro", "Gemini 2.5 Pro"),
-            ],
+            Agent::Cline => &[], // No runtime model flag
             Agent::Codex => &[
                 ("o3", "o3"),
                 ("o4-mini", "o4-mini"),
                 ("gpt-4.1", "GPT-4.1"),
                 ("gpt-4.1-mini", "GPT-4.1 Mini"),
             ],
-            Agent::Copilot => &[], // No model flag
+            Agent::Copilot => &[
+                ("gpt-5.2", "GPT-5.2"),
+                ("claude-sonnet-4-6", "Claude Sonnet 4.6"),
+                ("claude-opus-4-6", "Claude Opus 4.6"),
+            ],
             Agent::Gemini => &[
                 ("gemini-2.5-pro", "Gemini 2.5 Pro"),
                 ("gemini-2.5-flash", "Gemini 2.5 Flash"),
                 ("gemini-2.0-flash", "Gemini 2.0 Flash"),
             ],
             Agent::Grok => &[
+                ("grok-4-latest", "Grok 4"),
                 ("grok-4-1-fast-reasoning", "Grok 4.1 Fast"),
-                ("grok-4-0709", "Grok 4"),
                 ("grok-code-fast-1", "Grok Code Fast"),
                 ("grok-3", "Grok 3"),
             ],
