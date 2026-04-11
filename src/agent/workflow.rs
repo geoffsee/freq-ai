@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::agent::assets::assets_dir;
 use crate::agent::shell::{cmd_stdout, log};
 use crate::agent::tracker::list_open_prs;
 use crate::agent::types::Config;
@@ -140,6 +141,10 @@ fn default_true() -> bool {
     true
 }
 
+fn materialized_workflows_dir() -> PathBuf {
+    assets_dir().join("workflows")
+}
+
 fn bundled_workflows_dir(root: &str) -> PathBuf {
     Path::new(root).join("assets/workflows")
 }
@@ -148,12 +153,17 @@ fn local_workflows_dir(root: &str) -> PathBuf {
     Path::new(root).join(".agents/workflows")
 }
 
-fn preset_dir_roots(root: &str) -> [PathBuf; 2] {
-    [bundled_workflows_dir(root), local_workflows_dir(root)]
+fn preset_dir_roots(root: &str) -> Vec<PathBuf> {
+    vec![
+        materialized_workflows_dir(),
+        bundled_workflows_dir(root),
+        local_workflows_dir(root),
+    ]
 }
 
-fn preset_dirs(root: &str, preset: &str) -> [PathBuf; 2] {
-    [
+fn preset_dirs(root: &str, preset: &str) -> Vec<PathBuf> {
+    vec![
+        materialized_workflows_dir().join(preset),
         bundled_workflows_dir(root).join(preset),
         local_workflows_dir(root).join(preset),
     ]
@@ -228,7 +238,11 @@ pub fn load_workflows(root: &str, preset: &str) -> HashMap<String, WorkflowConfi
 
 /// Read a prompt template file from a workflow directory within a preset.
 pub fn load_template(root: &str, preset: &str, workflow_dir: &str, filename: &str) -> String {
-    for base in [local_workflows_dir(root), bundled_workflows_dir(root)] {
+    for base in [
+        local_workflows_dir(root),
+        bundled_workflows_dir(root),
+        materialized_workflows_dir(),
+    ] {
         let path = base.join(preset).join(workflow_dir).join(filename);
         if let Ok(content) = std::fs::read_to_string(&path) {
             return content;
@@ -566,9 +580,10 @@ context: none
 "#,
         );
 
-        assert_eq!(
-            list_presets(root.path().to_str().unwrap()),
-            vec!["custom".to_string()]
+        let presets = list_presets(root.path().to_str().unwrap());
+        assert!(
+            presets.contains(&"custom".to_string()),
+            "project-local preset 'custom' should be included: {presets:?}"
         );
     }
 

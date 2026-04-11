@@ -9,6 +9,10 @@ pub const LABELS_YML: &str =
 #[folder = "assets/skills/"]
 pub struct SkillAssets;
 
+#[derive(RustEmbed)]
+#[folder = "assets/workflows/"]
+pub struct WorkflowAssets;
+
 /// Return the stable app-data directory for materialized assets
 /// (`~/.local/share/freq-ai`). Created on first call if missing.
 pub fn assets_dir() -> PathBuf {
@@ -37,6 +41,17 @@ pub fn materialize_assets() -> PathBuf {
             let _ = std::fs::create_dir_all(parent);
         }
         if let Some(embedded) = SkillAssets::get(file.as_ref()) {
+            let _ = std::fs::write(&path, embedded.data);
+        }
+    }
+
+    // 3. Workflows
+    for file in WorkflowAssets::iter() {
+        let path = dir.join("workflows").join(file.as_ref());
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Some(embedded) = WorkflowAssets::get(file.as_ref()) {
             let _ = std::fs::write(&path, embedded.data);
         }
     }
