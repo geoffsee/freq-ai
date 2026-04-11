@@ -1,0 +1,27 @@
+name: Research-Informed Ideation
+id: ideation
+description: Generate ideas grounded in deep research findings across multiple dimensions
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 10
+  visible: true
+
+depends_on:
+  - deep_research
+
+extra_context:
+  - name: research_findings
+    label: deep-research
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting research-informed ideation draft..."
+    log_complete: "Draft complete — review the ideas above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising ideation with feedback..."
+    log_complete: "Ideation complete."

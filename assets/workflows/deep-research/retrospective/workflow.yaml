@@ -1,0 +1,22 @@
+name: Retrospective
+id: retrospective
+description: Sprint retrospective facilitation and action item generation
+pattern: two_phase
+context: retro
+
+ui:
+  category: review
+  order: 60
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting retrospective draft..."
+    log_complete: "Draft complete — review the retrospective above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising retrospective with feedback..."
+    log_complete: "Retrospective complete."

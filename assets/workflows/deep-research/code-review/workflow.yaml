@@ -1,0 +1,15 @@
+name: Code Review
+id: code_review
+description: Automated PR code review using bot credentials
+pattern: one_shot
+context: none
+runner: code_review
+
+ui:
+  category: review
+  order: 10
+  visible: true
+  requires_bot: true
+
+depends_on: []
+phases: {}

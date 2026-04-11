@@ -508,7 +508,11 @@ mod tests {
         let root = env!("CARGO_MANIFEST_DIR");
         assert_eq!(
             list_presets(root),
-            vec!["default".to_string(), "xp".to_string()]
+            vec![
+                "default".to_string(),
+                "deep-research".to_string(),
+                "xp".to_string(),
+            ]
         );
     }
 

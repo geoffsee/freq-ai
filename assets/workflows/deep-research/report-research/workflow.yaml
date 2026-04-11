@@ -1,0 +1,29 @@
+name: UXR Synth
+id: report_research
+description: Strategic project report with persona-lens synthesis informed by deep research
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 20
+  visible: true
+
+depends_on:
+  - ideation
+
+extra_context:
+  - name: ideation
+    label: ideation
+  - name: research_findings
+    label: deep-research
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Generating report draft..."
+    log_complete: "Draft complete — review the report above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising report with feedback..."
+    log_complete: "Report complete."

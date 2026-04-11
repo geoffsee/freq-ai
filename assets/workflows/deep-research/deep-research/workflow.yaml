@@ -1,0 +1,170 @@
+name: Deep Research
+id: deep_research
+description: Comprehensive multi-dimensional research with source gathering and synthesis
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 5
+  visible: true
+
+depends_on: []
+
+extra_context:
+  - name: prior_ideation
+    label: ideation
+  - name: prior_research
+    label: deep-research
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting deep research..."
+    log_complete: "Research draft complete — review findings and provide direction."
+  finalize:
+    template: finalize.md
+    log_start: "Synthesizing research with feedback..."
+    log_complete: "Deep research complete."
+
+fragments:
+  research_dimensions: |
+    ## Research Dimensions
+
+    Investigate each dimension below. For every finding: state the evidence, grade
+    signal strength (Strong / Moderate / Weak / Absent), cite the source type
+    (primary data, secondary source, structural analysis, stakeholder signal,
+    domain inference, analogy), and flag contradictions with other dimensions.
+
+    Adapt each dimension to the subject under investigation. If the subject is a
+    software project, draw on code, commits, and issues. If it is a market, draw
+    on publicly available data, trends, and competitive signals. If it is an
+    organisation, draw on structure, process, and culture. The dimensions are
+    lenses, not checklists — use judgment about which sub-questions are relevant.
+
+    ### 1. Structural Landscape
+    - What is the current shape of the system / organisation / domain? Where are
+      the load-bearing elements — the parts everything else depends on?
+    - Which past decisions are still reversible vs. calcified into the structure?
+    - Where is accidental complexity hiding? Where is essential complexity being
+      ignored or misunderstood?
+    - What would break first under 10x growth? 100x? What would break under
+      contraction?
+    - Which dependencies (people, tools, vendors, assumptions) are liabilities?
+      Which are under-exploited assets?
+    - What latent capabilities exist that nothing is using yet?
+    - Identify the "invisible infrastructure" — things that work so well nobody
+      notices them, and therefore nobody maintains or protects them.
+
+    ### 2. Landscape & Positioning
+    - What problem space does the subject occupy? How is that space shifting?
+    - Who else operates in adjacent or overlapping space? What are they betting on?
+    - What signals (adoption, activity, sentiment, funding, regulatory attention)
+      indicate where the space is heading?
+    - Where is there whitespace — unserved needs that the subject could address
+      with minimal pivoting?
+    - What positioning is the subject implicitly taking through its actions and
+      design choices? Is implicit positioning aligned with explicit intent?
+    - What would someone who chose an alternative say about why they left?
+
+    ### 3. Stakeholder & Persona Analysis
+    - Who are the key stakeholders, users, or audiences? (Load
+      `{{user_personas_skill_path}}` if a persona definition exists.)
+    - For each stakeholder group: what evidence suggests their needs are being
+      served or neglected?
+    - Which group would disengage first? Which would be the strongest advocate?
+    - Are there phantom stakeholders — assumed audiences who have left no trace
+      in the evidence?
+    - What is the "aha moment" for each group? Is the path to it getting shorter
+      or longer?
+    - Map the emotional journey: where does the stakeholder feel empowered? Where
+      confused? Where anxious?
+
+    ### 4. Competitive & Ecosystem Intelligence
+    - What alternatives exist (direct competitors, substitutes, DIY approaches)?
+      Where do they outperform?
+    - What ecosystem shifts (technology, regulation, culture, economics) could make
+      the subject more or less relevant in 6-12 months?
+    - Which alliances, integrations, or partnerships would create disproportionate
+      leverage?
+    - What can be learned from competitors' or peers' failure modes?
+    - Which standards, norms, or protocols is the subject aligned with? Misaligned
+      with?
+    - Where are competitors investing that the subject is ignoring, and vice versa?
+
+    ### 5. Quality, Risk & Resilience
+    - Where does the subject demonstrate robustness? Where is it fragile?
+    - What failure modes are untested and undiscussed?
+    - How does the subject handle the "unhappy path" — reversals, exceptions,
+      partial failures, ambiguous inputs, edge cases?
+    - What risks would an adversarial audit surface that a friendly review would
+      miss?
+    - Where is visibility strong? Where would a problem be invisible until it
+      becomes a crisis?
+    - What is the blast radius of the most likely failure? The worst-case failure?
+    - What is the recovery path from each?
+
+    ### 6. Experience & Onboarding
+    - What is the journey from first contact to productive engagement? How many
+      steps? How much friction?
+    - Where do newcomers get stuck? What evidence exists of abandonment points?
+    - What tribal knowledge is required that isn't documented or surfaced?
+    - Where do the interfaces (UI, API, documentation, processes) mislead or
+      under-inform?
+    - What is the "time to first value" for each stakeholder group?
+    - Where does the documentation describe what the subject IS vs. what it DOES?
+      Which framing is more useful?
+
+    ### 7. Strategic Optionality
+    - What options is the subject creating by its current trajectory?
+    - What options is it foreclosing?
+    - Which cheap experiments (minimal effort) would generate the most information?
+    - What is the "adjacent possible" — capabilities or directions one step away
+      that no one has articulated?
+    - If the subject had to pivot tomorrow, what would survive and what would be
+      stranded?
+    - What is the "escape velocity" requirement — the minimum that makes the
+      subject self-sustaining?
+
+  cross_cutting_analysis: |
+    ## Cross-Cutting Analysis
+
+    After completing all dimensions, perform these meta-analyses:
+
+    ### Contradiction Map
+    Identify where findings from different dimensions conflict. For each
+    contradiction:
+    - State the conflict clearly
+    - Identify which dimension's evidence is stronger
+    - Assess whether the contradiction reveals a genuine tension to manage
+      or a misalignment to resolve
+
+    ### Signal Convergence
+    Where do multiple dimensions point to the same conclusion? These convergence
+    points are your highest-confidence findings. List them with supporting
+    dimensions.
+
+    ### Blind Spots & Unknown Unknowns
+    - What questions did you want to answer but couldn't with available evidence?
+    - What assumptions are you making that you can't verify?
+    - Where is the subject "not even wrong" — operating on premises that haven't
+      been examined?
+    - What would a hostile critic say about these findings?
+
+    ### Temporal Dynamics
+    For the top 5 findings, assess trajectory:
+    - **Momentum**: Is this getting better or worse over time?
+    - **Urgency**: Is there a window of opportunity closing?
+    - **Inertia**: How hard would it be to change course?
+
+    ### The Adversarial Read
+    Argue against your own three strongest conclusions. For each:
+    - State the strongest counter-argument
+    - Identify what evidence would change your mind
+    - Assess your confidence after steelmanning the opposition
+
+    ### Adjacent Possible
+    List 3-5 capabilities or directions that are exactly one step away from the
+    current state — things nobody has asked for but the groundwork almost supports.
+    For each, estimate the gap (trivial / small / medium) and the potential impact
+    (incremental / significant / transformative).
