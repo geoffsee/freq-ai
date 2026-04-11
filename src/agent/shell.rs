@@ -1129,12 +1129,17 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     };
 
     if cfg.dry_run {
-        let codebase = if env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
-            log("Skipping toak snapshot (DISABLE_TOAK=1)");
-            String::new()
-        } else {
-            generate_codebase_snapshot(&cfg.root)
-        };
+        let codebase =
+            if !cfg.bootstrap_snapshot || env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
+                if !cfg.bootstrap_snapshot {
+                    log("Skipping bootstrap snapshot (disabled in config)");
+                } else {
+                    log("Skipping bootstrap snapshot (DISABLE_TOAK=1)");
+                }
+                String::new()
+            } else {
+                generate_codebase_snapshot(&cfg.root)
+            };
         let prompt = build_prompt(
             &cfg.project_name,
             issue_num,
@@ -1169,8 +1174,12 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     cmd_run("git", &["checkout", "-b", &branch]);
 
     let codebase = timed!("snapshot", {
-        if env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
-            log("Skipping toak snapshot (DISABLE_TOAK=1)");
+        if !cfg.bootstrap_snapshot || env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
+            if !cfg.bootstrap_snapshot {
+                log("Skipping bootstrap snapshot (disabled in config)");
+            } else {
+                log("Skipping bootstrap snapshot (DISABLE_TOAK=1)");
+            }
             String::new()
         } else {
             generate_codebase_snapshot(&cfg.root)
@@ -1662,8 +1671,12 @@ pub fn run_security_code_review(cfg: &Config) {
 
     let crate_tree = cmd_stdout("ls", &["-1", &format!("{}/crates", cfg.root)]).unwrap_or_default();
 
-    let codebase = if env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
-        log("Skipping toak snapshot (DISABLE_TOAK=1)");
+    let codebase = if !cfg.bootstrap_snapshot || env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
+        if !cfg.bootstrap_snapshot {
+            log("Skipping bootstrap snapshot (disabled in config)");
+        } else {
+            log("Skipping bootstrap snapshot (DISABLE_TOAK=1)");
+        }
         String::new()
     } else {
         generate_codebase_snapshot(&cfg.root)
@@ -2635,6 +2648,7 @@ pub fn parse_args() -> Config {
     let scan_targets = dev_cfg.security_scan.into_scan_targets();
     let skill_paths = dev_cfg.skills.into_skill_paths();
     let bootstrap_agent_files = dev_cfg.bootstrap_agent_files.unwrap_or(true);
+    let bootstrap_snapshot = dev_cfg.bootstrap_snapshot.unwrap_or(true);
 
     Config {
         agent: Agent::Claude, // Default, will be overridden by CLI
@@ -2647,6 +2661,7 @@ pub fn parse_args() -> Config {
         scan_targets,
         skill_paths,
         bootstrap_agent_files,
+        bootstrap_snapshot,
         workflow_preset: dev_cfg
             .workflow_preset
             .unwrap_or_else(|| "default".to_string()),
@@ -2673,6 +2688,7 @@ mod tests {
             scan_targets: ScanTargets::default(),
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
+            bootstrap_snapshot: true,
             workflow_preset: "default".to_string(),
             bot_settings: Default::default(),
             bot_credentials: None,

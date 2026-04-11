@@ -225,6 +225,16 @@ pub fn Sidebar(
                     label { class: "checkbox-row",
                         input {
                             r#type: "checkbox",
+                            checked: config.read().bootstrap_snapshot,
+                            onchange: move |evt| {
+                                config.write().bootstrap_snapshot = evt.value().parse::<bool>().unwrap_or(false);
+                            },
+                        }
+                        span { "Bootstrap Snapshot" }
+                    }
+                    label { class: "checkbox-row",
+                        input {
+                            r#type: "checkbox",
                             checked: advanced_open,
                             onchange: move |evt| {
                                 config.write().local_inference.advanced = evt.value().parse::<bool>().unwrap_or(false);
