@@ -1,0 +1,46 @@
+name: Roadmapper
+id: roadmapper
+description: Transform strategic intent into a structured long-term product roadmap
+pattern: two_phase
+context: strategic
+
+ui:
+  category: planning
+  order: 40
+  visible: true
+
+depends_on:
+  - strategic_review
+
+extra_context:
+  - name: strategic_review
+    label: strategic-review
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting roadmapper draft..."
+    log_complete: "Draft complete — review the roadmap above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising roadmap with feedback..."
+    log_complete: "Roadmap complete — issue filed."
+
+fragments:
+  roadmap_phases: |
+    ## Create a long-term Product Roadmap based on the Strategic Review:
+
+    ### Phase 1: Foundation (Next 1-2 Sprints)
+    - What critical blockers, user-facing bugs, or reliability issues must be addressed first?
+    - Which core features need stabilization before further expansion?
+    - What quick wins would demonstrate momentum to stakeholders?
+
+    ### Phase 2: Expansion (Next 2-4 Sprints)
+    - What primary capabilities will unlock new user segments or use cases?
+    - Which competitive gaps should be closed to protect market position?
+    - What integrations or partnerships would accelerate adoption?
+
+    ### Phase 3: Ecosystem (Future)
+    - How will {{project_name}} evolve its market positioning?
+    - What are the long-term extensibility, scalability, and sustainability goals?
+    - What platform or ecosystem plays would create defensible differentiation?

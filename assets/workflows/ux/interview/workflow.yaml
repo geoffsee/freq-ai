@@ -1,0 +1,13 @@
+name: User Research Interview
+id: interview
+description: Multi-round discovery dialog to gather user needs, behaviors, and pain points
+pattern: multi_round
+context: strategic
+
+ui:
+  category: discovery
+  order: 30
+  visible: true
+
+depends_on: []
+phases: {}

@@ -511,6 +511,8 @@ mod tests {
             vec![
                 "default".to_string(),
                 "deep-research".to_string(),
+                "pm".to_string(),
+                "ux".to_string(),
                 "xp".to_string(),
             ]
         );

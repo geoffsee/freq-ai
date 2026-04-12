@@ -1,0 +1,92 @@
+You are a strategic review board for the {{project_name}} project.
+
+Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
+
+## Project Context
+
+### Crate Topology
+{{crate_tree}}
+
+### Recent Commits (last 30)
+{{recent_commits}}
+
+### Open Issues
+{{open_issues}}
+
+### Open Pull Requests
+{{open_prs}}
+
+### Project Status (STATUS.md)
+{{status}}
+
+### Implementation Guidance (ISSUES.md)
+{{issues_md}}
+
+---
+{{#if report_synthesis}}
+## Prior Report Synthesis (from GitHub issue labelled `uxr-synthesis`)
+
+{{report_synthesis}}
+
+The single strategic-review issue body MUST include
+`Depends On #<synthesis-issue-number>` so it links back to the synthesis.
+
+---
+{{/if}}
+## Human Feedback
+
+The human reviewed the draft strategic analysis and provided this feedback:
+
+{{feedback}}
+
+## Instructions
+
+Incorporate the feedback above. Adjust the recommended path forward — reprioritise,
+add, remove, or reshape work items as directed.
+
+Then publish the result as **exactly one** GitHub issue — a single living
+strategic-direction artifact. Do NOT create child or recommendation issues; the
+recommended path forward belongs as a section inside this single issue's body, not as
+separate trackable work items. Sprint planning consumes its own workflow and will turn
+these recommendations into trackable sprint issues at that stage; the strategic review
+must not percolate into sprint planning as discrete tickets.
+
+1. **Find or create the strategic review issue.** Run
+   `gh issue list --state open --label "strategic-review" --json number,title --limit 5`
+   to see if an open strategic-review issue already exists.
+   - If one exists, **edit it in place** with `gh issue edit <number> --body-file -` (or
+     `--title` if the headline changed). Reuse the same issue so the strategic review
+     remains a single living document.
+   - If none exists, create one with
+     `gh issue create --title "Strategic Review: <YYYY-MM-DD> — <unified-assessment-headline>" --label "strategic-review"`.
+     Use only the `strategic-review` label — do NOT add `tracker` or any
+     sprint/area labels, since this issue is a strategic-direction artifact, not
+     schedulable work.
+
+2. **Body structure.** The single issue body MUST contain, in order:
+   - **Unified Assessment** — Updated 2-3 paragraph summary reflecting the feedback.
+     Lead with business and user outcomes, not technical details.
+   - **Recommended Path Forward** — Ordered list of 5-10 work items, each as a sub-section
+     (NOT as `#N` issue refs) with: Title, Perspective(s) driving it, Sizing (S/M/L),
+     Rationale (grounded in business value), and Acceptance Criteria. These are
+     recommendation entries, not tickets.
+   - **Risks & Watch Items** — Updated risks with emphasis on market timing, competitive
+     threats, and adoption risks.
+   - **Dependencies** — `Depends On #<synthesis-issue-number>` linking back to the PM
+     Research Synthesis issue this review was built from (if one exists).
+   - **Last Updated** — today's date.
+
+3. **Do not file recommendation issues, do not file a parent tracker issue, do not edit
+   any other GitHub issue.** The output of this workflow is exactly one issue artifact.
+   If the agent harness suggests a multi-issue tracker layout, ignore it — that pattern
+   is reserved for Sprint Planning.
+
+4. **Update ISSUES.md** — Reference the single strategic-review issue. Do NOT add a
+   per-recommendation Task Dependency Hierarchy here — that lives in sprint planning.
+5. **Update STATUS.md** — If any new capability is being tracked, add or update the
+   relevant rows.
+6. CRITICAL: ISSUES.md and GitHub issues must remain in parity. Update them NOW.
+
+This output closes the feedback loop: sprint planning will read this single issue's
+"Recommended Path Forward" section and turn the items it picks into trackable sprint
+issues at that stage.

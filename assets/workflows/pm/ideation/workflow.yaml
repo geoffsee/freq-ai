@@ -1,0 +1,22 @@
+name: Ideation
+id: ideation
+description: Generate a wide, varied set of raw product ideas across market and feature buckets
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 10
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting ideation draft..."
+    log_complete: "Draft complete — review the ideas above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising ideation with feedback..."
+    log_complete: "Ideation complete."

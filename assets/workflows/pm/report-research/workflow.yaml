@@ -1,0 +1,27 @@
+name: PM Research Synthesis
+id: report_research
+description: Strategic project report with PM-oriented synthesis lens
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 20
+  visible: true
+
+depends_on:
+  - ideation
+
+extra_context:
+  - name: ideation
+    label: ideation
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Generating PM research report draft..."
+    log_complete: "Draft complete — review the report above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising PM research report with feedback..."
+    log_complete: "Report complete."

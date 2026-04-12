@@ -1,0 +1,59 @@
+name: UX Strategic Review
+id: strategic_review
+description: Multi-perspective UX analysis synthesizing a unified design strategy recommendation
+pattern: two_phase
+context: strategic
+
+ui:
+  category: planning
+  order: 30
+  visible: true
+
+depends_on:
+  - report_research
+
+extra_context:
+  - name: report_synthesis
+    label: uxr-synthesis
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting UX strategic review draft..."
+    log_complete: "Draft complete — review the analysis above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising UX strategic review with feedback..."
+    log_complete: "UX strategic review complete — issue filed."
+
+fragments:
+  strategic_perspectives: |
+    ## Conduct the review from each UX perspective in turn:
+
+    ### 1. User Advocate
+    - What user needs are being well-served by the current experience?
+    - Where are users struggling, dropping off, or working around limitations?
+    - What unmet needs have surfaced in research, support channels, or usage patterns?
+    - Are there moments of delight that should be amplified or patterns causing frustration?
+    - Which user segments are underserved or overlooked entirely?
+
+    ### 2. Design Systems Lead
+    - Is the design language consistent across all surfaces (UI, CLI, docs, error messages)?
+    - Are components reusable, composable, and well-documented?
+    - Where has design drift introduced inconsistency or cognitive load?
+    - What gaps exist in the component library or pattern inventory?
+    - Are design tokens (color, spacing, typography) systematically managed?
+
+    ### 3. Accessibility Specialist
+    - Does the product meet WCAG 2.1 AA as a baseline?
+    - Are there keyboard navigation gaps, missing ARIA labels, or contrast failures?
+    - How does the experience work for screen reader users, low-vision users, and motor-impaired users?
+    - Are error states, loading states, and dynamic content accessible?
+    - What assistive technology testing has been done vs. what is needed?
+
+    ### 4. Developer Experience Advocate
+    - How is the first-run experience for a new developer using the product?
+    - Are APIs, CLI commands, and configuration formats intuitive and self-documenting?
+    - What friction exists in error messages, diagnostic output, or documentation?
+    - Are progressive disclosure principles applied — simple things simple, complex things possible?
+    - How does the DX compare to best-in-class tools developers already use?

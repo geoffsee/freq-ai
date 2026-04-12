@@ -1,0 +1,22 @@
+name: UX Ideation
+id: ideation
+description: Generate a wide, varied set of raw UX/UI ideas across interaction, architecture, visual, and accessibility buckets
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 10
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting UX ideation draft..."
+    log_complete: "Draft complete — review the ideas above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising UX ideation with feedback..."
+    log_complete: "UX ideation complete."

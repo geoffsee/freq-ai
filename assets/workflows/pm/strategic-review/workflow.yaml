@@ -1,0 +1,59 @@
+name: Strategic Review
+id: strategic_review
+description: Multi-perspective PM analysis synthesizing a unified strategic recommendation
+pattern: two_phase
+context: strategic
+
+ui:
+  category: planning
+  order: 30
+  visible: true
+
+depends_on:
+  - report_research
+
+extra_context:
+  - name: report_synthesis
+    label: uxr-synthesis
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting strategic review draft..."
+    log_complete: "Draft complete — review the analysis above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising strategic review with feedback..."
+    log_complete: "Strategic review complete — issues filed."
+
+fragments:
+  strategic_perspectives: |
+    ## Conduct the review from each perspective in turn:
+
+    ### 1. Product Strategy
+    - What is the current product-market fit signal? Are we converging or diverging?
+    - Which user segments are underserved? Which are over-invested?
+    - What capabilities would unlock the most adoption or differentiation?
+    - Are there pricing, packaging, or positioning changes that would accelerate growth?
+    - What is the opportunity cost of our current roadmap priorities?
+
+    ### 2. Market Positioning
+    - How does {{project_name}} compare to competitors on key dimensions?
+    - Where are we winning deals and where are we losing them?
+    - What market trends should influence our next moves?
+    - Are there partnership or ecosystem opportunities we're missing?
+    - Is our messaging aligned with what users actually value?
+
+    ### 3. Customer Success
+    - What does the onboarding experience look like for new users?
+    - Where are users getting stuck, churning, or downgrading?
+    - What support patterns indicate unmet needs or friction?
+    - Which features have the highest engagement vs. lowest?
+    - Are there user requests or feedback themes we're not addressing?
+
+    ### 4. Engineering Trade-offs
+    - What technical debt is accumulating? Where are the architectural risks?
+    - Are there scalability bottlenecks or single points of failure?
+    - Which "Future Enhancements" listed in ISSUES.md are now urgent vs. deferrable?
+    - What refactoring would pay dividends across multiple future features?
+    - Review open PRs — are any stale, conflicting, or blocking other work?

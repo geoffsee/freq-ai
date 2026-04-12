@@ -1,0 +1,27 @@
+name: Journey Mapping
+id: journey_mapping
+description: Map key user journeys with stages, emotions, pain points, and opportunities
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 20
+  visible: true
+
+depends_on:
+  - persona_synthesis
+
+extra_context:
+  - name: persona_cards
+    label: persona-synthesis
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting journey mapping draft..."
+    log_complete: "Draft complete — review the journey maps above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising journey maps with feedback..."
+    log_complete: "Journey mapping complete."

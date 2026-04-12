@@ -1,0 +1,22 @@
+name: Competitive Analysis
+id: competitive_analysis
+description: Analyze competitive landscape, market positioning, and feature parity
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 15
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting competitive analysis draft..."
+    log_complete: "Draft complete — review the analysis above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising competitive analysis with feedback..."
+    log_complete: "Competitive analysis complete."

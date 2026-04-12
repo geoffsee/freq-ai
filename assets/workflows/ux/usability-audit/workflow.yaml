@@ -1,0 +1,22 @@
+name: Usability Audit
+id: usability_audit
+description: Systematic evaluation against Nielsen's 10 usability heuristics
+pattern: two_phase
+context: strategic
+
+ui:
+  category: review
+  order: 10
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting usability audit draft..."
+    log_complete: "Draft complete — review the audit findings above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising usability audit with feedback..."
+    log_complete: "Usability audit complete."

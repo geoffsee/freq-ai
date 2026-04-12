@@ -1,0 +1,22 @@
+name: UX Retrospective
+id: retrospective
+description: Design cycle retrospective — what shipped, what resonated, what caused friction, and process improvements
+pattern: two_phase
+context: retro
+
+ui:
+  category: review
+  order: 60
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting UX retrospective draft..."
+    log_complete: "Draft complete — review the retrospective above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising UX retrospective with feedback..."
+    log_complete: "UX retrospective complete."

@@ -1,0 +1,22 @@
+name: Persona Synthesis
+id: persona_synthesis
+description: Synthesize or refine user persona cards from research signals and project context
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 15
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting persona synthesis draft..."
+    log_complete: "Draft complete — review the persona cards above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising persona synthesis with feedback..."
+    log_complete: "Persona synthesis complete."

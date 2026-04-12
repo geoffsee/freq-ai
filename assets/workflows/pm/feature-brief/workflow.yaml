@@ -1,0 +1,27 @@
+name: Feature Brief
+id: feature_brief
+description: Produce a PRD-style feature brief from strategic review recommendations
+pattern: two_phase
+context: strategic
+
+ui:
+  category: planning
+  order: 25
+  visible: true
+
+depends_on:
+  - strategic_review
+
+extra_context:
+  - name: strategic_review
+    label: strategic-review
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting feature brief draft..."
+    log_complete: "Draft complete — review the brief above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising feature brief with feedback..."
+    log_complete: "Feature brief complete."

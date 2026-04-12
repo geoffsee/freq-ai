@@ -1,0 +1,22 @@
+name: Design Critique
+id: design_critique
+description: Structured design critique evaluating visual hierarchy, layout, typography, interaction, and content
+pattern: two_phase
+context: strategic
+
+ui:
+  category: review
+  order: 20
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting design critique draft..."
+    log_complete: "Draft complete — review the critique above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising design critique with feedback..."
+    log_complete: "Design critique complete."

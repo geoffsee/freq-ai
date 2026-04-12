@@ -1,0 +1,22 @@
+name: Accessibility Review
+id: accessibility_review
+description: WCAG 2.1 compliance evaluation across perceivable, operable, understandable, and robust principles
+pattern: two_phase
+context: strategic
+
+ui:
+  category: review
+  order: 30
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting accessibility review draft..."
+    log_complete: "Draft complete — review the accessibility findings above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising accessibility review with feedback..."
+    log_complete: "Accessibility review complete."

@@ -1,0 +1,27 @@
+name: UX Research Synthesis
+id: report_research
+description: Strategic UX research report with persona-lens synthesis focused on user experience signals
+pattern: two_phase
+context: strategic
+
+ui:
+  category: discovery
+  order: 25
+  visible: true
+
+depends_on:
+  - ideation
+
+extra_context:
+  - name: ideation
+    label: ideation
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Generating UX research synthesis draft..."
+    log_complete: "Draft complete — review the report above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising UX research synthesis with feedback..."
+    log_complete: "UX research synthesis complete."

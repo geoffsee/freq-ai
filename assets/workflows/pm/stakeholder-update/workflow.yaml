@@ -1,0 +1,22 @@
+name: Stakeholder Update
+id: stakeholder_update
+description: Concise, outcome-focused status update for leadership and stakeholders
+pattern: two_phase
+context: strategic
+
+ui:
+  category: review
+  order: 55
+  visible: true
+
+depends_on: []
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting stakeholder update draft..."
+    log_complete: "Draft complete — review the update above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising stakeholder update with feedback..."
+    log_complete: "Stakeholder update complete."
