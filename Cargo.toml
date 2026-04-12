@@ -1,6 +1,6 @@
 [package]
 name = "freq-ai"
-version = "0.5.3"
+version = "0.5.4"
 edition = "2024"
 description = "freq-ai builds software"
 license = "MIT OR Apache-2.0"
