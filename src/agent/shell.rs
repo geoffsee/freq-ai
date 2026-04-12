@@ -928,29 +928,22 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
         }
 
         Agent::Copilot => {
-            let mut cmd = Command::new("copilot");
-            let mut args = vec!["-p".to_string(), prompt.to_string()];
+            let mut args = vec![
+                "-p".to_string(),
+                "--output-format".to_string(),
+                "json".to_string(),
+            ];
+            args.extend(launch_overrides.args.iter().cloned());
             if cfg.auto_mode {
                 args.push("--yolo".to_string());
             }
-            cmd.args(&args);
-            if let Some(p) = cwd {
-                cmd.current_dir(p);
-            }
-            for (k, v) in &merged_env {
-                cmd.env(k, v);
-            }
-            cmd.status().map(|s| s.success()).unwrap_or(false)
+            args.push(prompt.to_string());
+            run_claude_native_with_env("copilot", &args, &merged_env, cwd)
         }
 
         Agent::Grok => {
             let mut cmd = Command::new("grok");
-            let mut args = vec![
-                "--prompt".to_string(),
-                prompt.to_string(),
-                "--format".to_string(),
-                "json".to_string(),
-            ];
+            let mut args = vec!["--prompt".to_string(), prompt.to_string()];
             args.extend(launch_overrides.args.iter().cloned());
             if cfg.auto_mode {
                 args.push("--sandbox".to_string());
@@ -972,39 +965,43 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
         }
 
         Agent::Xai => {
-            let mut cmd = Command::new("copilot");
-            let mut args = vec!["-p".to_string(), prompt.to_string()];
+            let mut args = vec![
+                "-p".to_string(),
+                "--output-format".to_string(),
+                "json".to_string(),
+            ];
+            args.extend(launch_overrides.args.iter().cloned());
             if cfg.auto_mode {
                 args.push("--yolo".to_string());
             }
-            cmd.args(&args);
-            if let Some(p) = cwd {
-                cmd.current_dir(p);
-            }
-            for (k, v) in &merged_env {
-                cmd.env(k, v);
-            }
+            args.push(prompt.to_string());
 
-            cmd.env("COPILOT_PROVIDER_TYPE", "openai");
+            // Build xAI provider env vars into merged_env so
+            // run_claude_native_with_env applies them after clearing API keys.
+            let mut xai_env = merged_env.clone();
+            xai_env.push(("COPILOT_PROVIDER_TYPE".to_string(), "openai".to_string()));
             if let Ok(v) = env::var("XAI_BASE_URL") {
-                cmd.env("COPILOT_PROVIDER_BASE_URL", v);
+                xai_env.push(("COPILOT_PROVIDER_BASE_URL".to_string(), v));
             } else if env::var("COPILOT_PROVIDER_BASE_URL").is_err() {
-                cmd.env("COPILOT_PROVIDER_BASE_URL", "https://api.x.ai/v1");
+                xai_env.push((
+                    "COPILOT_PROVIDER_BASE_URL".to_string(),
+                    "https://api.x.ai/v1".to_string(),
+                ));
             }
             if let Ok(v) = env::var("XAI_API_KEY") {
-                cmd.env("COPILOT_PROVIDER_API_KEY", v);
+                xai_env.push(("COPILOT_PROVIDER_API_KEY".to_string(), v));
             }
             // Only apply env-var/default COPILOT_MODEL if model_selection_overrides
             // did not already set it via merged_env.
-            if !merged_env.iter().any(|(k, _)| k == "COPILOT_MODEL") {
+            if !xai_env.iter().any(|(k, _)| k == "COPILOT_MODEL") {
                 if let Ok(v) = env::var("XAI_MODEL") {
-                    cmd.env("COPILOT_MODEL", v);
+                    xai_env.push(("COPILOT_MODEL".to_string(), v));
                 } else if env::var("COPILOT_MODEL").is_err() {
-                    cmd.env("COPILOT_MODEL", "grok-beta");
+                    xai_env.push(("COPILOT_MODEL".to_string(), "grok-beta".to_string()));
                 }
             }
 
-            cmd.status().map(|s| s.success()).unwrap_or(false)
+            run_claude_native_with_env("copilot", &args, &xai_env, cwd)
         }
 
         Agent::Gemini => {
