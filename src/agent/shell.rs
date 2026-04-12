@@ -1728,8 +1728,8 @@ pub fn run_security_code_review(cfg: &Config) {
 
 /// Enumerate agent-facing files: AGENTS.md and skills from the app-data dir,
 /// plus optional vendor files (CLAUDE.md, CLINE.md, etc.) from the repo root.
-fn enumerate_agent_files(root: &str) -> Vec<String> {
-    let root_path = Path::new(root);
+fn enumerate_agent_files(cfg: &Config) -> Vec<String> {
+    let root_path = Path::new(&cfg.root);
     let assets = crate::agent::assets::assets_dir();
     let mut files = BTreeSet::new();
 
@@ -1747,6 +1747,23 @@ fn enumerate_agent_files(root: &str) -> Vec<String> {
                 let skill_md = entry.path().join("SKILL.md");
                 if skill_md.exists() {
                     files.insert(skill_md.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
+    for preset_skill_dir in
+        crate::agent::workflow::preset_skill_dirs(&cfg.root, &cfg.workflow_preset)
+    {
+        if preset_skill_dir.is_dir()
+            && let Ok(entries) = std::fs::read_dir(&preset_skill_dir)
+        {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    let skill_md = entry.path().join("SKILL.md");
+                    if skill_md.exists() {
+                        files.insert(skill_md.to_string_lossy().to_string());
+                    }
                 }
             }
         }
@@ -1774,7 +1791,7 @@ pub fn run_refresh_agents(cfg: &Config) {
     preflight(cfg);
     log("Starting Refresh Agents...");
 
-    let agent_files = enumerate_agent_files(&cfg.root);
+    let agent_files = enumerate_agent_files(cfg);
     if agent_files.is_empty() {
         log("No agent-facing files found — nothing to refresh.");
         emit_event(AgentEvent::Done);
