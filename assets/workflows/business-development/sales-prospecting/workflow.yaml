@@ -1,0 +1,19 @@
+name: Sales Prospecting
+id: sales_prospecting
+description: Identify and qualify potential customers for the project
+pattern: two_phase
+context: strategic
+ui:
+  category: growth
+  order: 30
+  visible: true
+depends_on: []
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting sales prospecting draft..."
+    log_complete: "Draft complete — review the list and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising sales prospecting with feedback..."
+    log_complete: "Sales prospecting complete."

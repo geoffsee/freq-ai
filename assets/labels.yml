@@ -43,6 +43,18 @@
   description: "Output of the Retrospective workflow"
   color: "D2B4DE"
 
+- name: market-research
+  description: "Output of the Market Research workflow"
+  color: "1ABC9C"
+
+- name: partnership-outreach
+  description: "Output of the Partnership Outreach workflow"
+  color: "2ECC71"
+
+- name: sales-prospecting
+  description: "Output of the Sales Prospecting workflow"
+  color: "3498DB"
+
 # ── area: — which component / subsystem ────────────────────────────────────
 # Add project-specific area labels below. Examples:
 #

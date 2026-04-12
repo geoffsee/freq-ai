@@ -50,6 +50,7 @@ A preset is a folder directly under `workflows/`. The sidebar loads whichever pr
 Built-in presets:
 - `default` — the standard full development lifecycle
 - `xp` — a pure Extreme Programming preset focused on story discovery, customer signal review, XP strategy, iteration planning, collective code review, and retrospectives
+- `business-development` — workflows for market research, partnership outreach, and sales prospecting
 
 The preset selector is always shown in the sidebar when presets are available. If only one preset exists, the selector is disabled until another preset folder is added.
 
@@ -136,3 +137,11 @@ fragments:                            # reusable text blocks, included via {{> n
 | `ipm` | planning | two-phase |
 | `code-review` | review | one-shot |
 | `retrospective` | review | two-phase |
+
+### Business Development workflows
+
+| Workflow | Category | Pattern |
+| :--- | :--- | :--- |
+| `market-research` | discovery | two-phase |
+| `partnership-outreach` | growth | two-phase |
+| `sales-prospecting` | growth | two-phase |

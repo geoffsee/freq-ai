@@ -511,12 +511,13 @@ mod tests {
     }
 
     #[test]
-    fn list_presets_includes_built_in_xp() {
+    fn list_presets_includes_all_built_in_presets() {
         let root = env!("CARGO_MANIFEST_DIR");
         assert_eq!(
             list_presets(root),
             vec![
                 "default".to_string(),
+                "business-development".to_string(),
                 "data-science".to_string(),
                 "deep-research".to_string(),
                 "pm".to_string(),
@@ -524,6 +525,20 @@ mod tests {
                 "xp".to_string(),
             ]
         );
+    }
+
+    #[test]
+    fn business_development_preset_loads_sidebar_entries() {
+        let root = env!("CARGO_MANIFEST_DIR");
+        let entries = load_sidebar_entries(root, "business-development");
+        assert_eq!(entries.len(), 3);
+        assert!(entries.iter().any(|entry| entry.id == "market_research"));
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.id == "partnership_outreach")
+        );
+        assert!(entries.iter().any(|entry| entry.id == "sales_prospecting"));
     }
 
     #[test]

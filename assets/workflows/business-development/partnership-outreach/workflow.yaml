@@ -1,0 +1,19 @@
+name: Partnership Outreach
+id: partnership_outreach
+description: Identify and draft outreach for potential strategic partners
+pattern: two_phase
+context: strategic
+ui:
+  category: growth
+  order: 20
+  visible: true
+depends_on: []
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting partnership outreach draft..."
+    log_complete: "Draft complete — review the outreach plan and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising partnership outreach with feedback..."
+    log_complete: "Partnership outreach complete."

@@ -1,0 +1,19 @@
+name: Market Research
+id: market_research
+description: Analyze market trends, target audience, and potential opportunities
+pattern: two_phase
+context: strategic
+ui:
+  category: discovery
+  order: 10
+  visible: true
+depends_on: []
+phases:
+  draft:
+    template: draft.md
+    log_start: "Starting market research draft..."
+    log_complete: "Draft complete — review the research above and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalising market research with feedback..."
+    log_complete: "Market research complete."
