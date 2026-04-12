@@ -170,6 +170,7 @@ pub enum Agent {
     Grok,
     Junie,
     Xai,
+    Cursor,
 }
 
 impl clap::ValueEnum for Agent {
@@ -183,6 +184,7 @@ impl clap::ValueEnum for Agent {
             Self::Grok,
             Self::Junie,
             Self::Xai,
+            Self::Cursor,
         ]
     }
 
@@ -196,6 +198,7 @@ impl clap::ValueEnum for Agent {
             Self::Grok => clap::builder::PossibleValue::new("grok"),
             Self::Junie => clap::builder::PossibleValue::new("junie"),
             Self::Xai => clap::builder::PossibleValue::new("xai"),
+            Self::Cursor => clap::builder::PossibleValue::new("cursor"),
         })
     }
 }
@@ -212,6 +215,7 @@ impl FromStr for Agent {
             "grok" => Ok(Agent::Grok),
             "junie" => Ok(Agent::Junie),
             "xai" => Ok(Agent::Xai),
+            "cursor" => Ok(Agent::Cursor),
             _ => Err(format!("Unknown agent: {}", s)),
         }
     }
@@ -228,6 +232,7 @@ impl fmt::Display for Agent {
             Agent::Grok => write!(f, "grok"),
             Agent::Junie => write!(f, "junie"),
             Agent::Xai => write!(f, "xai"),
+            Agent::Cursor => write!(f, "cursor"),
         }
     }
 }
@@ -243,6 +248,7 @@ impl Agent {
             Agent::Grok => "grok",
             Agent::Junie => "junie",
             Agent::Xai => "copilot", // xAI proxies the copilot CLI
+            Agent::Cursor => "agent",
         }
     }
 
@@ -256,6 +262,7 @@ impl Agent {
             Agent::Grok => "Co-Authored-By: Grok <noreply@x.ai>",
             Agent::Junie => "Co-Authored-By: Junie <junie@jetbrains.com>",
             Agent::Xai => "Co-Authored-By: xAI <noreply@x.ai>",
+            Agent::Cursor => "Co-Authored-By: Cursor <noreply@cursor.com>",
         }
     }
 
@@ -307,6 +314,7 @@ impl Agent {
             Agent::Grok => "grok",
             Agent::Junie => "junie",
             Agent::Xai => "xai",
+            Agent::Cursor => "cursor",
         };
 
         map.get(key).copied().unwrap_or(&[])
@@ -994,6 +1002,7 @@ mod tests {
         assert_eq!("grok".parse::<Agent>().unwrap(), Agent::Grok);
         assert_eq!("Junie".parse::<Agent>().unwrap(), Agent::Junie);
         assert_eq!("xai".parse::<Agent>().unwrap(), Agent::Xai);
+        assert_eq!("cursor".parse::<Agent>().unwrap(), Agent::Cursor);
     }
 
     #[test]
@@ -1013,6 +1022,7 @@ mod tests {
             Agent::Grok,
             Agent::Junie,
             Agent::Xai,
+            Agent::Cursor,
         ] {
             let s = agent.to_string();
             assert_eq!(s.parse::<Agent>().unwrap(), agent);
@@ -1029,6 +1039,7 @@ mod tests {
         assert_eq!(Agent::Grok.binary(), "grok");
         assert_eq!(Agent::Junie.binary(), "junie");
         assert_eq!(Agent::Xai.binary(), "copilot");
+        assert_eq!(Agent::Cursor.binary(), "agent");
     }
 
     #[test]
@@ -1041,6 +1052,7 @@ mod tests {
         assert!(Agent::Grok.co_author().contains("Grok"));
         assert!(Agent::Junie.co_author().contains("Junie"));
         assert!(Agent::Xai.co_author().contains("xAI"));
+        assert!(Agent::Cursor.co_author().contains("Cursor"));
     }
 
     #[test]

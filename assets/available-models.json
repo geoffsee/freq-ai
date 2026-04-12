@@ -264,5 +264,23 @@
       "grok-3",
       "Grok 3"
     ]
+  ],
+  "cursor": [
+    [
+      "claude-sonnet-4-6",
+      "Sonnet 4.6"
+    ],
+    [
+      "claude-opus-4-6",
+      "Opus 4.6"
+    ],
+    [
+      "gpt-5.2",
+      "GPT-5.2"
+    ],
+    [
+      "gpt-5",
+      "GPT-5"
+    ]
   ]
 }

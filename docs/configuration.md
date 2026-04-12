@@ -8,7 +8,7 @@ freq-ai [OPTIONS] [COMMAND]
 
 | Flag | Description | Default |
 |---|---|---|
-| `--agent <name>` | AI agent (`claude`, `cline`, `codex`, `copilot`, `gemini`, `grok`, `junie`, `xai`) | `claude` |
+| `--agent <name>` | AI agent (`claude`, `cline`, `codex`, `copilot`, `cursor`, `gemini`, `grok`, `junie`, `xai`) | `claude` |
 | `--auto` | Unattended mode (skip permission prompts) | off |
 | `--dry-run` | Show what would happen without executing | off |
 | `--create-labels` | Write the bundled label taxonomy to `.github/labels.yml` and exit | — |
@@ -91,5 +91,6 @@ into the OS credential vault instead of plaintext project files.
 | Junie | `junie` | `--brave` | json-stream | JetBrains Junie CLI. BYOK via `--provider` + API key flags. |
 | Codex | `codex` | `--dangerously-bypass-approvals-and-sandbox` | JSONL (`exec --json`) | Streams assistant/tool/result events into the same UI timeline. |
 | Copilot | `copilot` | `--yolo` | unknown | GitHub Copilot CLI (standalone binary, not `gh copilot`). |
+| Cursor | `agent` | `--yolo` | stream-json | Cursor Agent CLI. Supports `--model` and non-interactive `-p`. |
 | xAI | `copilot` | `--yolo` | unknown | Proxies the GitHub Copilot CLI with xAI-compatible BYOK settings via environment variables. |
 

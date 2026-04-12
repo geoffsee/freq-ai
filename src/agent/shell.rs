@@ -456,7 +456,7 @@ fn local_inference_overrides(cfg: &Config) -> AgentLaunchOverrides {
                 .args
                 .extend(["-c".to_string(), format!("openai_base_url={base_url:?}")]);
         }
-        Agent::Cline | Agent::Copilot | Agent::Gemini | Agent::Grok | Agent::Junie | Agent::Xai => {
+        Agent::Cline | Agent::Copilot | Agent::Gemini | Agent::Grok | Agent::Junie | Agent::Xai | Agent::Cursor => {
             return AgentLaunchOverrides::default();
         }
     }
@@ -490,7 +490,7 @@ fn model_selection_overrides(cfg: &Config) -> AgentLaunchOverrides {
     let mut overrides = AgentLaunchOverrides::default();
 
     match cfg.agent {
-        Agent::Claude | Agent::Junie => {
+        Agent::Claude | Agent::Junie | Agent::Copilot | Agent::Cursor => {
             overrides.args.extend(["--model".into(), model.into()]);
         }
         Agent::Codex => {
@@ -503,9 +503,6 @@ fn model_selection_overrides(cfg: &Config) -> AgentLaunchOverrides {
         }
         Agent::Xai => {
             overrides.env.push(("COPILOT_MODEL".into(), model.into()));
-        }
-        Agent::Copilot => {
-            overrides.args.extend(["--model".into(), model.into()]);
         }
         Agent::Cline => {
             // No runtime model flag; configured via `cline auth`.
@@ -1038,6 +1035,20 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
                 args.push("--brave".to_string());
             }
             run_claude_native_with_env("junie", &args, &merged_env, cwd)
+        }
+
+        Agent::Cursor => {
+            let mut args = vec![
+                "-p".to_string(),
+                "--output-format".to_string(),
+                "stream-json".to_string(),
+            ];
+            args.extend(launch_overrides.args.iter().cloned());
+            if cfg.auto_mode {
+                args.push("--yolo".to_string());
+            }
+            args.push(prompt.to_string());
+            run_claude_native_with_env("agent", &args, &merged_env, cwd)
         }
     };
 
@@ -2969,6 +2980,15 @@ mod tests {
             local_inference_overrides(&cfg_junie),
             AgentLaunchOverrides::default()
         );
+
+        let mut cfg_cursor = test_config(Agent::Cursor);
+        cfg_cursor.local_inference.advanced = true;
+        cfg_cursor.local_inference.base_url = "http://localhost:11434/v1".into();
+
+        assert_eq!(
+            local_inference_overrides(&cfg_cursor),
+            AgentLaunchOverrides::default()
+        );
     }
 
     // ── Model selection overrides ──
@@ -3022,6 +3042,14 @@ mod tests {
         cfg.model = "gpt-5.2".into();
         let ov = model_selection_overrides(&cfg);
         assert_eq!(ov.args, vec!["--model", "gpt-5.2"]);
+    }
+
+    #[test]
+    fn cursor_model_selection_passes_model_flag() {
+        let mut cfg = test_config(Agent::Cursor);
+        cfg.model = "sonnet-4.6".into();
+        let ov = model_selection_overrides(&cfg);
+        assert_eq!(ov.args, vec!["--model", "sonnet-4.6"]);
     }
 
     #[test]
