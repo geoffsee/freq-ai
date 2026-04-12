@@ -1,0 +1,16 @@
+name: Model Training & Baseline
+id: model_training
+description: Generate a script for training a baseline machine learning model.
+pattern: one_shot
+context: none
+
+ui:
+  category: implementation
+  order: 50
+  visible: true
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Generating model training script..."
+    log_complete: "Model training script generation complete."

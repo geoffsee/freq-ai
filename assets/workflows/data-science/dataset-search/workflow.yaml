@@ -1,0 +1,16 @@
+name: Dataset Search
+id: dataset_search
+description: Find related online datasets for data science tasks.
+pattern: one_shot
+context: none
+
+ui:
+  category: discovery
+  order: 10
+  visible: true
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Searching for related online datasets..."
+    log_complete: "Dataset search complete."

@@ -1,0 +1,16 @@
+name: Model Evaluation & Metrics
+id: model_evaluation
+description: Generate code to evaluate model performance and plot metrics.
+pattern: one_shot
+context: none
+
+ui:
+  category: review
+  order: 60
+  visible: true
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Generating model evaluation code..."
+    log_complete: "Model evaluation code generation complete."

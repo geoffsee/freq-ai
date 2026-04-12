@@ -510,6 +510,7 @@ mod tests {
             list_presets(root),
             vec![
                 "default".to_string(),
+                "data-science".to_string(),
                 "deep-research".to_string(),
                 "pm".to_string(),
                 "ux".to_string(),

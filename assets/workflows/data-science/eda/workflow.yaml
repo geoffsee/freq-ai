@@ -1,0 +1,16 @@
+name: Exploratory Data Analysis
+id: eda
+description: Generate an EDA script to compute summary statistics and plot feature distributions.
+pattern: one_shot
+context: none
+
+ui:
+  category: analysis
+  order: 20
+  visible: true
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Generating EDA script..."
+    log_complete: "EDA script generation complete."

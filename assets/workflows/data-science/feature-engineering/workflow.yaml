@@ -1,0 +1,16 @@
+name: Feature Engineering
+id: feature_engineering
+description: Propose and generate code for new features based on existing data.
+pattern: one_shot
+context: none
+
+ui:
+  category: planning
+  order: 40
+  visible: true
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Proposing and generating features..."
+    log_complete: "Feature engineering code generation complete."

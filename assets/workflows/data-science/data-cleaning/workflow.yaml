@@ -1,0 +1,16 @@
+name: Data Cleaning & Preprocessing
+id: data_cleaning
+description: Generate code for handling missing values, encoding, and scaling features.
+pattern: one_shot
+context: none
+
+ui:
+  category: maintenance
+  order: 30
+  visible: true
+
+phases:
+  draft:
+    template: draft.md
+    log_start: "Generating data cleaning code..."
+    log_complete: "Data cleaning code generation complete."
