@@ -19,7 +19,7 @@ use tracing::info;
 struct WebAssets;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn serve(port: u16) {
+pub async fn serve(port: u16) -> anyhow::Result<()> {
     let app = Router::new()
         .route("/", get(index_handler))
         .route("/{*file}", get(static_handler));
@@ -27,8 +27,13 @@ pub async fn serve(port: u16) {
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     info!("Serving web UI on http://{}", addr);
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to bind to {}: {}", addr, e))?;
+    axum::serve(listener, app)
+        .await
+        .map_err(|e| anyhow::anyhow!("axum server error: {}", e))?;
+    Ok(())
 }
 
 #[cfg(not(target_arch = "wasm32"))]

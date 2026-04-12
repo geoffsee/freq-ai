@@ -141,7 +141,9 @@ where
     {
         let mut config = parse_args();
         overrides(&mut config);
-        CONFIG_OVERRIDE.set(config).unwrap_or_default();
+        CONFIG_OVERRIDE
+            .set(config)
+            .expect("failed to set CONFIG_OVERRIDE in wasm32");
         dioxus::launch(App);
     }
 
@@ -204,7 +206,10 @@ where
             Some(Commands::Serve { port }) => {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
-                    ui::server::serve(port).await;
+                    if let Err(e) = ui::server::serve(port).await {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    }
                 });
             }
             Some(Commands::Gui) | None => {
