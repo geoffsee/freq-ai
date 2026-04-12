@@ -169,6 +169,13 @@ fn preset_dirs(root: &str, preset: &str) -> Vec<PathBuf> {
     ]
 }
 
+pub fn preset_skill_dirs(root: &str, preset: &str) -> Vec<PathBuf> {
+    preset_dirs(root, preset)
+        .into_iter()
+        .map(|p| p.join("skills"))
+        .collect()
+}
+
 // ── Loader ───────────────────────────────────────────────────────────────
 
 /// List available preset names by scanning bundled and project-local workflow roots.
@@ -570,6 +577,21 @@ mod tests {
         assert!(template.contains("XP iteration"));
         assert!(template.contains("failing-then-passing test"));
         assert!(template.contains("pairing"));
+    }
+
+    #[test]
+    fn preset_skill_dirs_includes_all_locations() {
+        let root = temp_root();
+        let root_str = root.path().to_str().unwrap();
+        let dirs = preset_skill_dirs(root_str, "custom");
+
+        let materialized = materialized_workflows_dir().join("custom").join("skills");
+        let bundled = bundled_workflows_dir(root_str)
+            .join("custom")
+            .join("skills");
+        let local = local_workflows_dir(root_str).join("custom").join("skills");
+
+        assert_eq!(dirs, vec![materialized, bundled, local]);
     }
 
     #[test]

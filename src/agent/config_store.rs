@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+#[cfg(not(target_arch = "wasm32"))]
 use keyring::Entry;
 use std::hash::{Hash, Hasher};
 
@@ -13,6 +14,7 @@ fn root_scope(root: &str) -> String {
     format!("{:016x}", hasher.finish())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn entry(root: &str, slot: &str) -> Result<Entry> {
     Entry::new(
         &format!("{SERVICE_PREFIX}.{slot}"),
@@ -21,6 +23,7 @@ fn entry(root: &str, slot: &str) -> Result<Entry> {
     .context("failed to open OS credential store entry")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn load_secret(root: &str, slot: &str) -> Option<String> {
     let entry = entry(root, slot).ok()?;
     match entry.get_password() {
@@ -30,6 +33,12 @@ pub fn load_secret(root: &str, slot: &str) -> Option<String> {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn load_secret(_root: &str, _slot: &str) -> Option<String> {
+    None
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn store_secret(root: &str, slot: &str, value: &str) -> Result<()> {
     let entry = entry(root, slot)?;
     entry
@@ -37,12 +46,23 @@ pub fn store_secret(root: &str, slot: &str, value: &str) -> Result<()> {
         .with_context(|| format!("failed to store secret for {slot}"))
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn store_secret(_root: &str, _slot: &str, _value: &str) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn clear_secret(root: &str, slot: &str) -> Result<()> {
     let entry = entry(root, slot)?;
     match entry.delete_credential() {
         Ok(()) => Ok(()),
         Err(_) => Ok(()),
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn clear_secret(_root: &str, _slot: &str) -> Result<()> {
+    Ok(())
 }
 
 pub fn load_bot_token(root: &str) -> Option<String> {

@@ -20,9 +20,13 @@ pub struct WorkflowAssets;
 /// Return the stable app-data directory for materialized assets
 /// (`~/.local/share/freq-ai`). Created on first call if missing.
 pub fn assets_dir() -> PathBuf {
-    let dir = dirs::data_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("freq-ai");
+    #[cfg(not(target_arch = "wasm32"))]
+    let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
+
+    #[cfg(target_arch = "wasm32")]
+    let base = PathBuf::from(".");
+
+    let dir = base.join("freq-ai");
     let _ = std::fs::create_dir_all(&dir);
     dir
 }

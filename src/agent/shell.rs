@@ -26,7 +26,13 @@ use std::process::{self, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
+#[cfg(not(target_arch = "wasm32"))]
 use toak_rs::{MarkdownGenerator, MarkdownGeneratorOptions, count_tokens};
+
+#[cfg(target_arch = "wasm32")]
+pub fn count_tokens(s: &str) -> usize {
+    s.len() / 4
+}
 use tracing::info;
 
 /// Maximum tokens to include from the codebase snapshot in a prompt.
@@ -1052,6 +1058,7 @@ fn run_agent_inner(cfg: &Config, prompt: &str, extra_env: &[(String, String)], c
 /// Generate a cleaned markdown snapshot of the entire codebase using toak-rs.
 ///
 /// Returns the snapshot string, truncated to [`MAX_SNAPSHOT_TOKENS`] if necessary.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn generate_codebase_snapshot(root: &str) -> String {
     log("Generating codebase snapshot with toak-rs...");
 
@@ -1102,6 +1109,12 @@ pub fn generate_codebase_snapshot(root: &str) -> String {
         log(&format!("Snapshot ready ({tokens} tokens)"));
         snapshot
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn generate_codebase_snapshot(_root: &str) -> String {
+    log("Skipping codebase snapshot on Wasm target.");
+    String::new()
 }
 
 /// Truncate a snapshot string to fit within a token budget.
@@ -1162,7 +1175,7 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
         log_resolved_agent_launch(cfg, &[]);
         log(&format!(
             "[dry-run] Prompt ({} tokens). Would work on #{issue_num}, then open PR.\n\n---\n{}",
-            toak_rs::count_tokens(&prompt),
+            count_tokens(&prompt),
             prompt
         ));
         return;
@@ -1715,8 +1728,8 @@ pub fn run_security_code_review(cfg: &Config) {
 
 /// Enumerate agent-facing files: AGENTS.md and skills from the app-data dir,
 /// plus optional vendor files (CLAUDE.md, CLINE.md, etc.) from the repo root.
-fn enumerate_agent_files(root: &str) -> Vec<String> {
-    let root_path = Path::new(root);
+fn enumerate_agent_files(cfg: &Config) -> Vec<String> {
+    let root_path = Path::new(&cfg.root);
     let assets = crate::agent::assets::assets_dir();
     let mut files = BTreeSet::new();
 
@@ -1734,6 +1747,23 @@ fn enumerate_agent_files(root: &str) -> Vec<String> {
                 let skill_md = entry.path().join("SKILL.md");
                 if skill_md.exists() {
                     files.insert(skill_md.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
+    for preset_skill_dir in
+        crate::agent::workflow::preset_skill_dirs(&cfg.root, &cfg.workflow_preset)
+    {
+        if preset_skill_dir.is_dir()
+            && let Ok(entries) = std::fs::read_dir(&preset_skill_dir)
+        {
+            for entry in entries.flatten() {
+                if entry.path().is_dir() {
+                    let skill_md = entry.path().join("SKILL.md");
+                    if skill_md.exists() {
+                        files.insert(skill_md.to_string_lossy().to_string());
+                    }
                 }
             }
         }
@@ -1761,7 +1791,7 @@ pub fn run_refresh_agents(cfg: &Config) {
     preflight(cfg);
     log("Starting Refresh Agents...");
 
-    let agent_files = enumerate_agent_files(&cfg.root);
+    let agent_files = enumerate_agent_files(cfg);
     if agent_files.is_empty() {
         log("No agent-facing files found — nothing to refresh.");
         emit_event(AgentEvent::Done);
@@ -2668,6 +2698,27 @@ fn infer_project_name(root: &str) -> String {
         .unwrap_or_else(|| "project".into())
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn parse_args() -> Config {
+    Config {
+        agent: Agent::Claude,
+        model: String::new(),
+        auto_mode: false,
+        dry_run: true,
+        local_inference: Default::default(),
+        root: "/".into(),
+        project_name: "freq-ai-web".into(),
+        scan_targets: Default::default(),
+        skill_paths: Default::default(),
+        bootstrap_agent_files: false,
+        bootstrap_snapshot: false,
+        workflow_preset: "default".to_string(),
+        bot_settings: Default::default(),
+        bot_credentials: None,
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn parse_args() -> Config {
     let root = cmd_stdout("git", &["rev-parse", "--show-toplevel"])
         .unwrap_or_else(|| die("not inside a git repository"));
