@@ -1,5 +1,7 @@
 /.output.txt
 target
+dist/*
+!dist/.gitkeep
 /.idea/
 /.env*
 /claude-help.txt

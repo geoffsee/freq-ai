@@ -114,6 +114,11 @@ enum Commands {
     Issue { number: u32 },
     /// Run the main loop for a tracker
     Loop { tracker: u32 },
+    /// Serve the web UI via a local HTTP server
+    Serve {
+        #[arg(long, default_value = "8080")]
+        port: u16,
+    },
 }
 
 /// Standalone entry point — equivalent to `run_with_overrides(|_| {})`.
@@ -132,73 +137,91 @@ pub fn run_with_overrides<F>(overrides: F)
 where
     F: FnOnce(&mut Config),
 {
-    tracing_subscriber::fmt::init();
-
-    let cli = Cli::parse();
-
-    if cli.create_labels {
-        let config = parse_args();
-        let content = agent::assets::LABELS_YML.replace("{{project_name}}", &config.project_name);
-        let dir = std::path::Path::new(".github");
-        let _ = std::fs::create_dir_all(dir);
-        let dest = dir.join("labels.yml");
-        std::fs::write(&dest, content).expect("failed to write .github/labels.yml");
-        println!("wrote {}", dest.display());
-        return;
+    #[cfg(target_arch = "wasm32")]
+    {
+        let mut config = parse_args();
+        overrides(&mut config);
+        CONFIG_OVERRIDE.set(config).unwrap_or_default();
+        dioxus::launch(App);
     }
 
-    let mut config = parse_args();
-    config.agent = cli.agent;
-    // Load persisted model for the selected agent.
-    let dev_cfg = agent::types::load_dev_config(&config.root);
-    config.model = dev_cfg
-        .agent_models
-        .get(&config.agent.to_string())
-        .cloned()
-        .unwrap_or_default();
-    config.auto_mode = cli.auto;
-    config.dry_run = cli.dry_run;
-    overrides(&mut config);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        tracing_subscriber::fmt::init();
 
-    // Eagerly populate the issue-comment trigger cache from the (possibly
-    // overridden) skill path so the sidebar reminder is non-empty before the
-    // first render. Done after `overrides` so consumers' custom paths win.
-    ui::sidebar::init_issue_comment_triggers(std::path::Path::new(
-        &config.skill_paths.issue_tracking,
-    ));
+        let cli = Cli::parse();
 
-    match cli.command {
-        Some(Commands::FixPr { pr }) => {
-            run_pr_review_fix(&config, pr);
+        if cli.create_labels {
+            let config = parse_args();
+            let content =
+                agent::assets::LABELS_YML.replace("{{project_name}}", &config.project_name);
+            let dir = std::path::Path::new(".github");
+            let _ = std::fs::create_dir_all(dir);
+            let dest = dir.join("labels.yml");
+            std::fs::write(&dest, content).expect("failed to write .github/labels.yml");
+            println!("wrote {}", dest.display());
+            return;
         }
-        Some(Commands::Ideation) => run_workflow_draft(&config, "ideation"),
-        Some(Commands::UxrSynth) => run_workflow_draft(&config, "report_research"),
-        Some(Commands::StrategicReview) => run_workflow_draft(&config, "strategic_review"),
-        Some(Commands::Roadmapper) => run_workflow_draft(&config, "roadmapper"),
-        Some(Commands::SprintPlanning) => run_workflow_draft(&config, "sprint_planning"),
-        Some(Commands::Retrospective) => run_workflow_draft(&config, "retrospective"),
-        Some(Commands::Housekeeping) => run_workflow_draft(&config, "housekeeping"),
-        Some(Commands::Interview) => run_interview_draft(&config),
-        Some(Commands::CodeReview) => run_code_review(&config),
-        Some(Commands::SecurityReview) => run_security_code_review(&config),
-        Some(Commands::RefreshAgents) => run_refresh_agents(&config),
-        Some(Commands::RefreshDocs) => run_refresh_docs(&config),
-        Some(Commands::Issue { number }) => run_single_issue(&config, number),
-        Some(Commands::Loop { tracker }) => run_loop(&config, tracker),
-        Some(Commands::Gui) | None => {
-            // Stash the finalised Config so the Dioxus App component can pick
-            // it up via `parse_args` (which already loads from dev.toml). The
-            // App's own use of `parse_args()` would otherwise lose the
-            // overrides — but since the overrides are also persisted via the
-            // explicit init_issue_comment_triggers call above, the only place
-            // overrides matter inside the GUI is the next `parse_args` call,
-            // which already reads `dev.toml`. Library consumers who need to
-            // inject overrides that aren't expressible in `dev.toml` should
-            // use the CLI subcommands instead of the GUI.
-            CONFIG_OVERRIDE
-                .set(config)
-                .expect("CONFIG_OVERRIDE set twice");
-            dioxus::launch(App);
+
+        let mut config = parse_args();
+        config.agent = cli.agent;
+        // Load persisted model for the selected agent.
+        let dev_cfg = agent::types::load_dev_config(&config.root);
+        config.model = dev_cfg
+            .agent_models
+            .get(&config.agent.to_string())
+            .cloned()
+            .unwrap_or_default();
+        config.auto_mode = cli.auto;
+        config.dry_run = cli.dry_run;
+        overrides(&mut config);
+
+        // Eagerly populate the issue-comment trigger cache from the (possibly
+        // overridden) skill path so the sidebar reminder is non-empty before the
+        // first render. Done after `overrides` so consumers' custom paths win.
+        ui::sidebar::init_issue_comment_triggers(std::path::Path::new(
+            &config.skill_paths.issue_tracking,
+        ));
+
+        match cli.command {
+            Some(Commands::FixPr { pr }) => {
+                run_pr_review_fix(&config, pr);
+            }
+            Some(Commands::Ideation) => run_workflow_draft(&config, "ideation"),
+            Some(Commands::UxrSynth) => run_workflow_draft(&config, "report_research"),
+            Some(Commands::StrategicReview) => run_workflow_draft(&config, "strategic_review"),
+            Some(Commands::Roadmapper) => run_workflow_draft(&config, "roadmapper"),
+            Some(Commands::SprintPlanning) => run_workflow_draft(&config, "sprint_planning"),
+            Some(Commands::Retrospective) => run_workflow_draft(&config, "retrospective"),
+            Some(Commands::Housekeeping) => run_workflow_draft(&config, "housekeeping"),
+            Some(Commands::Interview) => run_interview_draft(&config),
+            Some(Commands::CodeReview) => run_code_review(&config),
+            Some(Commands::SecurityReview) => run_security_code_review(&config),
+            Some(Commands::RefreshAgents) => run_refresh_agents(&config),
+            Some(Commands::RefreshDocs) => run_refresh_docs(&config),
+            Some(Commands::Issue { number }) => run_single_issue(&config, number),
+            Some(Commands::Loop { tracker }) => run_loop(&config, tracker),
+            Some(Commands::Serve { port }) => {
+                let rt = tokio::runtime::Runtime::new().unwrap();
+                rt.block_on(async {
+                    ui::server::serve(port).await;
+                });
+            }
+            Some(Commands::Gui) | None => {
+                // Stash the finalised Config so the Dioxus App component can pick
+                // it up via `parse_args` (which already loads from dev.toml). The
+                // App's own use of `parse_args()` would otherwise lose the
+                // overrides — but since the overrides are also persisted via the
+                // explicit init_issue_comment_triggers call above, the only place
+                // overrides matter inside the GUI is the next `parse_args` call,
+                // which already reads `dev.toml`. Library consumers who need to
+                // inject overrides that aren't expressible in `dev.toml` should
+                // use the CLI subcommands instead of the GUI.
+                CONFIG_OVERRIDE
+                    .set(config)
+                    .expect("CONFIG_OVERRIDE set twice");
+                dioxus::launch(App);
+            }
         }
     }
 }
