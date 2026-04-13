@@ -984,6 +984,11 @@ pub fn ClaudeEventRow(
                 if let Some(s) = summary { div { class: "summary", "{s}" } }
             }
         },
+        ClaudeEvent::ContentBlockDelta { .. } => rsx! {
+            div { class: "ev-system",
+                div { class: "label", "STREAMING..." }
+            }
+        },
     }
 }
 

@@ -127,6 +127,24 @@ pub enum ClaudeEvent {
         #[serde(default)]
         output_tokens: Option<u32>,
     },
+    ContentBlockDelta {
+        index: u32,
+        delta: ContentBlockDelta,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ContentBlockDelta {
+    #[serde(rename = "type")]
+    pub delta_type: String,
+    #[serde(default)]
+    pub text: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AgentLaunchOverrides {
+    pub args: Vec<String>,
+    pub env: Vec<(String, String)>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

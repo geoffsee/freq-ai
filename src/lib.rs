@@ -201,7 +201,11 @@ where
             Some(Commands::SecurityReview) => run_security_code_review(&config),
             Some(Commands::RefreshAgents) => run_refresh_agents(&config),
             Some(Commands::RefreshDocs) => run_refresh_docs(&config),
-            Some(Commands::Issue { number }) => run_single_issue(&config, number),
+            Some(Commands::Issue { number }) => {
+                let trackers = find_tracker();
+                let tracker_num = trackers.first().map(|t| t.number).unwrap_or(0);
+                run_single_issue(&config, tracker_num, number)
+            }
             Some(Commands::Loop { tracker }) => run_loop(&config, tracker),
             Some(Commands::Serve { port }) => {
                 let rt = tokio::runtime::Runtime::new().unwrap();
@@ -442,7 +446,7 @@ fn App() -> Element {
         changed_files.write().clear();
         let cfg = config.read().clone();
         tokio::spawn(async move {
-            run_single_issue(&cfg, issue_num);
+            run_single_issue(&cfg, 0, issue_num);
         });
     };
 
