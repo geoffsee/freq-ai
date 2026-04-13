@@ -225,6 +225,16 @@ pub fn Sidebar(
                     label { class: "checkbox-row",
                         input {
                             r#type: "checkbox",
+                            checked: config.read().use_subscription,
+                            onchange: move |evt| {
+                                config.write().use_subscription = evt.value().parse::<bool>().unwrap_or(false);
+                            },
+                        }
+                        span { "Use subscription" }
+                    }
+                    label { class: "checkbox-row",
+                        input {
+                            r#type: "checkbox",
                             checked: config.read().bootstrap_snapshot,
                             onchange: move |evt| {
                                 config.write().bootstrap_snapshot = evt.value().parse::<bool>().unwrap_or(false);

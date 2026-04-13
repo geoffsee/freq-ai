@@ -565,6 +565,8 @@ pub struct Config {
     pub bootstrap_snapshot: bool,
     #[serde(default = "default_workflow_preset")]
     pub workflow_preset: String,
+    #[serde(default)]
+    pub use_subscription: bool,
     #[serde(skip)]
     pub bot_settings: BotSettings,
     #[serde(skip)]
@@ -655,6 +657,7 @@ impl fmt::Debug for Config {
             .field("scan_targets", &self.scan_targets)
             .field("skill_paths", &self.skill_paths)
             .field("bootstrap_agent_files", &self.bootstrap_agent_files)
+            .field("use_subscription", &self.use_subscription)
             .field("bot_settings", &format_args!("{}", self.bot_settings.mode))
             .field("bot_credentials", bot_credentials_marker)
             .finish()
@@ -719,6 +722,8 @@ pub struct DevConfig {
     pub workflow_preset: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bootstrap_snapshot: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub use_subscription: Option<bool>,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub agent_models: HashMap<String, String>,
 }
@@ -922,6 +927,7 @@ pub fn save_dev_config(root: &str, cfg: &Config) -> Result<(), String> {
         },
         bot,
         bootstrap_snapshot: Some(cfg.bootstrap_snapshot),
+        use_subscription: Some(cfg.use_subscription),
         agent_models,
     };
 
@@ -1276,6 +1282,7 @@ mod tests {
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
             bootstrap_snapshot: true,
+            use_subscription: false,
             workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: None,
@@ -1358,6 +1365,7 @@ mod tests {
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
             bootstrap_snapshot: true,
+            use_subscription: false,
             workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::Token("ghp_test123".into())),
@@ -1388,6 +1396,7 @@ mod tests {
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
             bootstrap_snapshot: true,
+            use_subscription: false,
             workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::Token("ghp_test123".into())),
@@ -1418,6 +1427,7 @@ mod tests {
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
             bootstrap_snapshot: true,
+            use_subscription: false,
             workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::GitHubApp {
@@ -1475,6 +1485,7 @@ mod tests {
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
             bootstrap_snapshot: true,
+            use_subscription: false,
             workflow_preset: "default".to_string(),
             bot_settings: BotSettings::default(),
             bot_credentials: Some(BotCredentials::GitHubApp {
@@ -1537,6 +1548,7 @@ mod tests {
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
             bootstrap_snapshot: true,
+            use_subscription: false,
             workflow_preset: "default".to_string(),
             bot_settings: BotSettings {
                 mode: BotAuthMode::GitHubApp,

@@ -522,6 +522,16 @@ fn merged_agent_env(cfg: &Config, extra_env: &[(String, String)]) -> Vec<(String
     let mut env = local_inference_overrides(cfg).env;
     env.extend(model_selection_overrides(cfg).env);
     env.extend(extra_env.iter().cloned());
+
+    if cfg.use_subscription {
+        env.push(("ANTHROPIC_API_KEY".to_string(), "".to_string()));
+        env.push(("OPENAI_API_KEY".to_string(), "".to_string()));
+        env.push(("GEMINI_API_KEY".to_string(), "".to_string()));
+        env.push(("GROK_API_KEY".to_string(), "".to_string()));
+        env.push(("JUNIE_API_KEY".to_string(), "".to_string()));
+        env.push(("XAI_API_KEY".to_string(), "".to_string()));
+    }
+
     env
 }
 
@@ -565,14 +575,8 @@ fn run_claude_native_with_env(
     cwd: Option<&Path>,
 ) -> bool {
     let mut cmd = Command::new(binary);
-    cmd.args(args)
-        // Clear API keys so agents use the user's subscription instead of API credits.
-        .env("ANTHROPIC_API_KEY", "")
-        .env("OPENAI_API_KEY", "")
-        .env("GEMINI_API_KEY", "")
-        .env("GROK_API_KEY", "")
-        .env("JUNIE_API_KEY", "")
-        .env("XAI_API_KEY", "");
+    cmd.args(args);
+
     if let Some(p) = cwd {
         cmd.current_dir(p);
     }
@@ -791,14 +795,8 @@ fn run_codex_native_with_env(
     cwd: Option<&Path>,
 ) -> bool {
     let mut cmd = Command::new("codex");
-    cmd.args(args)
-        // Clear API keys so agents use the user's subscription instead of API credits.
-        .env("ANTHROPIC_API_KEY", "")
-        .env("OPENAI_API_KEY", "")
-        .env("GEMINI_API_KEY", "")
-        .env("GROK_API_KEY", "")
-        .env("JUNIE_API_KEY", "")
-        .env("XAI_API_KEY", "");
+    cmd.args(args);
+
     if let Some(p) = cwd {
         cmd.current_dir(p);
     }
@@ -2730,6 +2728,7 @@ pub fn parse_args() -> Config {
         bootstrap_agent_files: false,
         bootstrap_snapshot: false,
         workflow_preset: "default".to_string(),
+        use_subscription: false,
         bot_settings: Default::default(),
         bot_credentials: None,
     }
@@ -2755,6 +2754,7 @@ pub fn parse_args() -> Config {
     let skill_paths = dev_cfg.skills.into_skill_paths();
     let bootstrap_agent_files = dev_cfg.bootstrap_agent_files.unwrap_or(true);
     let bootstrap_snapshot = dev_cfg.bootstrap_snapshot.unwrap_or(true);
+    let use_subscription = dev_cfg.use_subscription.unwrap_or(false);
 
     Config {
         agent: Agent::Claude, // Default, will be overridden by CLI
@@ -2768,6 +2768,7 @@ pub fn parse_args() -> Config {
         skill_paths,
         bootstrap_agent_files,
         bootstrap_snapshot,
+        use_subscription,
         workflow_preset: dev_cfg
             .workflow_preset
             .unwrap_or_else(|| "default".to_string()),
@@ -2795,6 +2796,7 @@ mod tests {
             skill_paths: SkillPaths::default(),
             bootstrap_agent_files: true,
             bootstrap_snapshot: true,
+            use_subscription: false,
             workflow_preset: "default".to_string(),
             bot_settings: Default::default(),
             bot_credentials: None,
@@ -3082,6 +3084,32 @@ mod tests {
         let cfg = test_config(Agent::Claude);
         let ov = model_selection_overrides(&cfg);
         assert_eq!(ov, AgentLaunchOverrides::default());
+    }
+
+    #[test]
+    fn use_subscription_clears_api_keys() {
+        let mut cfg = test_config(Agent::Claude);
+        cfg.use_subscription = true;
+        let env = merged_agent_env(&cfg, &[]);
+        let anthropic_key = env
+            .iter()
+            .find(|(k, _)| k == "ANTHROPIC_API_KEY")
+            .map(|(_, v)| v.as_str());
+        assert_eq!(anthropic_key, Some(""));
+
+        let openai_key = env
+            .iter()
+            .find(|(k, _)| k == "OPENAI_API_KEY")
+            .map(|(_, v)| v.as_str());
+        assert_eq!(openai_key, Some(""));
+    }
+
+    #[test]
+    fn use_subscription_is_disabled_by_default() {
+        let cfg = test_config(Agent::Claude);
+        let env = merged_agent_env(&cfg, &[]);
+        let anthropic_key = env.iter().find(|(k, _)| k == "ANTHROPIC_API_KEY");
+        assert!(anthropic_key.is_none());
     }
 
     #[test]
