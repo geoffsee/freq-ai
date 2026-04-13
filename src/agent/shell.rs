@@ -456,7 +456,13 @@ fn local_inference_overrides(cfg: &Config) -> AgentLaunchOverrides {
                 .args
                 .extend(["-c".to_string(), format!("openai_base_url={base_url:?}")]);
         }
-        Agent::Cline | Agent::Copilot | Agent::Gemini | Agent::Grok | Agent::Junie | Agent::Xai | Agent::Cursor => {
+        Agent::Cline
+        | Agent::Copilot
+        | Agent::Gemini
+        | Agent::Grok
+        | Agent::Junie
+        | Agent::Xai
+        | Agent::Cursor => {
             return AgentLaunchOverrides::default();
         }
     }

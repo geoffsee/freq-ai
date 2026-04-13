@@ -1,0 +1,19 @@
+name: Bug Report Triage
+id: bug_report_triage
+description: Analyze, reproduce, and prioritize incoming bug reports
+pattern: two_phase
+context: technical
+ui:
+  category: quality-assurance
+  order: 20
+  visible: true
+depends_on: []
+phases:
+  draft:
+    template: draft.md
+    log_start: "Analyzing bug reports..."
+    log_complete: "Initial triage complete — review the findings and prioritization."
+  finalize:
+    template: finalize.md
+    log_start: "Updating bug reports and finalizing triage..."
+    log_complete: "Bug report triage complete."

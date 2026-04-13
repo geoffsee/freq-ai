@@ -1,0 +1,19 @@
+name: Regression Testing
+id: regression_testing
+description: Identify and design regression tests for recent changes
+pattern: two_phase
+context: technical
+ui:
+  category: quality-assurance
+  order: 30
+  visible: true
+depends_on: []
+phases:
+  draft:
+    template: draft.md
+    log_start: "Identifying regression test candidates..."
+    log_complete: "Regression test draft complete — review the proposed test suite."
+  finalize:
+    template: finalize.md
+    log_start: "Finalizing regression test suite..."
+    log_complete: "Regression test suite finalized."

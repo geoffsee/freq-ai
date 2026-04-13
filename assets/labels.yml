@@ -55,6 +55,10 @@
   description: "Output of the Sales Prospecting workflow"
   color: "3498DB"
 
+- name: quality-assurance
+  description: "Output of the Quality Assurance workflow"
+  color: "F1C40F"
+
 # ── area: — which component / subsystem ────────────────────────────────────
 # Add project-specific area labels below. Examples:
 #

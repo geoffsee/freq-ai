@@ -521,6 +521,7 @@ mod tests {
                 "data-science".to_string(),
                 "deep-research".to_string(),
                 "pm".to_string(),
+                "quality-assurance".to_string(),
                 "ux".to_string(),
                 "xp".to_string(),
             ]
@@ -583,6 +584,20 @@ mod tests {
         assert!(entries.iter().any(|entry| entry.id == "report_research"));
         assert!(!entries.iter().any(|entry| entry.id == "roadmapper"));
         assert!(!entries.iter().any(|entry| entry.id == "housekeeping"));
+    }
+
+    #[test]
+    fn quality_assurance_preset_loads_sidebar_entries() {
+        let root = env!("CARGO_MANIFEST_DIR");
+        let entries = load_sidebar_entries(root, "quality-assurance");
+        assert_eq!(entries.len(), 3);
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.id == "test_plan_generation")
+        );
+        assert!(entries.iter().any(|entry| entry.id == "bug_report_triage"));
+        assert!(entries.iter().any(|entry| entry.id == "regression_testing"));
     }
 
     #[test]

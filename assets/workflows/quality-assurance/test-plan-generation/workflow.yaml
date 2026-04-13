@@ -1,0 +1,19 @@
+name: Test Plan Generation
+id: test_plan_generation
+description: Create a comprehensive test plan for a new feature or change
+pattern: two_phase
+context: strategic
+ui:
+  category: quality-assurance
+  order: 10
+  visible: true
+depends_on: []
+phases:
+  draft:
+    template: draft.md
+    log_start: "Generating initial test plan draft..."
+    log_complete: "Test plan draft complete — please review and provide feedback."
+  finalize:
+    template: finalize.md
+    log_start: "Finalizing test plan with your feedback..."
+    log_complete: "Test plan finalized."
