@@ -474,9 +474,7 @@ fn App() -> Element {
                             {
                                 let current = config_signal.read().workflow_preset.clone();
                                 if !presets.iter().any(|p| p == &current) {
-                                    config_signal
-                                        .write()
-                                        .workflow_preset = default_preset.clone();
+                                    config_signal.write().workflow_preset = default_preset.clone();
                                 }
                             }
                             preset_signal.set(presets);

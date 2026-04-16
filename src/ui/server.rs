@@ -99,9 +99,7 @@ async fn api_list_workflows(
         preset,
         workflows.len()
     );
-    Json(WorkflowsResponse {
-        workflows: workflows,
-    })
+    Json(WorkflowsResponse { workflows })
 }
 
 #[cfg(not(target_arch = "wasm32"))]

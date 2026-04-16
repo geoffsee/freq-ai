@@ -41,14 +41,12 @@ fn find_content_for_path(events: &[AgentEvent], path: &str) -> Option<String> {
         match ev {
             AgentEvent::Claude(ClaudeEvent::Assistant { message }) => {
                 for block in &message.content {
-                    if let ContentBlock::ToolUse { name, input, .. } = block {
-                        if (name == "Write" || name == "Edit")
-                            && input.get("file_path").and_then(|v| v.as_str()) == Some(path)
-                        {
-                            if let Some(content) = input.get("content").and_then(|v| v.as_str()) {
-                                return Some(content.to_string());
-                            }
-                        }
+                    if let ContentBlock::ToolUse { name, input, .. } = block
+                        && (name == "Write" || name == "Edit")
+                        && input.get("file_path").and_then(|v| v.as_str()) == Some(path)
+                        && let Some(content) = input.get("content").and_then(|v| v.as_str())
+                    {
+                        return Some(content.to_string());
                     }
                 }
             }
@@ -66,14 +64,12 @@ fn find_content_for_path(events: &[AgentEvent], path: &str) -> Option<String> {
                                         name: name_inner,
                                         input: input_inner,
                                     } = block_inner
+                                        && id_inner == id
+                                        && name_inner == "Read"
+                                        && input_inner.get("file_path").and_then(|v| v.as_str())
+                                            == Some(path)
                                     {
-                                        if id_inner == id
-                                            && name_inner == "Read"
-                                            && input_inner.get("file_path").and_then(|v| v.as_str())
-                                                == Some(path)
-                                        {
-                                            return Some(content.clone());
-                                        }
+                                        return Some(content.clone());
                                     }
                                 }
                             }

@@ -1,5 +1,11 @@
 # freq-ai
 
+## Quickstart
+```shell
+$ cargo binstall freq-ai
+$ freq-ai
+```
+
 A desktop app, web app, and CLI that provides a flexible conventionalized approach for declarative agent workflows for operating high-complexity processes in knowledge domains.
 
 ## Status: Unstable (Active Development)
