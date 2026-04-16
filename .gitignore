@@ -12,3 +12,4 @@ dist/*
 /scripts/list-models-*.sh
 /.agents/skills/**/*.txt
 /samples/*
+/.playwright-mcp
