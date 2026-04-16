@@ -32,9 +32,9 @@ use agent::config_store::{
     store_bot_private_key_pem, store_bot_token, store_local_inference_api_key,
 };
 use agent::shell::{
-    clear_stop_request, parse_args, preflight, request_stop, run_code_review, run_interview_draft,
-    run_interview_respond, run_loop, run_pr_review_fix, run_refresh_agents, run_refresh_docs,
-    run_security_code_review, run_single_issue, run_workflow_draft,
+    clear_stop_request, list_all_files, parse_args, preflight, request_stop, run_code_review,
+    run_interview_draft, run_interview_respond, run_loop, run_pr_review_fix, run_refresh_agents,
+    run_refresh_docs, run_security_code_review, run_single_issue, run_workflow_draft,
 };
 use agent::tracker::{
     DEFAULT_REVIEW_BOT_LOGIN, PendingIssue, PrSummary, TrackerInfo, current_branch_pr,
@@ -55,6 +55,18 @@ use tracing::info;
 use ui::components::BASE_CSS;
 use ui::security::{SecurityFinding, run_security_scan};
 use ui::{Editor, Sidebar, Statusbar};
+
+#[cfg(target_arch = "wasm32")]
+#[derive(serde::Deserialize)]
+struct WorkflowPresetsResponse {
+    presets: Vec<String>,
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(serde::Deserialize)]
+struct WorkflowEntriesResponse {
+    workflows: Vec<crate::agent::workflow::WorkflowEntry>,
+}
 
 #[derive(Parser)]
 #[command(
@@ -208,9 +220,13 @@ where
             }
             Some(Commands::Loop { tracker }) => run_loop(&config, tracker),
             Some(Commands::Serve { port }) => {
+                info!(
+                    "Launching API/web server for root={} on http://127.0.0.1:{}",
+                    config.root, port
+                );
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
-                    if let Err(e) = ui::server::serve(port).await {
+                    if let Err(e) = ui::server::serve(config.root.clone(), port).await {
                         eprintln!("Error: {}", e);
                         std::process::exit(1);
                     }
@@ -241,6 +257,18 @@ where
 /// re-derived from `dev.toml` alone.
 static CONFIG_OVERRIDE: std::sync::OnceLock<Config> = std::sync::OnceLock::new();
 
+fn ensure_default_workflow_preset_first(mut presets: Vec<String>) -> Vec<String> {
+    if !presets.iter().any(|preset| preset == "default") {
+        presets.push("default".to_string());
+    }
+    if let Some(default_pos) = presets.iter().position(|preset| preset == "default") {
+        presets.remove(default_pos);
+    }
+    presets.insert(0, "default".to_string());
+    presets.dedup();
+    presets
+}
+
 #[component]
 fn App() -> Element {
     let mut config = use_signal(|| {
@@ -264,36 +292,50 @@ fn App() -> Element {
     let mut interview_agent_buf = use_signal(String::new);
     let mut settings_status = use_signal(|| None::<String>);
     let root_sig = use_signal(|| config.read().root.clone());
+    let mut all_files = use_signal(Vec::<String>::new);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = use_resource(move || async move {
+        let r = root_sig.read().clone();
+        let files = tokio::task::spawn_blocking(move || list_all_files(&r))
+            .await
+            .unwrap_or_default();
+        all_files.set(files);
+    });
+
     let mut auto_merge_enabled = use_signal(|| false);
     let expand_all = use_signal(|| false);
     let follow_mode = use_signal(|| true);
     let bottom_el = use_signal(|| None::<std::rc::Rc<MountedData>>);
     let mut theme = use_signal(Theme::tokyo_night);
-    let presets = use_signal(|| list_presets(&config.read().root));
-    let mut workflow_entries = use_signal(|| {
-        let cfg = config.read();
-        load_sidebar_entries(&cfg.root, &cfg.workflow_preset)
-    });
+    let mut presets = use_signal(|| vec!["default".to_string()]);
+    let mut workflow_entries = use_signal(Vec::<crate::agent::workflow::WorkflowEntry>::new);
 
     use_effect(move || {
-        preflight(&config.read());
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            preflight(&config.read());
+        }
 
         // Initialize channel if not already done
         if EVENT_SENDER.get().is_none() {
             let (tx, mut rx) = mpsc::unbounded_channel::<AgentEvent>();
             let _ = EVENT_SENDER.set(tx);
 
-            // Initialize auto-merge state from actual PR
-            spawn(async move {
-                let enabled = tokio::task::spawn_blocking(|| {
-                    current_branch_pr()
-                        .map(|pr| is_auto_merge_enabled(pr.number))
-                        .unwrap_or(false)
-                })
-                .await
-                .unwrap_or(false);
-                auto_merge_enabled.set(enabled);
-            });
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                // Initialize auto-merge state from actual PR (desktop only)
+                spawn(async move {
+                    let enabled = tokio::task::spawn_blocking(|| {
+                        current_branch_pr()
+                            .map(|pr| is_auto_merge_enabled(pr.number))
+                            .unwrap_or(false)
+                    })
+                    .await
+                    .unwrap_or(false);
+                    auto_merge_enabled.set(enabled);
+                });
+            }
 
             // Spawn task to listen for events, update UI, and auto-scroll
             spawn(async move {
@@ -404,6 +446,91 @@ fn App() -> Element {
         }
     });
 
+    // Load presets and workflows on app start
+    use_effect(move || {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let config_signal = config;
+            let preset_signal = presets;
+            // Fetch presets from API
+            spawn(async move {
+                if let Ok(response) = gloo_net::http::Request::get("/api/workflows/presets")
+                    .send()
+                    .await
+                {
+                    if let Ok(text) = response.text().await {
+                        if let Ok(mut json) = serde_json::from_str::<WorkflowPresetsResponse>(&text)
+                        {
+                            let mut values = std::mem::take(&mut json.presets);
+                            let presets = if values.is_empty() {
+                                vec!["default".to_string()]
+                            } else {
+                                ensure_default_workflow_preset_first(values)
+                            };
+                            let default_preset = presets
+                                .first()
+                                .cloned()
+                                .unwrap_or_else(|| "default".to_string());
+                            {
+                                let current = config_signal.read().workflow_preset.clone();
+                                if !presets.iter().any(|p| p == &current) {
+                                    config_signal
+                                        .write()
+                                        .workflow_preset = default_preset.clone();
+                                }
+                            }
+                            preset_signal.set(presets);
+                        }
+                    }
+                }
+            });
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let cfg = config.read().clone();
+            let preset_list = ensure_default_workflow_preset_first(list_presets(&cfg.root));
+            let default_preset = preset_list
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "default".to_string());
+            if !preset_list.iter().any(|p| p == &cfg.workflow_preset) {
+                config.write().workflow_preset = default_preset;
+            }
+            presets.set(preset_list);
+        }
+    });
+
+    // Fetch workflows from API in web mode, or from filesystem in desktop mode
+    use_effect(move || {
+        let preset = config.read().workflow_preset.clone();
+
+        #[cfg(target_arch = "wasm32")]
+        {
+            spawn(async move {
+                if let Ok(response) =
+                    gloo_net::http::Request::get(&format!("/api/workflows/{}", preset))
+                        .send()
+                        .await
+                {
+                    if let Ok(text) = response.text().await {
+                        if let Ok(json) = serde_json::from_str::<WorkflowEntriesResponse>(&text) {
+                            workflow_entries.set(json.workflows);
+                        }
+                    }
+                }
+            });
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let cfg = config.read().clone();
+            let entries = load_sidebar_entries(&cfg.root, &preset);
+            workflow_entries.set(entries);
+        }
+    });
+
+    #[cfg(not(target_arch = "wasm32"))]
     let refresh_tracker = move |_: MouseEvent| {
         info!("Refreshing trackers...");
         let infos = find_tracker();
@@ -416,10 +543,6 @@ fn App() -> Element {
         all_pending.sort_by_key(|i| i.number);
         all_pending.dedup_by_key(|i| i.number);
         let mut prs = list_open_prs();
-        // Phase 4 (#146): one batched GraphQL query populates the unresolved
-        // thread counts for every open PR in a single round-trip, so the
-        // sidebar's per-PR `(N)` badge stays in sync with the rest of the
-        // refresh without N extra HTTP calls.
         let counts = fetch_unresolved_thread_counts(DEFAULT_REVIEW_BOT_LOGIN);
         for pr in &mut prs {
             pr.unresolved_thread_count = counts.get(&pr.number).copied().unwrap_or(0);
@@ -430,6 +553,12 @@ fn App() -> Element {
         issues.set(all_pending);
     };
 
+    #[cfg(target_arch = "wasm32")]
+    let refresh_tracker = move |_: MouseEvent| {
+        info!("Tracker refresh not available in web mode");
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
     let start_work = move |tracker_num: u32| {
         clear_stop_request();
         is_working.set(true);
@@ -440,6 +569,12 @@ fn App() -> Element {
         });
     };
 
+    #[cfg(target_arch = "wasm32")]
+    let start_work = move |_tracker_num: u32| {
+        info!("Tracker work not available in web mode");
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
     let start_single_issue = move |issue_num: u32| {
         clear_stop_request();
         is_working.set(true);
@@ -450,6 +585,12 @@ fn App() -> Element {
         });
     };
 
+    #[cfg(target_arch = "wasm32")]
+    let start_single_issue = move |_issue_num: u32| {
+        info!("Single issue work not available in web mode");
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
     let start_pr_fix = move |pr_num: u32| {
         clear_stop_request();
         is_working.set(true);
@@ -460,11 +601,38 @@ fn App() -> Element {
         });
     };
 
+    #[cfg(target_arch = "wasm32")]
+    let start_pr_fix = move |_pr_num: u32| {
+        info!("PR fix work not available in web mode");
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
     let on_preset_change = move |preset: String| {
         config.write().workflow_preset = preset.clone();
         workflow_entries.set(load_sidebar_entries(&config.read().root, &preset));
     };
 
+    #[cfg(target_arch = "wasm32")]
+    let on_preset_change = move |preset: String| {
+        config.write().workflow_preset = preset.clone();
+        // Re-fetch workflows from API with new preset
+        let preset_clone = preset.clone();
+        spawn(async move {
+            if let Ok(response) =
+                gloo_net::http::Request::get(&format!("/api/workflows/{}", preset_clone))
+                    .send()
+                    .await
+            {
+                if let Ok(text) = response.text().await {
+                    if let Ok(json) = serde_json::from_str::<WorkflowEntriesResponse>(&text) {
+                        workflow_entries.set(json.workflows);
+                    }
+                }
+            }
+        });
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
     let on_start_workflow = move |workflow_id: String| {
         clear_stop_request();
         let cfg = config.read().clone();
@@ -519,6 +687,15 @@ fn App() -> Element {
         }
     };
 
+    #[cfg(target_arch = "wasm32")]
+    let on_start_workflow = move |workflow_id: String| {
+        info!(
+            "Workflow execution not available in web mode: {}",
+            workflow_id
+        );
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
     let save_settings = move |_: MouseEvent| {
         let cfg = config.read().clone();
         settings_status.set(Some("Saving configuration...".into()));
@@ -576,6 +753,12 @@ fn App() -> Element {
         });
     };
 
+    #[cfg(target_arch = "wasm32")]
+    let save_settings = move |_: MouseEvent| {
+        info!("Configuration saving not available in web mode");
+    };
+
+    #[cfg(not(target_arch = "wasm32"))]
     let submit_feedback = move |_: MouseEvent| {
         let fb = feedback_text.read().clone();
         if fb.trim().is_empty() {
@@ -607,11 +790,17 @@ fn App() -> Element {
         });
     };
 
+    #[cfg(target_arch = "wasm32")]
+    let submit_feedback = move |_: MouseEvent| {
+        info!("Feedback submission not available in web mode");
+    };
+
     let stop_work = move |_: MouseEvent| {
         request_stop();
         is_working.set(false);
     };
 
+    #[cfg(not(target_arch = "wasm32"))]
     let on_auto_merge = move |_: MouseEvent| {
         auto_merge_enabled.set(true); // Optimistic guard against double-click
         spawn(async move {
@@ -637,6 +826,11 @@ fn App() -> Element {
                 }
             }
         });
+    };
+
+    #[cfg(target_arch = "wasm32")]
+    let on_auto_merge = move |_: MouseEvent| {
+        info!("Auto-merge not available in web mode");
     };
 
     let css = format!("{vars}\n{BASE_CSS}", vars = theme.read().to_css_vars());
@@ -697,6 +891,7 @@ fn App() -> Element {
                 Editor {
                     events,
                     changed_files,
+                    all_files,
                     security_findings,
                     interview_turns,
                     interview_active,

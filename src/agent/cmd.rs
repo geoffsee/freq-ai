@@ -102,3 +102,21 @@ pub fn has_command(name: &str) -> bool {
         .map(|s| s.success())
         .unwrap_or(false)
 }
+
+pub fn list_all_files(root: &str) -> Vec<String> {
+    cmd_stdout(
+        "git",
+        &[
+            "-C",
+            root,
+            "ls-files",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ],
+    )
+    .unwrap_or_default()
+    .lines()
+    .map(|s| s.to_string())
+    .collect()
+}

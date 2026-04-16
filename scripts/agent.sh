@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-
-# agent.sh — Thin wrapper around the Rust-based dev agent (crates/dev)
+# agent.sh — Thin wrapper around the Rust-based dev agent
 #
 # Usage:
-#   ./scripts/agent.sh              # launches the GUI in web mode (default)
-#   ./scripts/agent.sh --desktop    # launches the GUI in desktop mode
-#   ./scripts/agent.sh --auto       # launches GUI with auto-mode enabled
-#   ./scripts/agent.sh --dry-run    # launches GUI with dry-run enabled
+#   ./scripts/agent.sh                       # launches API-backed web server (default)
+#   ./scripts/agent.sh --dx                  # launch web UI via dioxus CLI (no embedded API)
+#   ./scripts/agent.sh --desktop             # launches the native desktop GUI via cargo
+#   ./scripts/agent.sh --serve               # launch API-backed web server explicitly
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
@@ -19,19 +18,37 @@ set -a
 source "${ENV_FILE_PATH}"
 set +a
 
-MODE="web"
+MODE="serve"
 ARGS=()
 
 for arg in "$@"; do
-    if [[ "$arg" == "--desktop" ]]; then
-        MODE="desktop"
-    else
-        ARGS+=("$arg")
-    fi
+    case "$arg" in
+        --desktop)
+            MODE="desktop"
+            ;;
+        --dx)
+            MODE="dx"
+            ;;
+        --serve)
+            MODE="serve"
+            ;;
+        *)
+            ARGS+=("$arg")
+            ;;
+    esac
 done
 
-if [[ "$MODE" == "desktop" ]]; then
-    cargo run --quiet -- "${ARGS[@]}"
-else
-    dx serve --platform web
-fi
+case "$MODE" in
+    desktop)
+        cargo run --quiet -- "${ARGS[@]}"
+        ;;
+    dx)
+        dx serve --platform web
+        ;;
+    serve)
+        cargo run --quiet -- serve -- "${ARGS[@]}"
+        ;;
+    *)
+        cargo run --quiet -- serve -- "${ARGS[@]}"
+        ;;
+esac

@@ -5,7 +5,7 @@ pub use crate::agent::bot::{load_bot_credentials_from_env, load_bot_settings, re
 pub use crate::agent::cli::{infer_project_name, parse_args};
 pub use crate::agent::cmd::{
     cmd_capture, cmd_run, cmd_run_in, cmd_stdout, cmd_stdout_or_die, count_tokens, die,
-    has_command, log,
+    has_command, list_all_files, log,
 };
 pub use crate::agent::interview::{run_interview_draft, run_interview_respond};
 pub use crate::agent::issue::{

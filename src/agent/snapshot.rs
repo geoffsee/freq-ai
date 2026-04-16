@@ -1,5 +1,6 @@
 use crate::agent::cmd::{cmd_stdout, count_tokens, log};
 use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
 use toak_rs::{MarkdownGenerator, MarkdownGeneratorOptions};
 
 /// Maximum tokens to include from the codebase snapshot in a prompt.

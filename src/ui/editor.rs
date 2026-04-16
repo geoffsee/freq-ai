@@ -3,6 +3,7 @@ use crate::agent::types::{
 };
 use crate::ui::components::EventRow;
 use crate::ui::security::{SecurityFinding, SecurityPanel};
+use dioxus::document::eval as js_eval;
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -29,10 +30,68 @@ enum EditorTab {
     Interview,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum FileViewMode {
+    Interacted,
+    Browser,
+}
+
+fn find_content_for_path(events: &[AgentEvent], path: &str) -> Option<String> {
+    for ev in events.iter().rev() {
+        match ev {
+            AgentEvent::Claude(ClaudeEvent::Assistant { message }) => {
+                for block in &message.content {
+                    if let ContentBlock::ToolUse { name, input, .. } = block {
+                        if (name == "Write" || name == "Edit")
+                            && input.get("file_path").and_then(|v| v.as_str()) == Some(path)
+                        {
+                            if let Some(content) = input.get("content").and_then(|v| v.as_str()) {
+                                return Some(content.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            AgentEvent::Claude(ClaudeEvent::User { message }) => {
+                for block in &message.content {
+                    if let ContentBlock::ToolResult { id, content } = block {
+                        for ev_inner in events {
+                            if let AgentEvent::Claude(ClaudeEvent::Assistant {
+                                message: msg_inner,
+                            }) = ev_inner
+                            {
+                                for block_inner in &msg_inner.content {
+                                    if let ContentBlock::ToolUse {
+                                        id: id_inner,
+                                        name: name_inner,
+                                        input: input_inner,
+                                    } = block_inner
+                                    {
+                                        if id_inner == id
+                                            && name_inner == "Read"
+                                            && input_inner.get("file_path").and_then(|v| v.as_str())
+                                                == Some(path)
+                                        {
+                                            return Some(content.clone());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 #[component]
 pub fn Editor(
     events: Signal<Vec<AgentEvent>>,
     changed_files: Signal<Vec<ChangedFile>>,
+    all_files: Signal<Vec<String>>,
     security_findings: Signal<Vec<SecurityFinding>>,
     interview_turns: Signal<Vec<InterviewTurn>>,
     interview_active: Signal<bool>,
@@ -43,6 +102,64 @@ pub fn Editor(
     bottom_el: Signal<Option<std::rc::Rc<MountedData>>>,
 ) -> Element {
     let mut active_tab = use_signal(|| EditorTab::Output);
+    let mut selected_file = use_signal(|| None::<String>);
+    let mut file_view_mode = use_signal(|| FileViewMode::Interacted);
+    let mut file_search = use_signal(String::new);
+
+    use_effect(move || {
+        if *active_tab.read() == EditorTab::Files {
+            js_eval(
+                r#"
+                require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' } });
+                require(['vs/editor/editor.main'], function () {
+                    if (!window.monacoEditor) {
+                        window.monacoEditor = monaco.editor.create(document.getElementById('monaco-container'), {
+                            value: '',
+                            language: 'rust',
+                            theme: 'vs-dark',
+                            automaticLayout: true,
+                            readOnly: true,
+                            minimap: { enabled: false },
+                        });
+                    }
+                });
+            "#,
+            );
+        }
+    });
+
+    let mut on_file_click = move |path: String| {
+        selected_file.set(Some(path.clone()));
+        let content = find_content_for_path(&events.read(), &path).unwrap_or_else(|| {
+            let full = std::path::Path::new(&*root.read()).join(&path);
+            std::fs::read_to_string(full).unwrap_or_default()
+        });
+
+        let lang = match std::path::Path::new(&path)
+            .extension()
+            .and_then(|e| e.to_str())
+        {
+            Some("rs") => "rust",
+            Some("md") => "markdown",
+            Some("toml") => "toml",
+            Some("json") => "json",
+            Some("yaml") | Some("yml") => "yaml",
+            Some("js") => "javascript",
+            Some("ts") => "typescript",
+            Some("html") => "html",
+            Some("css") => "css",
+            _ => "text",
+        };
+
+        js_eval(&format!(
+            "if (window.monacoEditor) {{
+                window.monacoEditor.setValue({:?});
+                monaco.editor.setModelLanguage(window.monacoEditor.getModel(), {:?});
+            }}",
+            content, lang
+        ));
+    };
+
     let tool_names = build_tool_names(&events.read());
 
     let files = changed_files.read();
@@ -129,43 +246,98 @@ pub fn Editor(
                     }
                 },
                 EditorTab::Files => rsx! {
-                    div { class: "editor-content",
-                        if file_count == 0 {
-                            div { class: "text-muted editor-empty", "No file activity yet..." }
-                        } else {
-                            div { class: "files-summary",
-                                if created_count > 0 {
-                                    span { class: "file-stat file-stat-created", "+{created_count} created" }
+                    div { class: "editor-content editor-layout", style: "padding: 0;",
+                        div { class: "file-list",
+                            div { class: "file-list-header",
+                                div { class: "file-list-tabs",
+                                    div {
+                                        class: if *file_view_mode.read() == FileViewMode::Interacted { "file-list-tab file-list-tab-active" } else { "file-list-tab" },
+                                        onclick: move |_| file_view_mode.set(FileViewMode::Interacted),
+                                        "Interacted"
+                                    }
+                                    div {
+                                        class: if *file_view_mode.read() == FileViewMode::Browser { "file-list-tab file-list-tab-active" } else { "file-list-tab" },
+                                        onclick: move |_| file_view_mode.set(FileViewMode::Browser),
+                                        "Browser"
+                                    }
                                 }
-                                if modified_count > 0 {
-                                    span { class: "file-stat file-stat-modified", "~{modified_count} modified" }
-                                }
-                                if read_count > 0 {
-                                    span { class: "file-stat file-stat-read", "{read_count} read" }
+                                if *file_view_mode.read() == FileViewMode::Browser {
+                                    div { class: "file-search",
+                                        input {
+                                            r#type: "text",
+                                            placeholder: "Search files...",
+                                            value: "{file_search}",
+                                            oninput: move |evt| file_search.set(evt.value()),
+                                        }
+                                    }
                                 }
                             }
-                            ul { class: "file-list",
-                                for (i , file) in changed_files.read().iter().enumerate() {
-                                    li { key: "{i}", class: "file-entry",
-                                        span {
-                                            class: match file.kind {
-                                                FileChangeKind::Created => "file-kind file-kind-created",
-                                                FileChangeKind::Modified => "file-kind file-kind-modified",
-                                                FileChangeKind::Deleted => "file-kind file-kind-deleted",
-                                                FileChangeKind::Read => "file-kind file-kind-read",
-                                            },
-                                            match file.kind {
-                                                FileChangeKind::Created => "+",
-                                                FileChangeKind::Modified => "~",
-                                                FileChangeKind::Deleted => "-",
-                                                FileChangeKind::Read => " ",
+
+                            div { class: "file-list-container",
+                                match *file_view_mode.read() {
+                                    FileViewMode::Interacted => rsx! {
+                                        if file_count == 0 {
+                                            div { class: "text-muted editor-empty", "No file activity yet..." }
+                                        } else {
+                                            div { class: "files-summary", style: "padding: 8px; border-bottom: 1px solid var(--border); margin: 0; gap: 8px; flex-wrap: wrap;",
+                                                if created_count > 0 {
+                                                    span { class: "file-stat file-stat-created", "+{created_count}" }
+                                                }
+                                                if modified_count > 0 {
+                                                    span { class: "file-stat file-stat-modified", "~{modified_count}" }
+                                                }
+                                                if read_count > 0 {
+                                                    span { class: "file-stat file-stat-read", "{read_count}r" }
+                                                }
+                                            }
+                                            ul { style: "list-style: none; padding: 0; margin: 0;",
+                                                for (i , file) in changed_files.read().iter().enumerate() {
+                                                    li {
+                                                        key: "{i}",
+                                                        class: if selected_file.read().as_ref() == Some(&file.path) { "file-entry file-entry-active" } else { "file-entry" },
+                                                        onclick: {
+                                                            let path = file.path.clone();
+                                                            move |_| on_file_click(path.clone())
+                                                        },
+                                                        span {
+                                                            class: match file.kind {
+                                                                FileChangeKind::Created => "file-kind file-kind-created",
+                                                                FileChangeKind::Modified => "file-kind file-kind-modified",
+                                                                FileChangeKind::Deleted => "file-kind file-kind-deleted",
+                                                                FileChangeKind::Read => "file-kind file-kind-read",
+                                                            },
+                                                            match file.kind {
+                                                                FileChangeKind::Created => "+",
+                                                                FileChangeKind::Modified => "~",
+                                                                FileChangeKind::Deleted => "-",
+                                                                FileChangeKind::Read => "r",
+                                                            }
+                                                        }
+                                                        span { class: "file-path", "{file.path}" }
+                                                    }
+                                                }
                                             }
                                         }
-                                        span { class: "file-path", "{file.path}" }
+                                    },
+                                    FileViewMode::Browser => rsx! {
+                                        ul { style: "list-style: none; padding: 0; margin: 0;",
+                                            for path in all_files.read().iter().filter(|p| p.to_lowercase().contains(&file_search.read().to_lowercase())) {
+                                                li {
+                                                    key: "{path}",
+                                                    class: if selected_file.read().as_ref() == Some(path) { "file-entry file-entry-active" } else { "file-entry" },
+                                                    onclick: {
+                                                        let path = path.clone();
+                                                        move |_| on_file_click(path.clone())
+                                                    },
+                                                    span { class: "file-path", style: "margin-left: 4px;", "{path}" }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
+                        div { id: "monaco-container" }
                     }
                 },
                 EditorTab::Security => rsx! {

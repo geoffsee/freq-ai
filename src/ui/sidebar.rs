@@ -141,6 +141,13 @@ pub fn Sidebar(
     let auto_merge = *auto_merge_enabled.read();
     let has_bot = config.read().has_bot_credentials();
     let advanced_open = config.read().local_inference.advanced;
+    let preset_options = {
+        let mut options = presets.read().to_vec();
+        if options.is_empty() {
+            options.push("default".to_string());
+        }
+        options
+    };
     let advanced_controls_class = if advanced_open {
         "advanced-controls advanced-controls-open"
     } else {
@@ -328,8 +335,9 @@ pub fn Sidebar(
                                 "Local OpenAI-compatible endpoint overrides for Claude and Codex."
                             }
                             label { class: "advanced-field",
-                                span { class: "control-label", "Preset" }
+                                span { class: "control-label", "Local Preset" }
                                 select {
+                                    id: "local-inference-preset",
                                     class: "select",
                                     value: "{config.read().local_inference.preset}",
                                     onchange: move |evt| {
@@ -396,26 +404,25 @@ pub fn Sidebar(
             // Actions section — dynamically rendered from assets/workflows/{preset}/
             div { class: "sidebar-section",
                 div { class: "section-header", "ACTIONS" }
-                if !presets.read().is_empty() {
-                    div { class: "sidebar-controls",
-                        label { class: "advanced-field",
-                            span { class: "control-label", "Preset" }
-                            select {
-                                class: "config-select",
-                                value: "{config.read().workflow_preset}",
-                                disabled: presets.read().len() < 2,
-                                onchange: move |evt| on_preset_change.call(evt.value()),
-                                for preset in presets.read().iter() {
-                                    option { value: "{preset}", "{preset}" }
-                                }
+                div { class: "sidebar-controls",
+                    label { class: "advanced-field",
+                        span { class: "control-label", "Workflow Preset" }
+                        select {
+                            id: "workflow-preset",
+                            class: "config-select",
+                            value: "{config.read().workflow_preset}",
+                            disabled: preset_options.len() < 2,
+                            onchange: move |evt| on_preset_change.call(evt.value()),
+                            for preset in preset_options.iter() {
+                                option { value: "{preset}", "{preset}" }
                             }
                         }
-                        div { class: "advanced-hint",
-                            if presets.read().len() < 2 {
-                                "This project currently exposes one workflow preset. Add another preset to compare or switch working styles."
-                            } else {
-                                "Choose the workflow style for this run. Presets change which actions appear in the sidebar and how those workflows guide planning and review."
-                            }
+                    }
+                    div { class: "advanced-hint",
+                        if preset_options.len() < 2 {
+                            "This project currently exposes one workflow preset. Add another preset to compare or switch working styles."
+                        } else {
+                            "Choose the workflow style for this run. Presets change which actions appear in the sidebar and how those workflows guide planning and review."
                         }
                     }
                 }

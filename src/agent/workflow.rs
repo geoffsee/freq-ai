@@ -1,5 +1,5 @@
 use indexmap::IndexMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -77,7 +77,7 @@ impl Default for UiConfig {
 }
 
 /// Lightweight summary of a workflow for the UI sidebar.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct WorkflowEntry {
     pub id: String,
     pub name: String,
