@@ -1,5 +1,5 @@
 use crate::agent::types::{
-    AgentEvent, ChangedFile, ClaudeEvent, ContentBlock, FileChangeKind, InterviewTurn,
+    AgentEvent, ChangedFile, ClaudeEvent, ContentBlock, FileChangeKind, InterviewTurn, Workflow,
 };
 use crate::ui::components::EventRow;
 use crate::ui::security::{SecurityFinding, SecurityPanel};
@@ -28,6 +28,7 @@ enum EditorTab {
     Files,
     Security,
     Interview,
+    Chat,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -92,6 +93,12 @@ pub fn Editor(
     interview_turns: Signal<Vec<InterviewTurn>>,
     interview_active: Signal<bool>,
     interview_done: Signal<bool>,
+    chat_turns: Signal<Vec<InterviewTurn>>,
+    chat_active: Signal<bool>,
+    awaiting_feedback: Signal<Option<Workflow>>,
+    is_working: Signal<bool>,
+    feedback_text: Signal<String>,
+    submit_feedback: EventHandler<MouseEvent>,
     root: Signal<String>,
     follow_mode: Signal<bool>,
     expand_all: Signal<bool>,
@@ -198,6 +205,17 @@ pub fn Editor(
                         class: if *active_tab.read() == EditorTab::Interview { "tab tab-active" } else { "tab" },
                         onclick: move |_| active_tab.set(EditorTab::Interview),
                         "Interview ({interview_turns.read().len()})"
+                    }
+                }
+                {
+                    let chat_count = chat_turns.read().len();
+                    let chat_label = if chat_count == 0 { "Chat".to_string() } else { format!("Chat ({chat_count})") };
+                    rsx! {
+                        div {
+                            class: if *active_tab.read() == EditorTab::Chat { "tab tab-active" } else { "tab" },
+                            onclick: move |_| active_tab.set(EditorTab::Chat),
+                            "{chat_label}"
+                        }
                     }
                 }
                 div { class: "tab-actions",
@@ -375,6 +393,52 @@ pub fn Editor(
                         if *interview_active.read() && !*interview_done.read() {
                             div { class: "interview-status",
                                 "Awaiting your response in the Feedback section..."
+                            }
+                        }
+                    }
+                },
+                EditorTab::Chat => rsx! {
+                    div { class: "chat-panel",
+                        div { class: "chat-messages",
+                            if chat_turns.read().is_empty() && !*is_working.read() {
+                                div { class: "chat-empty",
+                                    "Start a conversation with the agent. Ask questions, discuss ideas, or get help with anything — no workflow required."
+                                }
+                            }
+                            for (i , turn) in chat_turns.read().iter().enumerate() {
+                                if turn.is_agent {
+                                    div { key: "{i}", class: "interview-turn interview-turn-agent",
+                                        div { class: "interview-role interview-role-agent", "Agent" }
+                                        div { class: "interview-bubble interview-bubble-agent",
+                                            "{turn.content}"
+                                        }
+                                    }
+                                } else {
+                                    div { key: "{i}", class: "interview-turn interview-turn-user",
+                                        div { class: "interview-role interview-role-user", "You" }
+                                        div { class: "interview-bubble interview-bubble-user",
+                                            "{turn.content}"
+                                        }
+                                    }
+                                }
+                            }
+                            if *is_working.read() && *chat_active.read() {
+                                div { class: "chat-typing", "Agent is thinking..." }
+                            }
+                        }
+                        div { class: "chat-input-area",
+                            textarea {
+                                class: "chat-input",
+                                placeholder: "Type a message...",
+                                disabled: *is_working.read(),
+                                value: "{feedback_text.read()}",
+                                oninput: move |evt| feedback_text.set(evt.value()),
+                            }
+                            button {
+                                class: "btn btn-sm btn-go chat-send-btn",
+                                disabled: feedback_text.read().trim().is_empty() || *is_working.read() || *awaiting_feedback.read() != Some(Workflow::Chat),
+                                onclick: move |evt| submit_feedback.call(evt),
+                                "Send"
                             }
                         }
                     }

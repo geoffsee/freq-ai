@@ -2,6 +2,7 @@ use crate::agent::types::Config;
 
 // Re-exports from decomposed modules.
 pub use crate::agent::bot::{load_bot_credentials_from_env, load_bot_settings, resolve_bot_token};
+pub use crate::agent::chat::{record_agent_response, reset_chat_history, run_chat_send};
 pub use crate::agent::cli::{infer_project_name, parse_args};
 pub use crate::agent::cmd::{
     cmd_capture, cmd_run, cmd_run_in, cmd_stdout, cmd_stdout_or_die, count_tokens, die,
