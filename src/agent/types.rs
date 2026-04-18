@@ -20,6 +20,7 @@ pub enum Workflow {
     Retrospective,
     Housekeeping,
     Interview,
+    Chat,
 }
 
 impl std::fmt::Display for Workflow {
@@ -36,6 +37,7 @@ impl std::fmt::Display for Workflow {
             Workflow::Retrospective => write!(f, "Retrospective"),
             Workflow::Housekeeping => write!(f, "Housekeeping"),
             Workflow::Interview => write!(f, "Interview"),
+            Workflow::Chat => write!(f, "Chat"),
         }
     }
 }
@@ -55,6 +57,7 @@ impl Workflow {
             "retrospective" => Some(Self::Retrospective),
             "housekeeping" => Some(Self::Housekeeping),
             "interview" => Some(Self::Interview),
+            "chat" => Some(Self::Chat),
             _ => None,
         }
     }
@@ -73,6 +76,7 @@ impl Workflow {
             Self::Retrospective => "retrospective",
             Self::Housekeeping => "housekeeping",
             Self::Interview => "interview",
+            Self::Chat => "chat",
         }
     }
 }

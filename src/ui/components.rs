@@ -965,6 +965,72 @@ body {
     color: var(--fg-muted);
     font-style: italic;
 }
+
+/* ── Chat panel ── */
+.chat-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.chat-empty {
+    color: var(--fg-muted);
+    text-align: center;
+    padding: 32px 16px;
+    font-style: italic;
+    line-height: 1.6;
+}
+.chat-typing {
+    text-align: center;
+    padding: 8px;
+    font-size: 11px;
+    color: var(--fg-muted);
+    font-style: italic;
+}
+.chat-input-area {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+    align-items: flex-end;
+}
+.chat-input {
+    flex: 1;
+    min-height: 36px;
+    max-height: 120px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--fg-primary);
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+    resize: none;
+    outline: none;
+}
+.chat-input:focus {
+    border-color: var(--blue);
+}
+.chat-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.chat-send-btn {
+    flex-shrink: 0;
+    height: 36px;
+    padding: 0 16px;
+}
 "#;
 
 #[component]

@@ -32,9 +32,10 @@ use agent::config_store::{
     store_bot_private_key_pem, store_bot_token, store_local_inference_api_key,
 };
 use agent::shell::{
-    clear_stop_request, list_all_files, parse_args, preflight, request_stop, run_code_review,
-    run_interview_draft, run_interview_respond, run_loop, run_pr_review_fix, run_refresh_agents,
-    run_refresh_docs, run_security_code_review, run_single_issue, run_workflow_draft,
+    clear_stop_request, list_all_files, parse_args, preflight, record_agent_response, request_stop,
+    reset_chat_history, run_chat_send, run_code_review, run_interview_draft, run_interview_respond,
+    run_loop, run_pr_review_fix, run_refresh_agents, run_refresh_docs, run_security_code_review,
+    run_single_issue, run_workflow_draft,
 };
 use agent::tracker::{
     DEFAULT_REVIEW_BOT_LOGIN, PendingIssue, PrSummary, TrackerInfo, current_branch_pr,
@@ -290,6 +291,9 @@ fn App() -> Element {
     let mut interview_active = use_signal(|| false);
     let mut interview_done = use_signal(|| false);
     let mut interview_agent_buf = use_signal(String::new);
+    let mut chat_turns = use_signal(Vec::<InterviewTurn>::new);
+    let mut chat_active = use_signal(|| false);
+    let mut chat_agent_buf = use_signal(String::new);
     let mut settings_status = use_signal(|| None::<String>);
     let root_sig = use_signal(|| config.read().root.clone());
     let mut all_files = use_signal(Vec::<String>::new);
@@ -355,6 +359,19 @@ fn App() -> Element {
                                 interview_done.set(true);
                                 interview_active.set(false);
                             }
+                            // Flush chat agent buffer if active.
+                            if *chat_active.peek() {
+                                let buf = chat_agent_buf.peek().clone();
+                                if !buf.trim().is_empty() {
+                                    record_agent_response(&buf);
+                                    chat_turns.write().push(InterviewTurn {
+                                        is_agent: true,
+                                        content: buf,
+                                    });
+                                }
+                                chat_agent_buf.set(String::new());
+                                chat_active.set(false);
+                            }
                             is_working.set(false);
                             awaiting_feedback.set(None);
                             clear_stop_request();
@@ -371,6 +388,18 @@ fn App() -> Element {
                                     });
                                 }
                                 interview_agent_buf.set(String::new());
+                            }
+                            // Flush chat agent buffer as a dialog turn.
+                            if *wf == Workflow::Chat {
+                                let buf = chat_agent_buf.peek().clone();
+                                if !buf.trim().is_empty() {
+                                    record_agent_response(&buf);
+                                    chat_turns.write().push(InterviewTurn {
+                                        is_agent: true,
+                                        content: buf,
+                                    });
+                                }
+                                chat_agent_buf.set(String::new());
                             }
                             is_working.set(false);
                             awaiting_feedback.set(Some(*wf));
@@ -391,6 +420,20 @@ fn App() -> Element {
                         for block in &message.content {
                             if let ContentBlock::Text { text } = block {
                                 let mut buf = interview_agent_buf.write();
+                                if !buf.is_empty() {
+                                    buf.push('\n');
+                                }
+                                buf.push_str(text);
+                            }
+                        }
+                    }
+                    // Accumulate agent text into the chat buffer.
+                    if *chat_active.peek()
+                        && let AgentEvent::Claude(ClaudeEvent::Assistant { ref message }) = ev
+                    {
+                        for block in &message.content {
+                            if let ContentBlock::Text { text } = block {
+                                let mut buf = chat_agent_buf.write();
                                 if !buf.is_empty() {
                                     buf.push('\n');
                                 }
@@ -635,6 +678,21 @@ fn App() -> Element {
         clear_stop_request();
         let cfg = config.read().clone();
 
+        // Chat mode: free-form conversation, no workflow commitment.
+        if workflow_id == "chat" {
+            // Reset if starting fresh (not continuing).
+            if *awaiting_feedback.read() != Some(Workflow::Chat) {
+                reset_chat_history();
+                chat_turns.write().clear();
+                chat_agent_buf.set(String::new());
+            }
+            chat_active.set(true);
+            // Signal the UI to show the chat tab with the input ready.
+            awaiting_feedback.set(Some(Workflow::Chat));
+            feedback_text.set(String::new());
+            return;
+        }
+
         // Interview has special state management.
         if workflow_id == "interview" {
             is_working.set(true);
@@ -775,10 +833,19 @@ fn App() -> Element {
             });
         }
 
+        // Record user message as chat turn.
+        if wf == Some(Workflow::Chat) {
+            chat_turns.write().push(InterviewTurn {
+                is_agent: false,
+                content: fb.clone(),
+            });
+        }
+
         let cfg = config.read().clone();
         tokio::spawn(async move {
             match wf {
                 Some(Workflow::Interview) => run_interview_respond(&cfg, &fb),
+                Some(Workflow::Chat) => run_chat_send(&cfg, &fb),
                 Some(w) => {
                     use agent::shell::run_workflow_finalize;
                     run_workflow_finalize(&cfg, w.to_id(), &fb);
@@ -894,6 +961,12 @@ fn App() -> Element {
                     interview_turns,
                     interview_active,
                     interview_done,
+                    chat_turns,
+                    chat_active,
+                    awaiting_feedback,
+                    is_working,
+                    feedback_text,
+                    submit_feedback,
                     root: root_sig,
                     follow_mode,
                     expand_all,

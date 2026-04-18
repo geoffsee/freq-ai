@@ -236,7 +236,13 @@ pub fn run_agent_with_env(cfg: &Config, prompt: &str, extra_env: &[(String, Stri
                 Agent::Cursor => "cursor",
                 _ => unreachable!(),
             };
-            let mut args = vec!["-p".to_string(), prompt.to_string(), "--stream".to_string()];
+            let mut args = vec![
+                "-p".to_string(),
+                prompt.to_string(),
+                "--output-format".to_string(),
+                "stream-json".to_string(),
+                "--verbose".to_string(),
+            ];
             args.extend(overrides.args);
             run_claude_native_with_env(binary, &args, &env, None)
         }

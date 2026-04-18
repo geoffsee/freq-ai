@@ -480,6 +480,12 @@ pub fn Sidebar(
                     }
                     hr { class: "sidebar-buttons-divider" }
                     button {
+                        class: "btn btn-sm btn-action",
+                        disabled: working,
+                        onclick: move |_| on_start_workflow.call("chat".to_string()),
+                        "Chat"
+                    }
+                    button {
                         class: if auto_merge { "btn btn-sm btn-merge btn-merge-active" } else { "btn btn-sm btn-merge" },
                         disabled: working || awaiting.is_some() || auto_merge,
                         onclick: move |evt| on_auto_merge.call(evt),
@@ -494,8 +500,10 @@ pub fn Sidebar(
                 }
             }
 
-            // Feedback section (appears when a draft is awaiting review)
-            if let Some(wf) = awaiting {
+            // Feedback section (appears when a draft is awaiting review, but not for Chat)
+            if let Some(wf) = awaiting
+                && wf != Workflow::Chat
+            {
                 div { class: "sidebar-section",
                     div { class: "section-header", "FEEDBACK" }
                     div { class: "feedback-hint",

@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod assets;
 pub mod bot;
+pub mod chat;
 pub mod cli;
 pub mod cmd;
 pub mod config_store;
