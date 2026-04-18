@@ -55,7 +55,11 @@ pub fn run_chat_send(cfg: &Config, message: &str) {
     }
 
     let history_snapshot = CHAT_HISTORY.lock().map(|h| h.clone()).unwrap_or_default();
-    let prompt = build_chat_prompt(&cfg.project_name, &history_snapshot[..history_snapshot.len() - 1], message);
+    let prompt = build_chat_prompt(
+        &cfg.project_name,
+        &history_snapshot[..history_snapshot.len() - 1],
+        message,
+    );
 
     if cfg.dry_run {
         log_resolved_agent_launch(cfg, &[]);

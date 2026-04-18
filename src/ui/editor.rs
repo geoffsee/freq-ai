@@ -436,8 +436,17 @@ pub fn Editor(
                             }
                             button {
                                 class: "btn btn-sm btn-go chat-send-btn",
-                                disabled: feedback_text.read().trim().is_empty() || *is_working.read() || *awaiting_feedback.read() != Some(Workflow::Chat),
-                                onclick: move |evt| submit_feedback.call(evt),
+                                disabled: feedback_text.read().trim().is_empty() || *is_working.read(),
+                                onclick: move |evt| {
+                                    // Ensure chat state is active so submit_feedback
+                                    // dispatches to run_chat_send. This makes the Chat
+                                    // tab self-contained — no sidebar click required.
+                                    if *awaiting_feedback.read() != Some(Workflow::Chat) {
+                                        awaiting_feedback.set(Some(Workflow::Chat));
+                                        chat_active.set(true);
+                                    }
+                                    submit_feedback.call(evt);
+                                },
                                 "Send"
                             }
                         }
