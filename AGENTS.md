@@ -1,7 +1,11 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-`src/` contains the Rust application code. `src/main.rs` wires the CLI binary, `src/lib.rs` exposes shared library code, `src/agent/` holds agent execution and workflow logic, and `src/ui/` contains the Dioxus desktop UI. Bundled prompts, workflows, and skill files live under `assets/`. Utility scripts such as [scripts/smoke-test.sh](/Users/williamseemueller/workspace/freq-ai/scripts/smoke-test.sh) and [scripts/setup-hooks.sh](/Users/williamseemueller/workspace/freq-ai/scripts/setup-hooks.sh) support release and local verification.
+The project is organized into a Cargo workspace under `crates/`.
+- `crates/cli/` (package `freq-ai`) contains the main Rust application code.
+- `crates/agent-common` defines the shared `AgentCliAdapter` trait; `crates/cli/src/agent/adapter_dispatch.rs` maps `cli_common::Agent` to each provider implementation.
+- `crates/claude/`, `crates/cline/`, etc. are adapters for their respective CLIs.
+Main application logic is in `crates/cli/src/`. `crates/cli/src/main.rs` wires the CLI binary, `crates/cli/src/lib.rs` exposes shared library code, `crates/cli/src/agent/` holds agent execution and workflow logic, and `crates/cli/src/ui/` contains the Dioxus desktop UI. Bundled prompts, workflows, and skill files live under `assets/`. Utility scripts such as [scripts/smoke-test.sh](/Users/williamseemueller/workspace/freq-ai/scripts/smoke-test.sh) and [scripts/setup-hooks.sh](/Users/williamseemueller/workspace/freq-ai/scripts/setup-hooks.sh) support release and local verification.
 
 ## Build, Test, and Development Commands
 Use `cargo run -- gui` to launch the desktop app and `cargo run -- --help` to inspect CLI entry points. Run `cargo build` for a debug build and `cargo build --release` for a release binary. Use `cargo test --workspace` for the full test suite and `cargo test agent::tracker::tests::` for targeted iteration. Run `cargo fmt --all` and `cargo clippy --workspace --all-targets -- -D warnings` before opening a PR. `./scripts/setup-hooks.sh` installs the same checks as local git hooks.

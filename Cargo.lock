@@ -9,6 +9,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "agent-common"
+version = "0.7.5"
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -546,6 +550,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
+name = "claude"
+version = "2.1.98"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
+name = "cli-common"
+version = "0.7.5"
+dependencies = [
+ "agent-common",
+ "anyhow",
+ "clap",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "cline"
+version = "1.0.9"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
 name = "cocoa"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -602,6 +632,13 @@ dependencies = [
  "core-foundation 0.10.1",
  "core-graphics-types 0.2.0",
  "objc",
+]
+
+[[package]]
+name = "codex"
+version = "0.121.0"
+dependencies = [
+ "agent-common",
 ]
 
 [[package]]
@@ -693,6 +730,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec182b0ca2f35d8fc196cf3404988fd8b8c739a4d270ff118a398feb0cbec1ca"
 dependencies = [
  "unicode-segmentation",
+]
+
+[[package]]
+name = "copilot"
+version = "1.0.24"
+dependencies = [
+ "agent-common",
 ]
 
 [[package]]
@@ -1676,15 +1720,24 @@ dependencies = [
 name = "freq-ai"
 version = "0.7.5"
 dependencies = [
+ "agent-common",
  "anyhow",
  "axum",
  "clap",
+ "claude",
+ "cli-common",
+ "cline",
+ "codex",
+ "copilot",
  "dioxus",
  "dirs",
+ "gemini",
  "gloo-net 0.2.6",
+ "grok",
  "handlebars",
  "indexmap 2.13.1",
  "jsonwebtoken",
+ "junie",
  "keyring",
  "mime_guess",
  "rust-embed",
@@ -1697,6 +1750,7 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
+ "xai",
 ]
 
 [[package]]
@@ -1916,6 +1970,13 @@ dependencies = [
  "libc",
  "system-deps",
  "x11",
+]
+
+[[package]]
+name = "gemini"
+version = "0.38.2"
+dependencies = [
+ "agent-common",
 ]
 
 [[package]]
@@ -2147,6 +2208,13 @@ dependencies = [
  "glib-sys",
  "libc",
  "system-deps",
+]
+
+[[package]]
+name = "grok"
+version = "1.0.1"
+dependencies = [
+ "agent-common",
 ]
 
 [[package]]
@@ -2696,6 +2764,13 @@ dependencies = [
  "serde",
  "serde_json",
  "simple_asn1",
+]
+
+[[package]]
+name = "junie"
+version = "1321.57.0"
+dependencies = [
+ "agent-common",
 ]
 
 [[package]]
@@ -6048,6 +6123,13 @@ dependencies = [
  "libc",
  "once_cell",
  "pkg-config",
+]
+
+[[package]]
+name = "xai"
+version = "1.0.24"
+dependencies = [
+ "agent-common",
 ]
 
 [[package]]

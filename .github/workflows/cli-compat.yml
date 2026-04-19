@@ -1,0 +1,66 @@
+name: CLI Compat
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "crates/agent-common/**"
+      - "crates/cli/**"
+      - "crates/claude/**"
+      - "crates/cline/**"
+      - "crates/codex/**"
+      - "crates/copilot/**"
+      - "crates/gemini/**"
+      - "crates/grok/**"
+      - "crates/junie/**"
+      - "crates/xai/**"
+      - "crates/cli-common/**"
+      - "scripts/test-cli-compat.sh"
+      - ".github/workflows/cli-compat.yml"
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Provider CLIs
+        run: |
+          npm install -g \
+            @anthropic-ai/claude-code \
+            @openai/codex \
+            @github/copilot \
+            @google/gemini-cli \
+            cline \
+            grok-cli
+
+      - name: Install Junie CLI
+        run: curl -fsSL https://junie.jetbrains.com/install.sh | bash
+
+      - name: Add Junie to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify CLI Binaries
+        run: |
+          claude --version
+          cline version
+          codex --version
+          copilot --version
+          gemini --version
+          grok --version
+          junie --version
+
+      - name: Run Wrapper Compatibility Tests
+        run: ./scripts/test-cli-compat.sh
