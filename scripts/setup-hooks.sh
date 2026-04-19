@@ -11,6 +11,7 @@ cat > "$HOOK_DIR/pre-commit" << 'HOOK'
 set -euo pipefail
 
 cargo fmt --all
+git add -A
 
 echo "==> Running cargo fmt --check (all crates)..."
 if ! cargo fmt --all -- --check; then

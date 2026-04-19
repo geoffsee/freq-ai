@@ -253,11 +253,7 @@ pub fn run_agent_with_env(cfg: &Config, prompt: &str, extra_env: &[(String, Stri
             run_claude_native_with_env("copilot", &args, &env, None)
         }
         Agent::Codex => {
-            let mut args = vec![
-                "exec".to_string(),
-                "--json".to_string(),
-                prompt.to_string(),
-            ];
+            let mut args = vec!["exec".to_string(), "--json".to_string(), prompt.to_string()];
             args.extend(overrides.args);
             run_codex_native_with_env("codex", &args, &env, None)
         }
