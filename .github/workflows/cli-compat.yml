@@ -28,6 +28,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # grok-cli pulls in keytar; Node dlopens libsecret without this on clean ubuntu-latest.
+      - name: Install libsecret for grok-cli (keytar)
+        run: sudo apt-get update && sudo apt-get install -y libsecret-1-0
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
