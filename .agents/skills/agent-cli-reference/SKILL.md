@@ -21,7 +21,7 @@ Complete help text and quick-reference tables for every supported coding agent C
 | Claude  | `claude`  | `-p` / `--print`             | `--model <m>`       | `--dangerously-skip-permissions`                 |
 | Codex   | `codex`   | `exec [--json]`              | `-c model="<m>"`    | `--dangerously-bypass-approvals-and-sandbox`     |
 | Cline   | `cline`   | positional arg               | `cline auth -m`     | `--no-interactive` / `--yolo`                    |
-| Copilot | `copilot` | suggest/explain subcommands  | (none)              | (none)                                           |
+| Copilot | `copilot` | suggest/explain subcommands  | (none)              | `--yolo`                                         |
 | Gemini  | `gemini`  | `-p` / `--prompt`            | `-m <m>`            | `--yolo`                                         |
 | Grok    | `grok`    | `-p` / `--prompt`            | `-m <m>`            | `--sandbox`                                      |
 | Junie   | `junie`   | `--task <t>` / positional    | `--model <m>`       | `--brave`                                        |

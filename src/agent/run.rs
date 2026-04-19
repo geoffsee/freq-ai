@@ -1,5 +1,5 @@
 use crate::agent::cmd::log;
-use crate::agent::launch::{merged_agent_env, model_selection_overrides};
+use crate::agent::launch::{auto_mode_overrides, merged_agent_env, model_selection_overrides};
 use crate::agent::process::{emit_event, set_active_child_pid, stop_requested};
 use crate::agent::types::{Agent, AgentEvent, AssistantMessage, ClaudeEvent, Config, ContentBlock};
 use std::io::{BufRead, BufReader};
@@ -226,6 +226,8 @@ pub fn run_agent_with_env(cfg: &Config, prompt: &str, extra_env: &[(String, Stri
     let mut overrides = local_inference_overrides(cfg);
     let model_ov = model_selection_overrides(cfg);
     overrides.args.extend(model_ov.args);
+    let auto_ov = auto_mode_overrides(cfg);
+    overrides.args.extend(auto_ov.args);
 
     match cfg.agent {
         Agent::Claude | Agent::Junie | Agent::Copilot | Agent::Cursor => {

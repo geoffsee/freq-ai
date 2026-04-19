@@ -109,6 +109,46 @@ pub fn model_selection_overrides(cfg: &Config) -> AgentLaunchOverrides {
     overrides
 }
 
+/// Generate CLI arguments to skip permission prompts when `auto_mode` is enabled.
+/// Returns empty overrides when `auto_mode` is false or the agent has no such flag.
+pub fn auto_mode_overrides(cfg: &Config) -> AgentLaunchOverrides {
+    if !cfg.auto_mode {
+        return AgentLaunchOverrides::default();
+    }
+
+    let mut overrides = AgentLaunchOverrides::default();
+
+    match cfg.agent {
+        Agent::Claude => {
+            overrides
+                .args
+                .push("--dangerously-skip-permissions".into());
+        }
+        Agent::Codex => {
+            overrides
+                .args
+                .push("--dangerously-bypass-approvals-and-sandbox".into());
+        }
+        Agent::Cline => {
+            overrides.args.push("--yolo".into());
+        }
+        Agent::Gemini | Agent::Xai | Agent::Cursor => {
+            overrides.args.push("--yolo".into());
+        }
+        Agent::Grok => {
+            overrides.args.push("--sandbox".into());
+        }
+        Agent::Junie => {
+            overrides.args.push("--brave".into());
+        }
+        Agent::Copilot => {
+            overrides.args.push("--yolo".into());
+        }
+    }
+
+    overrides
+}
+
 pub fn merged_agent_env(cfg: &Config, extra_env: &[(String, String)]) -> Vec<(String, String)> {
     let mut env = local_inference_overrides(cfg).env;
     env.extend(model_selection_overrides(cfg).env);
@@ -142,6 +182,8 @@ pub fn log_resolved_agent_launch(cfg: &Config, extra_env: &[(String, String)]) {
     let mut overrides = local_inference_overrides(cfg);
     let model_ov = model_selection_overrides(cfg);
     overrides.args.extend(model_ov.args);
+    let auto_ov = auto_mode_overrides(cfg);
+    overrides.args.extend(auto_ov.args);
     let env = merged_agent_env(cfg, extra_env);
     let args = if overrides.args.is_empty() {
         "(none)".to_string()
