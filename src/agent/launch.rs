@@ -120,9 +120,7 @@ pub fn auto_mode_overrides(cfg: &Config) -> AgentLaunchOverrides {
 
     match cfg.agent {
         Agent::Claude => {
-            overrides
-                .args
-                .push("--dangerously-skip-permissions".into());
+            overrides.args.push("--dangerously-skip-permissions".into());
         }
         Agent::Codex => {
             overrides
