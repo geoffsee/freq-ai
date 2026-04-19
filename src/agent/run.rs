@@ -230,11 +230,10 @@ pub fn run_agent_with_env(cfg: &Config, prompt: &str, extra_env: &[(String, Stri
     overrides.args.extend(auto_ov.args);
 
     match cfg.agent {
-        Agent::Claude | Agent::Junie | Agent::Copilot | Agent::Cursor => {
+        Agent::Claude | Agent::Junie | Agent::Cursor => {
             let binary = match cfg.agent {
                 Agent::Claude => "claude",
                 Agent::Junie => "junie",
-                Agent::Copilot => "copilot",
                 Agent::Cursor => "cursor",
                 _ => unreachable!(),
             };
@@ -248,8 +247,17 @@ pub fn run_agent_with_env(cfg: &Config, prompt: &str, extra_env: &[(String, Stri
             args.extend(overrides.args);
             run_claude_native_with_env(binary, &args, &env, None)
         }
+        Agent::Copilot => {
+            let mut args = vec!["-p".to_string(), prompt.to_string()];
+            args.extend(overrides.args);
+            run_claude_native_with_env("copilot", &args, &env, None)
+        }
         Agent::Codex => {
-            let mut args = vec!["chat".to_string(), prompt.to_string()];
+            let mut args = vec![
+                "exec".to_string(),
+                "--json".to_string(),
+                prompt.to_string(),
+            ];
             args.extend(overrides.args);
             run_codex_native_with_env("codex", &args, &env, None)
         }
