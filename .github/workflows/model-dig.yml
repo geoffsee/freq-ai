@@ -1,0 +1,59 @@
+name: Model dig
+
+# Regenerates `assets/available-models.json` from installed agent CLIs (see `scripts/model-dig.sh`).
+on:
+  schedule:
+    - cron: "0 7 * * 1" # Mondays 07:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh-available-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install provider CLIs
+        run: |
+          npm install -g \
+            @anthropic-ai/claude-code \
+            @openai/codex \
+            @github/copilot \
+            @google/gemini-cli \
+            cline \
+            grok-cli
+
+      - name: Install Junie CLI
+        run: curl -fsSL https://junie.jetbrains.com/install.sh | bash
+
+      - name: Add Junie to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run model dig
+        # Script prints a large raw JSON blob to stdout; curated output is written to assets/.
+        run: ./scripts/model-dig.sh > /dev/null
+
+      - name: Validate available-models.json
+        run: python3 -c "import json; json.load(open('assets/available-models.json'))"
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: refresh available-models.json (model-dig)"
+          title: "chore: refresh available-models.json (model-dig)"
+          body: |
+            Automated update from [`scripts/model-dig.sh`](scripts/model-dig.sh) in CI.
+
+            - [ ] Quick sanity: JSON shape still matches what `freq-ai` embeds (`crates/cli` tests).
+          branch: automated/model-dig-updates
+          delete-branch: true
+          add-paths: assets/available-models.json
