@@ -13,3 +13,6 @@ dist/*
 /.agents/skills/**/*.txt
 /samples/*
 /.playwright-mcp
+agent_discovery_results/
+node_modules/
+scripts/discover-all-agents
