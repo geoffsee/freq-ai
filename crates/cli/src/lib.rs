@@ -222,7 +222,7 @@ where
             Some(Commands::Loop { tracker }) => run_loop(&config, tracker),
             Some(Commands::Serve { port }) => {
                 info!(
-                    "Launching API/web server for root={} on http://127.0.0.1:{}",
+                    "Launching API/web server for root={} with requested_port={}",
                     config.root, port
                 );
                 let rt = tokio::runtime::Runtime::new().unwrap();
@@ -493,8 +493,8 @@ fn App() -> Element {
     use_effect(move || {
         #[cfg(target_arch = "wasm32")]
         {
-            let config_signal = config;
-            let preset_signal = presets;
+            let mut config_signal = config;
+            let mut preset_signal = presets;
             // Fetch presets from API
             spawn(async move {
                 if let Ok(response) = gloo_net::http::Request::get("/api/workflows/presets")

@@ -20,6 +20,7 @@ set +a
 
 MODE="serve"
 ARGS=()
+PORT_SET=0
 
 for arg in "$@"; do
     case "$arg" in
@@ -34,6 +35,9 @@ for arg in "$@"; do
             ;;
         *)
             ARGS+=("$arg")
+            if [[ "$arg" == "--port" || "$arg" == --port=* ]]; then
+                PORT_SET=1
+            fi
             ;;
     esac
 done
@@ -46,9 +50,17 @@ case "$MODE" in
         dx serve --platform web
         ;;
     serve)
-        cargo run --quiet -- serve -- "${ARGS[@]}"
+        if [[ "$PORT_SET" -eq 0 ]]; then
+            cargo run --quiet -- serve --port 0 "${ARGS[@]}"
+        else
+            cargo run --quiet -- serve "${ARGS[@]}"
+        fi
         ;;
     *)
-        cargo run --quiet -- serve -- "${ARGS[@]}"
+        if [[ "$PORT_SET" -eq 0 ]]; then
+            cargo run --quiet -- serve --port 0 "${ARGS[@]}"
+        else
+            cargo run --quiet -- serve "${ARGS[@]}"
+        fi
         ;;
 esac

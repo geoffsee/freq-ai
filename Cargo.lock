@@ -10,7 +10,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "agent-common"
-version = "0.7.5"
+version = "0.7.7"
 
 [[package]]
 name = "aho-corasick"
@@ -558,7 +558,7 @@ dependencies = [
 
 [[package]]
 name = "cli-common"
-version = "0.7.5"
+version = "0.7.7"
 dependencies = [
  "agent-common",
  "anyhow",
@@ -1718,7 +1718,7 @@ dependencies = [
 
 [[package]]
 name = "freq-ai"
-version = "0.7.5"
+version = "0.7.7"
 dependencies = [
  "agent-common",
  "anyhow",

@@ -60,15 +60,17 @@ pub async fn serve(root: String, port: u16) -> anyhow::Result<()> {
         .with_state(state);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    info!("Serving web UI on http://{}", addr);
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .map_err(|e| anyhow::anyhow!("failed to bind to {}: {}", addr, e))?;
+    let local_addr = listener
+        .local_addr()
+        .map_err(|e| anyhow::anyhow!("failed to read local addr: {}", e))?;
+    info!("Serving web UI on http://{}", local_addr);
     info!("API routes available:");
     info!("  GET /api/health");
     info!("  GET /api/workflows/presets");
     info!("  GET /api/workflows/<preset>");
-
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .map_err(|e| anyhow::anyhow!("failed to bind to {}: {}", addr, e))?;
     axum::serve(listener, app)
         .await
         .map_err(|e| anyhow::anyhow!("axum server error: {}", e))?;
