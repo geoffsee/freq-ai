@@ -18,6 +18,7 @@ on:
       - "crates/xai/**"
       - "crates/cli-common/**"
       - "scripts/test-cli-compat.sh"
+      - ".github/.agents/skills/cli-compat-autofix/**"
       - ".github/workflows/cli-compat.yml"
 
 permissions:
@@ -140,16 +141,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > /tmp/codex-cli-compat-prompt.txt <<'EOF'
-          The GitHub Actions workflow ".github/workflows/cli-compat.yml" failed in the "Verify CLI Binaries" step.
-
-          Task:
-          - Fix CLI compatibility issues in this repository so the verify step passes across supported provider CLI versions.
-          - Limit edits to files directly related to CLI compatibility checks (workflow/scripts/wrappers/tests).
-          - Keep behavior strict for real regressions, but add version-tolerant fallbacks where needed.
-          - After editing, run focused validation commands for changed wrappers/tests where practical.
-          - Do not commit; only edit working tree files.
-
-          Failed logs are appended below.
+          Apply the repository skill at `.github/.agents/skills/cli-compat-autofix/SKILL.md`.
+          The `CLI Compat` workflow failed in `Verify CLI Binaries`.
+          Use the skill guidance and the failure logs below.
           EOF
           cat /tmp/cli-compat-failed.log >> /tmp/codex-cli-compat-prompt.txt
           codex exec --dangerously-bypass-approvals-and-sandbox "$(cat /tmp/codex-cli-compat-prompt.txt)"
@@ -171,15 +165,9 @@ jobs:
           git add -A
 
           cat > /tmp/codex-commit-msg-prompt.txt <<'EOF'
-          You are writing the git commit message for an automated CI remediation PR.
-
-          Requirements:
-          - Output MUST be plain text only (no markdown fences, no JSON).
-          - First line: imperative, <= 72 chars, scoped like `fix(ci): ...`
-          - Optional following lines: body wrapped at ~72 chars explaining what changed and why.
-          - Do not include trailing blank lines beyond a single blank line between subject and body.
-
-          Use `git diff --cached` as the primary signal of what changed.
+          Apply commit message guidance from `.github/.agents/skills/cli-compat-autofix/SKILL.md`.
+          Generate the commit message from `git diff --cached`.
+          Output plain text only.
           EOF
 
           codex exec \
