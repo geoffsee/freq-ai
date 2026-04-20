@@ -20,9 +20,14 @@ on:
       - "scripts/test-cli-compat.sh"
       - ".github/workflows/cli-compat.yml"
 
+permissions:
+  contents: read
+
 jobs:
   compatibility:
     runs-on: ubuntu-latest
+    outputs:
+      verify_cli_failed: ${{ steps.verify_cli.outcome == 'failure' }}
 
     steps:
       - name: Checkout
@@ -70,6 +75,8 @@ jobs:
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Verify CLI Binaries
+        id: verify_cli
+        continue-on-error: true
         run: |
           claude --version
           # cline does not support --version; keep a compatibility fallback.
@@ -81,5 +88,97 @@ jobs:
           grok --version || grok -v || grok version
           junie --version
 
+      - name: Fail when binary verification fails
+        if: steps.verify_cli.outcome == 'failure'
+        run: |
+          echo "Verify CLI Binaries failed; skipping wrapper tests in this job."
+          exit 1
+
       - name: Run Wrapper Compatibility Tests
+        if: steps.verify_cli.outcome == 'success'
         run: ./scripts/test-cli-compat.sh
+
+  codex-autofix-verify-failures:
+    needs: compatibility
+    if: >
+      ${{
+        always() &&
+        github.event_name == 'pull_request' &&
+        needs.compatibility.outputs.verify_cli_failed == 'true' &&
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.actor != 'github-actions[bot]' &&
+        secrets.OPENAI_API_KEY != ''
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex
+
+      - name: Capture failed workflow logs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run view "${GITHUB_RUN_ID}" --log-failed > /tmp/cli-compat-failed.log
+
+      - name: Ask Codex to fix CLI compatibility
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > /tmp/codex-cli-compat-prompt.txt <<'EOF'
+          The GitHub Actions workflow ".github/workflows/cli-compat.yml" failed in the "Verify CLI Binaries" step.
+
+          Task:
+          - Fix CLI compatibility issues in this repository so the verify step passes across supported provider CLI versions.
+          - Limit edits to files directly related to CLI compatibility checks (workflow/scripts/wrappers/tests).
+          - Keep behavior strict for real regressions, but add version-tolerant fallbacks where needed.
+          - After editing, run focused validation commands for changed wrappers/tests where practical.
+          - Do not commit; only edit working tree files.
+
+          Failed logs are appended below.
+          EOF
+          cat /tmp/cli-compat-failed.log >> /tmp/codex-cli-compat-prompt.txt
+          codex exec --dangerously-bypass-approvals-and-sandbox "$(cat /tmp/codex-cli-compat-prompt.txt)"
+
+      - name: Open PR with Codex fixes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet; then
+            echo "No changes produced by Codex."
+            exit 0
+          fi
+
+          branch="codex/cli-compat-autofix-${GITHUB_RUN_ID}"
+          git checkout -b "$branch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(ci): auto-resolve CLI verify incompatibilities"
+          git push -u origin "$branch"
+
+          gh pr create \
+            --base "${{ github.event.pull_request.base.ref }}" \
+            --head "$branch" \
+            --title "fix(ci): auto-resolve CLI verify incompatibilities" \
+            --body "$(cat <<'EOF'
+          Automated Codex remediation for a failing `Verify CLI Binaries` step in `CLI Compat`.
+
+          - Trigger: workflow run `${{ github.run_id }}`
+          - Source PR: #${{ github.event.pull_request.number }}
+          EOF
+          )"
