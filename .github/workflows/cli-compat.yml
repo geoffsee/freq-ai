@@ -58,14 +58,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Codex npm packaging can fail optional native dependency resolution on Node 22/npm 11+.
+          node-version: "20"
 
       - name: Install Provider CLIs
         run: |
           npm install -g \
             @anthropic-ai/claude-code \
             @openai/codex \
-            @openai/codex-linux-x64 \
             @github/copilot \
             @google/gemini-cli \
             cline \
@@ -158,12 +158,12 @@ jobs:
         if: steps.key_check.outputs.present == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "20"
 
       - name: Install Codex CLI
         if: steps.key_check.outputs.present == 'true'
         run: |
-          npm install -g @openai/codex @openai/codex-linux-x64
+          npm install -g @openai/codex
 
       - name: Download verify logs from compatibility job
         if: steps.key_check.outputs.present == 'true'
