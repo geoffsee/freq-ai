@@ -103,7 +103,8 @@ jobs:
           }
 
           run_logged freq-ai-dummy-agent --version
-          run_logged freq-ai-cli-compat-fixture --version
+          # v2+ rejects --version; keep a fallback for 1.x-style installs.
+          run_logged bash -lc "freq-ai-cli-compat-fixture version || freq-ai-cli-compat-fixture --version"
           run_logged claude --version
           # cline does not support --version; keep a compatibility fallback.
           run_logged bash -lc "cline version || cline -v"
