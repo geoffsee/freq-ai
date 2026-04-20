@@ -7,11 +7,15 @@ dist/*
 /claude-help.txt
 /codex-help.txt
 /gemini-help.txt
+node_modules/
 /.grok
 /.claude
 /scripts/list-models-*.sh
+# Bundled CLI binary (build from discover-all-agents.ts locally if needed)
+/scripts/discover-all-agents
 /.agents/skills/**/*.txt
 /samples/*
+/agent_discovery_results/
 /.playwright-mcp
 agent_discovery_results/
 node_modules/

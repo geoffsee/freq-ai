@@ -1,0 +1,15 @@
+[package]
+name = "dummy-agent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Test double CLI + adapter for CI and local compat checks"
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+agent-common = { path = "../agent-common" }
+
+[[bin]]
+name = "freq-ai-dummy-agent"
+path = "src/main.rs"

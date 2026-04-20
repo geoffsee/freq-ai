@@ -44,23 +44,23 @@ done
 
 case "$MODE" in
     desktop)
-        cargo run --quiet -- "${ARGS[@]}"
+        cargo run -p freq-ai --quiet -- "${ARGS[@]}"
         ;;
     dx)
         dx serve --platform web
         ;;
     serve)
         if [[ "$PORT_SET" -eq 0 ]]; then
-            cargo run --quiet -- serve --port 0 "${ARGS[@]}"
+            cargo run -p freq-ai --quiet -- serve --port 0 "${ARGS[@]}"
         else
-            cargo run --quiet -- serve "${ARGS[@]}"
+            cargo run -p freq-ai --quiet -- serve "${ARGS[@]}"
         fi
         ;;
     *)
         if [[ "$PORT_SET" -eq 0 ]]; then
-            cargo run --quiet -- serve --port 0 "${ARGS[@]}"
+            cargo run -p freq-ai --quiet -- serve --port 0 "${ARGS[@]}"
         else
-            cargo run --quiet -- serve "${ARGS[@]}"
+            cargo run -p freq-ai --quiet -- serve "${ARGS[@]}"
         fi
         ;;
 esac

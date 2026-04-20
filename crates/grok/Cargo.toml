@@ -1,0 +1,11 @@
+[package]
+name = "grok"
+version = "1.0.1"
+edition.workspace = true
+license.workspace = true
+description = "grok cli adapter"
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+agent-common = { path = "../agent-common" }
