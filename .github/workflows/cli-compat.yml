@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   compatibility:
@@ -64,6 +65,7 @@ jobs:
           npm install -g \
             @anthropic-ai/claude-code \
             @openai/codex \
+            @openai/codex-linux-x64 \
             @github/copilot \
             @google/gemini-cli \
             cline \
@@ -79,15 +81,34 @@ jobs:
         id: verify_cli
         continue-on-error: true
         run: |
-          claude --version
+          set -euo pipefail
+          mkdir -p verify-logs
+          log="verify-logs/cli-compat-verify.log"
+          : > "${log}"
+
+          run_logged() {
+            echo "+ $*" | tee -a "${log}" >/dev/null
+            # shellcheck disable=SC2068
+            "$@" 2>&1 | tee -a "${log}"
+          }
+
+          run_logged claude --version
           # cline does not support --version; keep a compatibility fallback.
-          cline version || cline -v
-          codex --version
-          copilot --version
-          gemini --version
+          run_logged bash -lc "cline version || cline -v"
+          run_logged codex --version
+          run_logged copilot --version
+          run_logged gemini --version
           # grok-cli version flags differ across releases.
-          grok --version || grok -v || grok version
-          junie --version
+          run_logged bash -lc "grok --version || grok -v || grok version"
+          run_logged junie --version
+
+      - name: Upload verify logs (on failure)
+        if: steps.verify_cli.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-compat-verify-logs
+          path: verify-logs/cli-compat-verify.log
+          if-no-files-found: warn
 
       - name: Fail when binary verification fails
         if: steps.verify_cli.outcome == 'failure'
@@ -141,14 +162,24 @@ jobs:
 
       - name: Install Codex CLI
         if: steps.key_check.outputs.present == 'true'
-        run: npm install -g @openai/codex
-
-      - name: Capture failed workflow logs
-        if: steps.key_check.outputs.present == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          gh run view "${GITHUB_RUN_ID}" --log-failed > /tmp/cli-compat-failed.log
+          npm install -g @openai/codex @openai/codex-linux-x64
+
+      - name: Download verify logs from compatibility job
+        if: steps.key_check.outputs.present == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-compat-verify-logs
+          path: verify-logs
+
+      - name: Prepare Codex failure context
+        if: steps.key_check.outputs.present == 'true'
+        run: |
+          if [[ -f verify-logs/cli-compat-verify.log ]]; then
+            cp verify-logs/cli-compat-verify.log /tmp/cli-compat-failed.log
+          else
+            echo "No verify log artifact found; include this note in remediation." > /tmp/cli-compat-failed.log
+          fi
 
       - name: Ask Codex to fix CLI compatibility
         if: steps.key_check.outputs.present == 'true'
