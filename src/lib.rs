@@ -222,7 +222,7 @@ where
             Some(Commands::Loop { tracker }) => run_loop(&config, tracker),
             Some(Commands::Serve { port }) => {
                 info!(
-                    "Launching API/web server for root={} on http://127.0.0.1:{}",
+                    "Launching API/web server for root={} with requested_port={}",
                     config.root, port
                 );
                 let rt = tokio::runtime::Runtime::new().unwrap();
