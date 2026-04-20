@@ -493,8 +493,8 @@ fn App() -> Element {
     use_effect(move || {
         #[cfg(target_arch = "wasm32")]
         {
-            let config_signal = config;
-            let preset_signal = presets;
+            let mut config_signal = config;
+            let mut preset_signal = presets;
             // Fetch presets from API
             spawn(async move {
                 if let Ok(response) = gloo_net::http::Request::get("/api/workflows/presets")
