@@ -1527,6 +1527,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "dummy-agent"
+version = "0.7.8"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

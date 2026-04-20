@@ -13,7 +13,8 @@ Use this skill when the `CLI Compat` workflow fails in `Verify CLI Binaries` and
 - Only edit files directly related to compatibility checks:
   - `.github/workflows/cli-compat.yml`
   - `scripts/test-cli-compat.sh`
-  - provider wrapper crates under `crates/*/src/wrapper.rs`
+  - `packages/cli-compat-fixture/**` (when the drill involves the published fixture)
+  - provider wrapper crates under `crates/*/src/wrapper.rs` (including `crates/dummy-agent`)
   - related live-compat tests under `crates/*/tests/live_cli.rs`
 - Prefer fallbacks that preserve current behavior for known-good versions.
 - Do not change unrelated logic, formatting, or architecture.

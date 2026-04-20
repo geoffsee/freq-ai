@@ -16,8 +16,10 @@ on:
       - "crates/grok/**"
       - "crates/junie/**"
       - "crates/xai/**"
+      - "crates/dummy-agent/**"
       - "crates/cli-common/**"
       - "scripts/test-cli-compat.sh"
+      - "packages/cli-compat-fixture/**"
       - ".github/.agents/skills/cli-compat-autofix/**"
       - ".github/workflows/cli-compat.yml"
 
@@ -55,11 +57,19 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Build dummy-agent CLI (PATH for compat checks)
+        run: |
+          cargo build -p dummy-agent --bin freq-ai-dummy-agent
+          echo "${GITHUB_WORKSPACE}/target/debug" >> "$GITHUB_PATH"
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           # Codex npm packaging can fail optional native dependency resolution on Node 22/npm 11+.
           node-version: "20"
+
+      - name: Install CLI compat fixture (npm — drill: v2 breaks --version)
+        run: npm install -g freq-ai-cli-compat-fixture@2.0.0
 
       - name: Install Provider CLIs
         run: |
@@ -92,6 +102,8 @@ jobs:
             "$@" 2>&1 | tee -a "${log}"
           }
 
+          run_logged freq-ai-dummy-agent --version
+          run_logged freq-ai-cli-compat-fixture --version
           run_logged claude --version
           # cline does not support --version; keep a compatibility fallback.
           run_logged bash -lc "cline version || cline -v"

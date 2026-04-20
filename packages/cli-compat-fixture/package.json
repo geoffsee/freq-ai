@@ -1,0 +1,22 @@
+{
+  "name": "freq-ai-cli-compat-fixture",
+  "version": "2.0.0",
+  "description": "Tiny CLI published to npm so CLI Compat can simulate flag drift and exercise Codex autofix.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/williamseemueller/freq-ai.git",
+    "directory": "packages/cli-compat-fixture"
+  },
+  "homepage": "https://github.com/williamseemueller/freq-ai",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "freq-ai-cli-compat-fixture": "./bin/freq-ai-cli-compat-fixture.mjs"
+  },
+  "files": [
+    "bin"
+  ]
+}

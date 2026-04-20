@@ -13,7 +13,22 @@ set -euo pipefail
 ALLOW_MISSING_BINARIES="${ALLOW_MISSING_BINARIES:-0}"
 export FREQ_AI_LIVE_CLI_TESTS=1
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "${script_dir}/.." && pwd)"
+dummy_bin="${repo_root}/target/debug/freq-ai-dummy-agent"
+if [[ ! -x "${dummy_bin}" ]]; then
+  (cd "${repo_root}" && cargo build -q -p dummy-agent --bin freq-ai-dummy-agent)
+fi
+if [[ -x "${dummy_bin}" ]]; then
+  export PATH="${repo_root}/target/debug:${PATH}"
+fi
+
+if command -v npm >/dev/null 2>&1; then
+  npm install -g "${repo_root}/packages/cli-compat-fixture" >/dev/null 2>&1 || true
+fi
+
 agents=(
+  "dummy-agent:freq-ai-dummy-agent"
   "claude:claude"
   "cline:cline"
   "codex:codex"
@@ -69,6 +84,16 @@ live_probe() {
 }
 
 echo "==> live CLI argv probes (best-effort)"
+if command -v freq-ai-dummy-agent >/dev/null 2>&1; then
+  live_probe "dummy-agent help" freq-ai-dummy-agent --help
+  live_probe "dummy-agent version" freq-ai-dummy-agent --version
+  live_probe "dummy-agent exec" freq-ai-dummy-agent exec --json "probe"
+fi
+if command -v freq-ai-cli-compat-fixture >/dev/null 2>&1; then
+  live_probe "cli-compat-fixture help" freq-ai-cli-compat-fixture --help
+  live_probe "cli-compat-fixture version flag" freq-ai-cli-compat-fixture --version
+  live_probe "cli-compat-fixture version cmd" freq-ai-cli-compat-fixture version
+fi
 if command -v claude >/dev/null 2>&1; then
   live_probe "claude help" claude --help
   live_probe "claude native-style" claude -p "probe" --output-format stream-json --verbose --help
