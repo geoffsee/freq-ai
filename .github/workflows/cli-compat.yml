@@ -64,7 +64,8 @@ jobs:
           codex --version
           copilot --version
           gemini --version
-          grok --version
+          # grok-cli version flags differ across releases.
+          grok --version || grok -v || grok version
           junie --version
 
       - name: Run Wrapper Compatibility Tests
