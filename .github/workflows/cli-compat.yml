@@ -157,6 +157,7 @@ jobs:
       - name: Open PR with Codex fixes
         env:
           GH_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           if git diff --quiet; then
             echo "No changes produced by Codex."
@@ -168,13 +169,45 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "fix(ci): auto-resolve CLI verify incompatibilities"
+
+          cat > /tmp/codex-commit-msg-prompt.txt <<'EOF'
+          You are writing the git commit message for an automated CI remediation PR.
+
+          Requirements:
+          - Output MUST be plain text only (no markdown fences, no JSON).
+          - First line: imperative, <= 72 chars, scoped like `fix(ci): ...`
+          - Optional following lines: body wrapped at ~72 chars explaining what changed and why.
+          - Do not include trailing blank lines beyond a single blank line between subject and body.
+
+          Use `git diff --cached` as the primary signal of what changed.
+          EOF
+
+          codex exec \
+            --dangerously-bypass-approvals-and-sandbox \
+            --json \
+            -o /tmp/codex-commit-message.txt \
+            "$(cat /tmp/codex-commit-msg-prompt.txt)"
+
+          if [[ ! -s /tmp/codex-commit-message.txt ]]; then
+            echo "Codex did not produce a commit message; aborting."
+            exit 1
+          fi
+
+          git commit -F /tmp/codex-commit-message.txt
           git push -u origin "$branch"
+
+          pr_title="$(python3 - <<'PY'
+          from pathlib import Path
+          lines = Path("/tmp/codex-commit-message.txt").read_text(encoding="utf-8", errors="replace").splitlines()
+          subject = next((ln.strip() for ln in lines if ln.strip()), "").strip()
+          print(subject[:300])
+          PY
+          )"
 
           gh pr create \
             --base "${{ github.event.pull_request.base.ref }}" \
             --head "$branch" \
-            --title "fix(ci): auto-resolve CLI verify incompatibilities" \
+            --title "${pr_title}" \
             --body "$(cat <<'EOF'
           Automated Codex remediation for a failing `Verify CLI Binaries` step in `CLI Compat`.
 
