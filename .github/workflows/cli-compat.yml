@@ -59,7 +59,8 @@ jobs:
       - name: Verify CLI Binaries
         run: |
           claude --version
-          cline version
+          # cline does not support --version; keep a compatibility fallback.
+          cline version || cline -v
           codex --version
           copilot --version
           gemini --version
