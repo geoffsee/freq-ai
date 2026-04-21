@@ -551,7 +551,7 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "claude"
-version = "2.1.98"
+version = "0.8.0"
 dependencies = [
  "agent-common",
 ]
@@ -570,7 +570,7 @@ dependencies = [
 
 [[package]]
 name = "cline"
-version = "1.0.9"
+version = "0.8.0"
 dependencies = [
  "agent-common",
 ]
@@ -636,7 +636,7 @@ dependencies = [
 
 [[package]]
 name = "codex"
-version = "0.121.0"
+version = "0.8.0"
 dependencies = [
  "agent-common",
 ]
@@ -734,7 +734,7 @@ dependencies = [
 
 [[package]]
 name = "copilot"
-version = "1.0.24"
+version = "0.8.0"
 dependencies = [
  "agent-common",
 ]
@@ -1981,7 +1981,7 @@ dependencies = [
 
 [[package]]
 name = "gemini"
-version = "0.38.2"
+version = "0.8.0"
 dependencies = [
  "agent-common",
 ]
@@ -2219,7 +2219,7 @@ dependencies = [
 
 [[package]]
 name = "grok"
-version = "1.0.1"
+version = "0.8.0"
 dependencies = [
  "agent-common",
 ]
@@ -2775,7 +2775,7 @@ dependencies = [
 
 [[package]]
 name = "junie"
-version = "1321.57.0"
+version = "0.8.0"
 dependencies = [
  "agent-common",
 ]
@@ -6134,7 +6134,7 @@ dependencies = [
 
 [[package]]
 name = "xai"
-version = "1.0.24"
+version = "0.8.0"
 dependencies = [
  "agent-common",
 ]

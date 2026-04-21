@@ -1,6 +1,6 @@
 [package]
 name = "cline"
-version = "1.0.9"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "cline cli adapter"
@@ -8,4 +8,4 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
-agent-common = { path = "../agent-common" }
+agent-common = { path = "../agent-common", version = "0.8.0" }

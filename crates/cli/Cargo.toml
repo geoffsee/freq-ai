@@ -14,16 +14,16 @@ name = "freq-ai"
 path = "src/main.rs"
 
 [dependencies]
-agent-common = { path = "../agent-common" }
-cli-common = { path = "../cli-common" }
-claude = { path = "../claude" }
-cline = { path = "../cline" }
-codex = { path = "../codex" }
-copilot = { path = "../copilot" }
-gemini = { path = "../gemini" }
-grok = { path = "../grok" }
-junie = { path = "../junie" }
-xai = { path = "../xai" }
+agent-common = { path = "../agent-common", version = "0.8.0" }
+cli-common = { path = "../cli-common", version = "0.8.0" }
+claude = { path = "../claude", version = "0.8.0" }
+cline = { path = "../cline", version = "0.8.0" }
+codex = { path = "../codex", version = "0.8.0" }
+copilot = { path = "../copilot", version = "0.8.0" }
+gemini = { path = "../gemini", version = "0.8.0" }
+grok = { path = "../grok", version = "0.8.0" }
+junie = { path = "../junie", version = "0.8.0" }
+xai = { path = "../xai", version = "0.8.0" }
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
