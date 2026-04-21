@@ -3,6 +3,7 @@ name = "cli-common"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Common CLI utilities for freq-ai"
 
 [dependencies]
 agent-common = { path = "../agent-common", version = "0.8.1" }
