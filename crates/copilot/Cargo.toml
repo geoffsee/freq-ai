@@ -1,5 +1,5 @@
 [package]
-name = "copilot"
+name = "freq-ai-copilot"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,5 +7,8 @@ description = "copilot cli adapter"
 repository.workspace = true
 homepage.workspace = true
 
+[lib]
+name = "copilot"
+
 [dependencies]
-agent-common = { path = "../agent-common", version = "0.8.0" }
+agent-common = { path = "../agent-common", version = "0.8.1" }

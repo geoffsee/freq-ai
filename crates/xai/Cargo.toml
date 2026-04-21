@@ -1,5 +1,5 @@
 [package]
-name = "xai"
+name = "freq-ai-xai"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,5 +7,8 @@ description = "xai cli adapter"
 repository.workspace = true
 homepage.workspace = true
 
+[lib]
+name = "xai"
+
 [dependencies]
-agent-common = { path = "../agent-common", version = "0.8.0" }
+agent-common = { path = "../agent-common", version = "0.8.1" }
