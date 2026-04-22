@@ -31,12 +31,12 @@ pub fn init_issue_comment_triggers(path: &Path) {
     if ISSUE_COMMENT_TRIGGERS.get().is_some() {
         return;
     }
-    let skill_md = std::fs::read_to_string(path).unwrap_or_else(|e| {
-        panic!(
-            "failed to read issue-tracking SKILL.md at {}: {e}. Set \
-             Config::skill_paths.issue_tracking to the correct path.",
-            path.display()
-        )
+    let skill_md = std::fs::read_to_string(path).unwrap_or_else(|_| {
+        // Fall back to the compile-time embedded copy so the tool works
+        // outside the repo tree (e.g. in a fresh project).
+        let embedded = crate::agent::assets::SkillAssets::get("issue-tracking/SKILL.md")
+            .expect("embedded issue-tracking/SKILL.md missing from SkillAssets");
+        String::from_utf8_lossy(&embedded.data).into_owned()
     });
     let triggers = parse_skill_triggers(&skill_md).unwrap_or_else(|| {
         panic!(
