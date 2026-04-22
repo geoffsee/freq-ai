@@ -21,7 +21,7 @@ use tracing::info;
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(RustEmbed)]
-#[folder = "dist/"]
+#[folder = "$WEB_ASSETS_DIR"]
 struct WebAssets;
 
 #[cfg(not(target_arch = "wasm32"))]
