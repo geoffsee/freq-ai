@@ -1,0 +1,32 @@
+project = "freq-ai-ci"
+env_file = ".env.my-ci"
+
+[[workflow]]
+name = "compat"
+context = "."
+depends_on = []
+instructions = "compat.Containerfile"
+
+[[workflow]]
+name = "model-dig"
+context = "."
+depends_on = []
+instructions = "model-dig.Containerfile"
+
+[[workflow]]
+name = "release"
+context = "."
+depends_on = ["compat"]
+instructions = "release.Containerfile"
+
+[[workflow]]
+name = "weekly"
+context = "."
+depends_on = []
+env = ["OPENAI_API_KEY", "GH_TOKEN"]
+command = [
+  "bash",
+  "-lc",
+  "codex exec --dangerously-bypass-approvals-and-sandbox \"Follow .github/.agents/skills/merge-and-release/SKILL.md and complete the full procedure.\""
+]
+instructions = "weekly.Containerfile"

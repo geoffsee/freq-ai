@@ -1,19 +1,10 @@
-# Mirrors .github/workflows/merge-and-release.yml (the codex-driven job).
-# Required runtime env: OPENAI_API_KEY, GH_TOKEN. Without both, the job no-ops.
 FROM rust:bookworm
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl libsecret-1-0 ca-certificates \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
-
 RUN npm install -g @openai/codex
-
 WORKDIR /app
 COPY . .
-
-# Real CI runs `codex exec ...` against the SKILL.md procedure. Locally we just
-# bake the image; invoke `docker compose run --rm weekly` with the env vars set
-# to actually exercise the agent.
 CMD ["bash", "-lc", "codex exec --dangerously-bypass-approvals-and-sandbox \"Follow .github/.agents/skills/merge-and-release/SKILL.md and complete the full procedure.\""]

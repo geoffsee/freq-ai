@@ -18,3 +18,4 @@ node_modules/
 /agent_discovery_results/
 /.playwright-mcp
 /playwright-freq-*
+.env.my-ci

@@ -1,8 +1,4 @@
-# Mirrors the linux x86_64 leg of .github/workflows/release.yml.
-# Only the x86_64-linux target is reproducible in Docker — mac/windows targets
-# in the real release matrix can't run here.
 FROM rust:bookworm
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgtk-3-dev \
     libwebkit2gtk-4.1-dev \
@@ -11,15 +7,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 COPY . .
-
 RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/app/target \
     cargo build --release \
     && mkdir -p /app/bin \
     && cp target/release/freq-ai /app/bin/
-
 ENTRYPOINT ["/app/bin/freq-ai"]

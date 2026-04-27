@@ -1,14 +1,8 @@
-# Mirrors .github/workflows/model-dig.yml (the `refresh-available-models` job).
 FROM node:22-bookworm
-
-# libsecret needed by grok-cli's keytar; python3 used to validate the JSON output.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsecret-1-0 curl python3 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-
 ENV PATH="/root/.local/bin:${PATH}"
-
 WORKDIR /app
 COPY . .
-
 RUN ./scripts/ci/model-dig.sh

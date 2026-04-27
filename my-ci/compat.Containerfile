@@ -1,17 +1,9 @@
 # syntax=docker/dockerfile:1.7
-#
-# Mirrors .github/workflows/cli-compat.yml (the `compatibility` job).
-# Both call into scripts/ci/* so this image can never silently drift from real CI.
 FROM node:20-bookworm
-
-# Rust toolchain (matches dtolnay/rust-toolchain@stable in CI).
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
 ENV PATH="/root/.cargo/bin:/root/.local/bin:${PATH}"
-
 WORKDIR /app
 COPY . .
-
-# Single source of truth: same script CI runs.
 RUN --mount=type=cache,target=/root/.cargo/registry \
     --mount=type=cache,target=/root/.cargo/git \
     --mount=type=cache,target=/app/target \
