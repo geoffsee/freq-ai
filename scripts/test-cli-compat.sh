@@ -29,14 +29,14 @@ fi
 
 agents=(
   "dummy-agent:freq-ai-dummy-agent"
-  "claude:claude"
-  "cline:cline"
-  "codex:codex"
-  "copilot:copilot"
-  "gemini:gemini"
-  "grok:grok"
-  "junie:junie"
-  "xai:copilot"
+  "freq-ai-claude:claude"
+  "freq-ai-cline:cline"
+  "freq-ai-codex:codex"
+  "freq-ai-copilot:copilot"
+  "freq-ai-gemini:gemini"
+  "freq-ai-grok:grok"
+  "freq-ai-junie:junie"
+  "freq-ai-xai:copilot"
 )
 
 missing=()

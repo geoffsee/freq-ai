@@ -11,13 +11,10 @@ node_modules/
 /.grok
 /.claude
 /scripts/list-models-*.sh
-# Bundled CLI binary (build from discover-all-agents.ts locally if needed)
+# Bundled CLI binaries (build from .ts sources locally if needed)
 /scripts/discover-all-agents
-/.agents/skills/**/*.txt
+/scripts/discover-help
 /samples/*
 /agent_discovery_results/
 /.playwright-mcp
-agent_discovery_results/
-node_modules/
-scripts/discover-all-agents
 /playwright-freq-*

@@ -1,0 +1,44 @@
+# Local mirror of .github/workflows/*. Each service builds the matching
+# Dockerfile, which RUNs the same scripts/ci/* script that real CI runs.
+#
+# Usage:
+#   docker compose -f local-cicd/compose.yml build compat
+#   docker compose -f local-cicd/compose.yml build               # build all
+#   docker compose -f local-cicd/compose.yml run --rm weekly     # exercise agent
+
+name: freq-ai-cicd
+
+services:
+  compat:
+    build:
+      context: ..
+      dockerfile: local-cicd/Dockerfile.compat
+    pull_policy: build
+    image: freq-ai-ci:compat
+
+  model-dig:
+    build:
+      context: ..
+      dockerfile: local-cicd/Dockerfile.model-dig
+    pull_policy: build
+    image: freq-ai-ci:model-dig
+
+  release:
+    build:
+      context: ..
+      dockerfile: local-cicd/Dockerfile.release
+    pull_policy: build
+    image: freq-ai-ci:release
+    depends_on:
+      compat:
+        condition: service_completed_successfully
+
+  weekly:
+    build:
+      context: ..
+      dockerfile: local-cicd/Dockerfile.weekly
+    pull_policy: build
+    image: freq-ai-ci:weekly
+    environment:
+      - OPENAI_API_KEY
+      - GH_TOKEN

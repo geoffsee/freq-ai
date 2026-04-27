@@ -1,6 +1,6 @@
-# Weekly merge and release
+# Merge and release
 
-Use this skill when the `Weekly merge and release` workflow runs. You drive `gh` and `git` in the checked-out repository to merge open PRs, bump the workspace crate version, push `master`, and push a release tag.
+Use this skill when the `Merge & release (on demand)` workflow runs. You drive `gh` and `git` in the checked-out repository to merge open PRs, bump the workspace crate version, push `master`, and push a release tag.
 
 ## Environment
 

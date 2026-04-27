@@ -1,9 +1,6 @@
-name: Weekly merge and release
+name: Merge & release (on demand)
 
 on:
-  schedule:
-    # Thursdays 06:00 UTC
-    - cron: "0 6 * * 4"
   workflow_dispatch:
 
 permissions:
@@ -11,7 +8,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  codex-weekly-merge-release:
+  codex-merge-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Check OPENAI_API_KEY availability
@@ -61,6 +58,6 @@ jobs:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           codex exec --dangerously-bypass-approvals-and-sandbox "$(cat <<EOF
-          Follow the repository skill at .github/.agents/skills/weekly-merge-release/SKILL.md and complete the full procedure.
+          Follow the repository skill at .github/.agents/skills/merge-and-release/SKILL.md and complete the full procedure.
           EOF
           )"

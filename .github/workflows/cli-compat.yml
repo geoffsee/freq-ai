@@ -1,4 +1,4 @@
-name: CLI Compat
+name: Verify provider CLIs
 
 on:
   schedule:
@@ -19,6 +19,7 @@ on:
       - "crates/dummy-agent/**"
       - "crates/cli-common/**"
       - "scripts/test-cli-compat.sh"
+      - "scripts/ci/**"
       - "packages/cli-compat-fixture/**"
       - ".github/.agents/skills/cli-compat-autofix/**"
       - ".github/workflows/cli-compat.yml"
@@ -37,22 +38,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # grok-cli pulls in keytar; Node dlopens libsecret without this on clean ubuntu-latest.
-      - name: Install libsecret for grok-cli (keytar)
-        run: sudo apt-get update && sudo apt-get install -y libsecret-1-0
-
-      # `freq-ai` depends on Dioxus desktop on non-wasm targets; Linux CI needs GTK/WebKit dev packages.
-      - name: Install Linux GUI build dependencies (Dioxus desktop)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            libglib2.0-dev \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            libxdo-dev \
-            librsvg2-dev
+      - name: Install system deps (GTK/WebKit/libsecret)
+        run: ./scripts/ci/install-system-deps.sh
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -71,18 +58,8 @@ jobs:
       - name: "Install CLI compat fixture (npm drill, v2 breaks --version)"
         run: npm install -g freq-ai-cli-compat-fixture@2.0.0
 
-      - name: Install Provider CLIs
-        run: |
-          npm install -g \
-            @anthropic-ai/claude-code \
-            @openai/codex \
-            @github/copilot \
-            @google/gemini-cli \
-            cline \
-            grok-cli
-
-      - name: Install Junie CLI
-        run: curl -fsSL https://junie.jetbrains.com/install.sh | bash
+      - name: Install provider CLIs
+        run: ./scripts/ci/install-provider-clis.sh
 
       - name: Add Junie to PATH
         run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
@@ -90,30 +67,7 @@ jobs:
       - name: Verify CLI Binaries
         id: verify_cli
         continue-on-error: true
-        run: |
-          set -euo pipefail
-          mkdir -p verify-logs
-          log="verify-logs/cli-compat-verify.log"
-          : > "${log}"
-
-          run_logged() {
-            echo "+ $*" | tee -a "${log}" >/dev/null
-            # shellcheck disable=SC2068
-            "$@" 2>&1 | tee -a "${log}"
-          }
-
-          run_logged freq-ai-dummy-agent --version
-          # v2+ rejects --version; keep a fallback for 1.x-style installs.
-          run_logged bash -lc "freq-ai-cli-compat-fixture version || freq-ai-cli-compat-fixture --version"
-          run_logged claude --version
-          # cline does not support --version; keep a compatibility fallback.
-          run_logged bash -lc "cline version || cline -v"
-          run_logged codex --version
-          run_logged copilot --version
-          run_logged gemini --version
-          # grok-cli version flags differ across releases.
-          run_logged bash -lc "grok --version || grok -v || grok version"
-          run_logged junie --version
+        run: ./scripts/ci/compat-verify.sh
 
       - name: Upload verify logs (on failure)
         if: steps.verify_cli.outcome == 'failure'
