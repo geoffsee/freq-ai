@@ -60,7 +60,7 @@ sequenceDiagram
     Note over H,G: Step 6 — Code Review  (one-shot, no human feedback)
     A->>G: read every open PR (diff + description)
     A->>A: review correctness, security, performance, style, tests, idle-memory rule
-    A->>G: post review via gh pr review (APPROVE / REQUEST_CHANGES / COMMENT)
+    A->>G: post atomic PR review via gh api (APPROVE / REQUEST_CHANGES / COMMENT)
 
     Note over H,G: Step 7 — Retrospective
     A->>G: read recent commits + closed issues + merged PRs
@@ -159,11 +159,20 @@ Click **Submit & Finalise**. The agent incorporates your feedback and publishes 
 
 Click **UXR Synth** in the ACTIONS section.
 
-**Draft phase** -- The agent reads the full project state, the most recent `ideation` issue (if one exists), and `.agents/skills/user-personas/SKILL.md`. It uses the adopter personas as a synthesis lens: tag evidence to the closest persona via `recognition_cues:`, weight findings against that persona's jobs and pains, and treat unmatched signal as a blind spot instead of forcing a weak fit.
+**Draft phase** -- The agent reads the full project state, the most recent `ideation` issue (if one exists), and the configured `user_personas` skill path. It uses the adopter personas as a synthesis lens: tag evidence to the closest persona via `recognition_cues:`, weight findings against that persona's jobs and pains, and treat unmatched signal as a blind spot instead of forcing a weak fit.
 
 **Feedback phase** -- Same flow as before. Review the report, provide corrections and emphasis adjustments.
 
 Click **Submit & Finalise**. The agent publishes the synthesis as a GitHub issue labelled `uxr-synthesis`, keeping the dominant persona signal and any missing-persona blind spots visible in the final briefing.
+
+### Personas Studio
+
+The editor panel's **Personas** tab is the companion maintenance surface for the
+same `user_personas` skill. It lists persona JSON files from the `personas/`
+directory beside the configured skill, lets you create/edit/delete them, and can
+draft a new persona from natural-language notes. Saved personas are immediately
+available to UXR Synth, UX preset workflows, and any other prompt that loads the
+configured persona skill.
 
 ### Step 2: Strategic Review
 
@@ -280,12 +289,11 @@ Outside the lifecycle loop, two one-shot hygiene actions keep the project's writ
 
 | Action | Scope | Reads as ground truth | Never edits |
 |---|---|---|---|
-| **Refresh Docs** (sidebar button) | `README.md`, `STATUS.md`, `ISSUES.md`, and every `*.md` file under `docs/` | The current repo: crate layout, shipped workflows, tracker state | `AGENTS.md`, `.agents/skills/**`, `CLAUDE.md`, `CLINE.md`, `GEMINI.md`, `COPILOT.md`, `GROK.md`, `JUNIE.md`, `XAI.md`, source code, tests, manifests |
-| **Refresh Agents** (sidebar button) | `AGENTS.md` and every `.agents/skills/*/SKILL.md`, plus optional vendor files (`CLAUDE.md`, `CLINE.md`, `GEMINI.md`, `COPILOT.md`, `GROK.md`, `JUNIE.md`, `XAI.md`) | The current repo: actual file paths, scripts, ops, macros, crate names | `README.md`, `STATUS.md`, `ISSUES.md`, `docs/**`, source code, tests, manifests |
+| **Refresh Docs** (sidebar button) | Root project Markdown files discovered at run time, such as `README.md` | The current repo: crate layout, shipped workflows, tracker state | Agent-facing guidance (`AGENTS.md`, skills, vendor agent files), source code, tests, manifests |
+| **Refresh Agents** (sidebar button) | Materialized `AGENTS.md` and skill `SKILL.md` files under the freq-ai app-data assets directory, project-local preset skills, plus optional vendor files (`CLAUDE.md`, `CLINE.md`, `GEMINI.md`, `COPILOT.md`, `GROK.md`, `JUNIE.md`, `XAI.md`) | The current repo: actual file paths, scripts, ops, macros, crate names | `README.md`, `STATUS.md`, `ISSUES.md`, `docs/**`, source code, tests, manifests |
 
 Each action enumerates its in-scope file set, runs the agent against a prompt that forbids touching out-of-scope files, then opens a PR scoped to its own file set. No-op runs (no drift detected) exit cleanly without opening a PR. Both support `--dry-run`.
 
 **Sequencing:** when both need to run, prefer **Refresh Docs first**. Project docs are what contributors read first, so getting them accurate before refreshing the agent-facing instructions ensures the human-facing record leads and the agent-facing record follows. If a single change touches both layers, run Refresh Docs, merge it, then run Refresh Agents against the post-merge state.
 
 **Out-of-scope detection:** both actions detect files modified outside their declared scope and surface them as warnings in the editor panel. They will not stage or commit out-of-scope changes — those stay in your working tree for you to handle separately.
-

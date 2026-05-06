@@ -2,9 +2,9 @@
 Workflow-driven agents
 
 - Desktop
-- Web 
+- Web
 - CLI
-- Github Actions
+- GitHub Actions
 
 <img src="freq-ai.png" alt="freq-ai.png" style="max-width: 33%;" />
 
@@ -38,7 +38,7 @@ $ freq-ai loop 7
 # Sweep open issues, PRs, local branches, tracker bodies, STATUS.md, and ISSUES.md
 $ freq-ai housekeeping
 
-# Refresh top-level project docs (README.md, AGENTS.md, etc.) against the current state of the code
+# Refresh root-level project docs against the current state of the code
 $ freq-ai refresh-docs
 
 # Serve the web UI on http://localhost:8080 (override with --port)
@@ -59,6 +59,27 @@ $ freq-ai --preset xp ideation
 
 `--agent` accepts `claude`, `cline`, `codex`, `copilot`, `gemini`, `grok`, `junie`, `xai`, `cursor` (default: `claude`). The matching CLI must be installed and authenticated. `--auto` passes adapter-specific flags that reduce permission prompts and, for two-phase workflows (ideation, housekeeping, sprint-planning, retrospective, etc.), synthesizes stand-in feedback so the draft chains straight into finalize without a human in the loop — without `--auto` the CLI stops after the draft so you can review before any side effects fire. `--dry-run` prints planned prompts and actions without making supported changes. `--preset <name>` swaps the workflow preset for a single invocation (use `freq-ai presets` to see what's available; `freq-ai presets <name>` lists the workflows that preset ships with).
 
+## Desktop UI
+
+The desktop app is split into a workflow sidebar and an editor panel. The sidebar
+handles agent/model selection, local inference settings, workflow presets,
+workflow actions, tracker issues, open issues, and open PRs. The editor panel has
+tabs for:
+
+- **Agent Output** — streamed assistant, tool, and log events.
+- **Files** — files read or changed by the agent, plus a repository file browser.
+- **Personas** — a User Personas Studio for creating, editing, deleting, and
+  natural-language drafting persistent personas.
+- **Security** — local security scan findings and JSON export.
+- **Interview** — multi-round structured interview flows.
+- **Chat** — free-form project chat with the selected agent.
+
+Personas are stored as JSON files in the `personas/` directory beside the
+configured `user_personas` skill file. With the default config, that is
+`assets/skills/user-personas/personas/`. If you override `[skills].user_personas`,
+the Personas tab reads and writes next to that custom skill path so UXR workflows
+and the studio share the same persona set.
+
 ## Configuration (`freq-ai.toml`)
 
 freq-ai reads `freq-ai.toml` from the repo root on every launch (the legacy filename `dev.toml` is still honored as a fallback). Every field is optional — drop in only what you want to change. The full surface looks like this:
@@ -67,7 +88,7 @@ freq-ai reads `freq-ai.toml` from the repo root on every launch (the legacy file
 # ── Top-level ─────────────────────────────────────────────────────────────
 project_name           = "my-project"   # default: inferred from the repo dir
 workflow_preset        = "default"      # default: "default"  (run `freq-ai presets`)
-bootstrap_agent_files  = true           # default: true   — refresh AGENTS.md on launch
+bootstrap_agent_files  = true           # default: true   — legacy agent-file bootstrap flag
 bootstrap_snapshot     = true           # default: true   — capture a toak-rs snapshot on launch
 use_subscription       = false          # default: false  — billing hint for adapters that support it
 
@@ -116,9 +137,12 @@ cli_build      = "crates/freq-cli/src/build.rs"
 compute        = "crates/compute-node/src/lib.rs"
 ```
 
+`user_personas` also controls the Personas Studio storage location: persona JSON
+documents live in a `personas/` directory beside that `SKILL.md`.
+
 CLI flags (`--agent`, `--auto`, `--dry-run`, `--preset`) override matching `freq-ai.toml` values for that single invocation. Secrets — agent API keys, GitHub bot tokens, GitHub App private keys — are not written to `freq-ai.toml`; they're stored in the OS keychain by the GUI's settings panel or supplied via env vars (see the [GitHub Actions example](#github-actions) below).
 
-## Github Actions
+## GitHub Actions
 Every CLI subcommand above is also available as a GitHub Action — [**geoffsee/freq-ai-action**](https://github.com/geoffsee/freq-ai-action). Wire it to `pull_request`, `issues`, or `schedule` and your repo starts maintaining itself: issues become PRs, PRs get reviewed, review threads get addressed, weekly housekeeping happens on its own.
 
 A working end-to-end demo lives at [**geoffsee/freq-ai-hello-world**](https://github.com/geoffsee/freq-ai-hello-world) — a tiny Node project where labeling an issue `agent:work` is enough to land a merged PR with no further input.
@@ -169,7 +193,7 @@ The full hands-off setup (PAT, OAuth token, GitHub App credentials, branch prote
 Expect unexpected breaking changes.
 
 ## Docs
-- [Getting Started](docs/getting_started.md) — Installation, prerequisites, Desktop vs Web App, and CLI usage.
+- [Getting Started](docs/getting_started.md) — Installation, prerequisites, Desktop vs Web App, Personas Studio, and CLI usage.
 - [Workflow & Lifecycle](docs/workflow.md) — How an AI dev agent cycle works (Ideation to Retrospective), including Documentation Refresh actions.
 - [Configuration & Setup](docs/configuration.md) — CLI options, bot account setup for Code Review, supported agents, and general tips.
 - [Architecture](docs/architecture.md) — Project structure and internals.

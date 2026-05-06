@@ -82,7 +82,7 @@ Run ALL of the following sweeps. For each finding, report:
 
 ### 6. Label Taxonomy Drift
 
-- Labels referenced in `crates/dev/src/agent/tracker.rs` or in AGENTS.md but **not present**
+- Labels referenced in `crates/cli/src/agent/tracker.rs` or in AGENTS.md but **not present**
   in the repo. Run `gh label list --json name --limit 200` to get current labels. Propose
   `gh label create`.
 - Labels present in the repo but not referenced anywhere in the codebase. Surface for review.

@@ -1,17 +1,20 @@
 # Assets
 
 Bundled agent skills and workflow definitions for freq-ai. This directory is
-the compile-time source — skills are embedded via `rust-embed` and bootstrapped
-into the target repo's `.agents/skills/` at runtime. Workflow templates are
-loaded from bundled `assets/workflows/{preset}/` and may be extended or overridden
-by project-local `.agents/workflows/{preset}/`.
+the compile-time source — skills and workflows are embedded via `rust-embed`.
+When materialized, they are written under freq-ai's app-data directory
+(`~/.local/share/freq-ai` on typical Linux desktops, platform equivalent
+elsewhere). Workflow templates are loaded from bundled
+`assets/workflows/{preset}/`, materialized app-data workflows, and
+project-local `.agents/workflows/{preset}/` overrides.
 
 This keeps the target repo's `.agents/` directory clean for its own agent configuration.
 
 ## Skills
 
-Skills in `skills/` are embedded at compile time and written to the target repo's
-`.agents/skills/` on first run (via `ensure_agent_files`).
+Skills in `skills/` are embedded at compile time and can be materialized to the
+freq-ai app-data assets directory. Project config can override individual skill
+paths via `[skills]` in `freq-ai.toml`.
 
 | Skill | Description |
 | :--- | :--- |
@@ -19,7 +22,7 @@ Skills in `skills/` are embedded at compile time and written to the target repo'
 | `architecture` | High-level system design and component overview |
 | `coding-standards` | Rust coding patterns and conventions |
 | `testing` | Test commands, verification workflow, and submission checklist |
-| `user-personas` | Adopter personas for UXR synthesis |
+| `user-personas` | Adopter personas for UXR synthesis and the Personas Studio |
 | `issue-tracking` | GitHub issue/PR hygiene guidance |
 | `code-explorer` | Use toak CLI for codebase snapshots and LLM context |
 
@@ -49,8 +52,13 @@ A preset is a folder directly under `workflows/`. The sidebar loads whichever pr
 
 Built-in presets:
 - `default` — the standard full development lifecycle
+- `deep-research` — broader research-heavy discovery and strategy workflow set
+- `pm` — product-management workflows for feature briefs, competitive analysis, stakeholder updates, and planning
+- `ux` — UX research/design workflows, including persona synthesis and journey mapping
 - `xp` — a pure Extreme Programming preset focused on story discovery, customer signal review, XP strategy, iteration planning, collective code review, and retrospectives
 - `business-development` — workflows for market research, partnership outreach, and sales prospecting
+- `quality-assurance` — bug triage, regression testing, and test-plan generation
+- `data-science` — dataset search, cleaning, EDA, feature engineering, model training, and model evaluation
 
 The preset selector is always shown in the sidebar when presets are available. If only one preset exists, the selector is disabled until another preset folder is added.
 
@@ -115,6 +123,7 @@ fragments:                            # reusable text blocks, included via {{> n
 | `strategic-review` | planning | two-phase |
 | `roadmapper` | planning | two-phase |
 | `sprint-planning` | planning | two-phase |
+| `auto-merge` | maintenance | one-shot |
 | `code-review` | review | one-shot |
 | `security-scan` | review | one-shot |
 | `security-review` | review | one-shot |
@@ -145,3 +154,16 @@ fragments:                            # reusable text blocks, included via {{> n
 | `market-research` | discovery | two-phase |
 | `partnership-outreach` | growth | two-phase |
 | `sales-prospecting` | growth | two-phase |
+
+### Other preset workflow groups
+
+- `pm` includes competitive analysis, feature briefs, stakeholder updates, and
+  the standard discovery/planning/review loop.
+- `ux` includes accessibility review, design critique, journey mapping, persona
+  synthesis, usability audit, UX-focused research synthesis, and retrospectives.
+- `quality-assurance` includes bug report triage, regression testing, and test
+  plan generation.
+- `data-science` includes dataset search, data cleaning, EDA, feature
+  engineering, model training, and model evaluation.
+- `deep-research` includes deep research plus the standard research, planning,
+  review, and retrospective flow.

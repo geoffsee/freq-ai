@@ -16,6 +16,10 @@ Use this skill when you have research signal — interview snippets, support tic
 ## Persona files
 
 Personas are stored as JSON documents in the `personas/` subdirectory.
+The desktop UI's Personas Studio reads and writes the same directory. If
+`freq-ai.toml` overrides `[skills].user_personas`, the studio stores persona JSON
+beside that custom `SKILL.md`; otherwise it uses this bundled skill's
+`personas/` directory.
 
 ## Schema and required fields
 
@@ -27,6 +31,31 @@ Each persona file should include:
 - `rejection_no_if:` — capabilities or gaps that make the project a no.
 - `anti_goals:` — what they explicitly do not care about.
 - `recognition_cues:` — phrases, requests, objections, or behaviors that let you tag evidence to this persona.
+
+The bundled personas use TinyPerson-style JSON:
+
+```json
+{
+  "type": "TinyPerson",
+  "persona": {
+    "name": "Persona Name",
+    "occupation": {
+      "title": "Role",
+      "organization": "Organization",
+      "description": "Short context summary"
+    },
+    "communication_style": "How this user tends to communicate",
+    "other_facts": [
+      "jobs_to_be_done: ...",
+      "pains: ...",
+      "adoption_yes_if: ...",
+      "rejection_no_if: ...",
+      "anti_goals: ...",
+      "recognition_cues: ..."
+    ]
+  }
+}
+```
 
 ## What this skill is not
 

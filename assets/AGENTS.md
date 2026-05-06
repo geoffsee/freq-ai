@@ -4,12 +4,13 @@ This project is a software application. Your goal is to help build, maintain, an
 
 ## Skills
 
-Project-specific agent skills are available in `skills/`. Load them when relevant:
+Project-specific agent skills are available in `skills/` when materialized or
+through the configured skill paths. Load them when relevant:
 
 - `project-context` — Core project priorities and key resources
 - `architecture` — High-level system design and component overview
 - `coding-standards` — Project-specific coding conventions and patterns
-- `user-personas` — Adopter personas for UXR synthesis
+- `user-personas` — Adopter personas for UXR synthesis and the Personas Studio
 - `issue-tracking` — Guidance on GitHub issue/PR hygiene
 - `testing` — Test commands and verification workflow
 - `code-explorer` — Use toak CLI for codebase snapshots and LLM context
@@ -48,7 +49,7 @@ entries that fetch issue bodies by label.
 ## Label Conventions
 
 All GitHub issue labels are declared in `.github/labels.yml` (source of truth) and
-exposed as constants in `src/agent/tracker.rs` → `pub mod labels`.
+exposed as constants in `crates/cli/src/agent/tracker.rs` → `pub mod labels`.
 
 ### Workflow labels (no prefix)
 
@@ -63,7 +64,7 @@ exposed as constants in `src/agent/tracker.rs` → `pub mod labels`.
 | `code-review` | Issues filed by the Code Review workflow |
 | `security` | Issues filed by the Security Code Review workflow |
 | `retrospective` | The single living retrospective issue produced by the Retrospective workflow |
-| `dev-ui` | Related to the dev UI tool (`crates/dev`) — workflow-equivalent alias |
+| `dev-ui` | Related to the freq-ai UI (`crates/cli/src/ui`) — workflow-equivalent alias |
 
 ### Namespaced labels
 
@@ -86,10 +87,11 @@ exposed as constants in `src/agent/tracker.rs` → `pub mod labels`.
 
 ### In code
 
-Label constants live in `src/agent/tracker.rs::labels` and are used by Rust code
-that calls `gh` programmatically. Prompt templates in `.agents/workflows/` use
-literal label strings (e.g. `--label "strategic-review"`) since those are
-instructions to the AI agent, not compiled code.
+Label constants live in `crates/cli/src/agent/tracker.rs::labels` and are used
+by Rust code that calls `gh` programmatically. Prompt templates under
+`assets/workflows/` or project-local `.agents/workflows/` use literal label
+strings (e.g. `--label "strategic-review"`) since those are instructions to the
+AI agent, not compiled code.
 
 ### Operator contract: keeping live labels in sync
 
@@ -105,7 +107,7 @@ To add a new workflow label:
      idempotent — uses `--force` so it updates existing labels in place), OR
    - Running `gh label create "<name>" --description "..." --color "..." --force`
      directly if you only need to add one or two labels.
-3. Add the constant to `src/agent/tracker.rs::labels` (the `pub mod
+3. Add the constant to `crates/cli/src/agent/tracker.rs::labels` (the `pub mod
    labels` block at the top of the file).
 4. Reference the constant via `labels::*` in any prompt builder that emits the
    new label — never hardcode the string.
@@ -126,7 +128,7 @@ extra_context:
     label: uxr-synthesis
 ```
 
-The generic runner calls `fetch_issue_by_label` (in `src/agent/workflow.rs`)
+The generic runner calls `fetch_issue_by_label` (in `crates/cli/src/agent/workflow.rs`)
 which uses the same shape:
 
 ```

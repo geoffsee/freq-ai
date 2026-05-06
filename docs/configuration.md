@@ -11,6 +11,7 @@ freq-ai [OPTIONS] [COMMAND]
 | `--agent <name>` | AI agent (`claude`, `cline`, `codex`, `copilot`, `cursor`, `gemini`, `grok`, `junie`, `xai`) | `claude` |
 | `--auto` | Unattended mode (skip permission prompts) | off |
 | `--dry-run` | Show what would happen without executing | off |
+| `--preset <name>` | Use a workflow preset for this invocation | `freq-ai.toml` / `default` |
 | `--create-labels` | Write the bundled label taxonomy to `.github/labels.yml` and exit | — |
 
 ## Tips
@@ -19,11 +20,16 @@ freq-ai [OPTIONS] [COMMAND]
 - The **Follow** checkbox in the editor tab auto-scrolls as events stream in. Uncheck it to scroll back through history.
 - **Expand All** opens collapsed thinking and tool-result blocks in the event stream.
 - Use **Stop** in the Actions panel to request cancellation of the current run. Active agent subprocesses are terminated, and the loop exits cleanly.
+- Use the **Personas** tab to maintain persistent UXR personas. It reads and writes JSON files in the `personas/` directory beside the configured `[skills].user_personas` path.
 - Switch themes from the title bar dropdown. 10 built-in: Tokyo Night, Catppuccin Mocha, Dracula, Nord, Gruvbox Dark, Solarized Dark, One Dark Pro, Rose Pine, Synthwave '84, GitHub Dark.
 
 ## Bot Account Setup (Code Review)
 
-The **Code Review** action posts reviews via `gh pr review`. GitHub forbids approving your own PRs, so a separate bot identity is required. Without it, the Code Review button is disabled.
+The **Code Review** action posts reviews through `gh api` against
+`POST /repos/{owner}/{repo}/pulls/{n}/reviews` so verdicts and line-anchored
+comments are submitted atomically. GitHub forbids approving your own PRs, so a
+separate bot identity is required. Without it, the Code Review button is
+disabled.
 
 ### Option A — GitHub App (recommended)
 
@@ -46,7 +52,9 @@ The **Code Review** action posts reviews via `gh pr review`. GitHub forbids appr
    freq-ai
    ```
 
-The dev-UI mints short-lived installation tokens on demand (cached for 50 minutes) and injects `GH_TOKEN` into the review subprocess. Audit logs show `dev-ui-bot[bot]`.
+freq-ai mints short-lived installation tokens on demand (cached for 50 minutes)
+and injects `GH_TOKEN` into the review subprocess. Audit logs show the GitHub App
+bot identity, such as `dev-ui-bot[bot]`.
 
 You can also configure review-bot access in the GUI under `Configuration` and
 click `Save Configuration`. Non-secret settings are written to `freq-ai.toml`
@@ -92,6 +100,5 @@ credential vault instead of plaintext project files.
 | Junie | `junie` | `--brave` | json-stream | JetBrains Junie CLI. BYOK via `--provider` + API key flags. |
 | Codex | `codex` | `--dangerously-bypass-approvals-and-sandbox` | JSONL (`exec --json`) | Streams assistant/tool/result events into the same UI timeline. |
 | Copilot | `copilot` | `--yolo` | unknown | GitHub Copilot CLI (standalone binary, not `gh copilot`). |
-| Cursor | `agent` | `--yolo` | stream-json | Cursor Agent CLI. Supports `--model` and non-interactive `-p`. |
+| Cursor | `cursor` | `--yolo` | stream-json | Cursor Agent CLI. Supports `--model` and non-interactive `-p`. |
 | xAI | `copilot` | `--yolo` | unknown | Proxies the GitHub Copilot CLI with xAI-compatible BYOK settings via environment variables. |
-

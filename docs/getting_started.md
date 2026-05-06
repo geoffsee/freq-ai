@@ -20,7 +20,7 @@ Pre-built binaries are available for:
 ### Prerequisites
 
 - `gh` CLI authenticated (`gh auth login`)
-- An AI agent on PATH (`claude`, `cline`, `codex`, `copilot`, `gemini`, `grok`, `junie`, or `xai`)
+- An AI agent on PATH (`claude`, `cline`, `codex`, `copilot`, `cursor`, `gemini`, `grok`, `junie`, or `xai`)
 
 ## Quick Start
 
@@ -35,6 +35,14 @@ freq-ai gui
 ```
 
 *(Note: `freq-ai` defaults to `gui` if no subcommand is provided).*
+
+The desktop UI has a sidebar for configuration, workflow actions, tracker
+issues, open issues, and PRs. The editor panel includes tabs for agent output,
+file browsing, security findings, interviews, chat, and **Personas**. Use the
+Personas tab to create, edit, delete, or generate persistent user personas from
+natural-language notes. Persona JSON files are saved beside the configured
+`user_personas` skill file, so UXR workflows consume the same persona set you
+manage in the UI.
 
 ### Web App
 
@@ -77,4 +85,8 @@ freq-ai fix-pr 123
 
 # Run a specific issue
 freq-ai issue 45
+
+# List presets or inspect one preset's workflows
+freq-ai presets
+freq-ai presets ux
 ```
