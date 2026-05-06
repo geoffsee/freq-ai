@@ -17,16 +17,16 @@ name = "freq-ai"
 path = "src/main.rs"
 
 [dependencies]
-agent-common = { path = "../agent-common", version = "0.8.1" }
-cli-common = { path = "../cli-common", version = "0.8.0" }
-claude = { package = "freq-ai-claude", path = "../claude", version = "0.8.0" }
-cline = { package = "freq-ai-cline", path = "../cline", version = "0.8.0" }
-codex = { package = "freq-ai-codex", path = "../codex", version = "0.8.0" }
-copilot = { package = "freq-ai-copilot", path = "../copilot", version = "0.8.0" }
-gemini = { package = "freq-ai-gemini", path = "../gemini", version = "0.8.0" }
-grok = { package = "freq-ai-grok", path = "../grok", version = "0.8.0" }
-junie = { package = "freq-ai-junie", path = "../junie", version = "0.8.0" }
-xai = { package = "freq-ai-xai", path = "../xai", version = "0.8.0" }
+agent-common = { path = "../agent-common" }
+cli-common = { path = "../cli-common" }
+claude = { package = "freq-ai-claude", path = "../claude" }
+cline = { package = "freq-ai-cline", path = "../cline" }
+codex = { package = "freq-ai-codex", path = "../codex" }
+copilot = { package = "freq-ai-copilot", path = "../copilot" }
+gemini = { package = "freq-ai-gemini", path = "../gemini" }
+grok = { package = "freq-ai-grok", path = "../grok" }
+junie = { package = "freq-ai-junie", path = "../junie" }
+xai = { package = "freq-ai-xai", path = "../xai" }
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

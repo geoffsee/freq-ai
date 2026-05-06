@@ -11,4 +11,4 @@ homepage.workspace = true
 name = "junie"
 
 [dependencies]
-agent-common = { path = "../agent-common", version = "0.8.1" }
+agent-common = { path = "../agent-common" }
