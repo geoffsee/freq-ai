@@ -46,7 +46,7 @@ use agent::types::{
     AgentEvent, BotAuthMode, ChangedFile, ClaudeEvent, ContentBlock, EVENT_SENDER, FileChangeKind,
     InterviewTurn, Workflow, save_dev_config,
 };
-use agent::workflow::{list_presets, load_sidebar_entries};
+use agent::workflow::{list_presets, load_sidebar_entries, load_workflows};
 use clap::{Parser, Subcommand};
 use custom_themes::Theme;
 use dioxus::prelude::*;
@@ -92,6 +92,11 @@ struct Cli {
     /// Print planned prompts and actions without making supported changes
     #[arg(long)]
     dry_run: bool,
+
+    /// Workflow preset to use (overrides `workflow_preset` in dev.toml).
+    /// See `freq-ai presets` for the list of available presets.
+    #[arg(long, value_name = "NAME")]
+    preset: Option<String>,
 
     /// Write the bundled label taxonomy to .github/labels.yml and exit
     #[arg(long)]
@@ -149,6 +154,12 @@ enum Commands {
         /// Port for the local HTTP server
         #[arg(long, default_value = "8080")]
         port: u16,
+    },
+    /// List available workflow presets, or the workflows inside one preset
+    Presets {
+        /// If given, list the workflows inside this preset instead of all presets
+        #[arg(value_name = "NAME")]
+        name: Option<String>,
     },
 }
 
@@ -209,6 +220,20 @@ where
         config.dry_run = cli.dry_run;
         overrides(&mut config);
 
+        // CLI `--preset` wins over dev.toml and library overrides — fail fast
+        // with the available list if the name doesn't match a real preset dir.
+        if let Some(preset) = &cli.preset {
+            let available = list_presets(&config.root);
+            if !available.iter().any(|p| p == preset) {
+                eprintln!(
+                    "unknown preset: {preset}\navailable presets: {}",
+                    available.join(", ")
+                );
+                std::process::exit(2);
+            }
+            config.workflow_preset = preset.clone();
+        }
+
         // Eagerly populate the issue-comment trigger cache from the (possibly
         // overridden) skill path so the sidebar reminder is non-empty before the
         // first render. Done after `overrides` so consumers' custom paths win.
@@ -238,6 +263,60 @@ where
                 run_single_issue(&config, tracker_num, number)
             }
             Some(Commands::Loop { tracker }) => run_loop(&config, tracker),
+            Some(Commands::Presets { name }) => match name {
+                None => {
+                    let active = &config.workflow_preset;
+                    for preset in list_presets(&config.root) {
+                        if &preset == active {
+                            println!("{preset} (active)");
+                        } else {
+                            println!("{preset}");
+                        }
+                    }
+                }
+                Some(preset) => {
+                    let available = list_presets(&config.root);
+                    if !available.iter().any(|p| p == &preset) {
+                        eprintln!(
+                            "unknown preset: {preset}\navailable presets: {}",
+                            available.join(", ")
+                        );
+                        std::process::exit(2);
+                    }
+                    let workflows = load_workflows(&config.root, &preset);
+                    if workflows.is_empty() {
+                        eprintln!("preset {preset} has no workflows");
+                        std::process::exit(1);
+                    }
+                    let mut entries: Vec<_> = workflows.values().collect();
+                    entries.sort_by(|a, b| {
+                        a.ui.category
+                            .cmp(&b.ui.category)
+                            .then_with(|| a.id.cmp(&b.id))
+                    });
+                    let id_w = entries.iter().map(|w| w.id.len()).max().unwrap_or(0);
+                    let cat_w = entries
+                        .iter()
+                        .map(|w| w.ui.category.len())
+                        .max()
+                        .unwrap_or(0);
+                    for wf in entries {
+                        let hidden = if wf.ui.visible { "" } else { " (hidden)" };
+                        let desc = if wf.description.is_empty() {
+                            wf.name.as_str()
+                        } else {
+                            wf.description.as_str()
+                        };
+                        println!(
+                            "{:id_w$}  {:cat_w$}  {desc}{hidden}",
+                            wf.id,
+                            wf.ui.category,
+                            id_w = id_w,
+                            cat_w = cat_w,
+                        );
+                    }
+                }
+            },
             Some(Commands::Serve { port }) => {
                 info!(
                     "Launching API/web server for root={} with requested_port={}",
