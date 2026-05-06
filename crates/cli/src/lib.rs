@@ -73,18 +73,23 @@ struct WorkflowEntriesResponse {
 #[command(
     name = "freq-ai",
     about = "Distributed application runtime agent",
+    long_about = "freq-ai runs agent-powered project workflows from the command line or launches the desktop UI when no subcommand is given.",
+    after_help = "Examples:\n  freq-ai\n  freq-ai --agent codex code-review\n  freq-ai --dry-run refresh-docs\n  freq-ai serve --port 3000",
     version
 )]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
 
+    /// Agent CLI adapter to use when running workflows
     #[arg(long, default_value = "claude")]
     agent: agent::types::Agent,
 
+    /// Pass adapter-specific flags that reduce permission prompts
     #[arg(long)]
     auto: bool,
 
+    /// Print planned prompts and actions without making supported changes
     #[arg(long)]
     dry_run: bool,
 
@@ -98,7 +103,11 @@ enum Commands {
     /// Launch the GUI (default)
     Gui,
     /// Address review threads on a PR
-    FixPr { pr: u32 },
+    FixPr {
+        /// Pull request number to inspect and update
+        #[arg(value_name = "PR")]
+        pr: u32,
+    },
     /// Run ideation draft
     Ideation,
     /// Run UXR synthesis draft
@@ -124,11 +133,20 @@ enum Commands {
     /// Refresh project documentation
     RefreshDocs,
     /// Run a single issue
-    Issue { number: u32 },
+    Issue {
+        /// Issue number to run
+        #[arg(value_name = "NUMBER")]
+        number: u32,
+    },
     /// Run the main loop for a tracker
-    Loop { tracker: u32 },
+    Loop {
+        /// Tracker issue number to process
+        #[arg(value_name = "TRACKER")]
+        tracker: u32,
+    },
     /// Serve the web UI via a local HTTP server
     Serve {
+        /// Port for the local HTTP server
         #[arg(long, default_value = "8080")]
         port: u16,
     },
