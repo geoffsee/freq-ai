@@ -20,13 +20,26 @@ fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS");
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH");
     let bun_path = resolve_bun_path();
+    let install_stamp = out_dir.join("bun_install.stamp");
 
-    run_bun_install(&manifest_dir, &bun_path);
+    let install_key = install_cache_key(&manifest_dir, &bun_path, &target_os, &target_arch)
+        .expect("compute bun install cache key");
+    run_bun_install_if_needed(&manifest_dir, &bun_path, &install_stamp, &install_key);
 
     let archive_name = format!("freq-ai-agents-{target_os}-{target_arch}.tar.gz");
     let archive_path = out_dir.join(&archive_name);
-    create_archive(&manifest_dir, &archive_path, &bun_path).expect("create agent runtime archive");
-    let archive_sha256 = sha256_file(&archive_path).expect("hash agent runtime archive");
+    let archive_stamp = out_dir.join("runtime_archive.stamp");
+    let archive_key = archive_cache_key(&install_key).expect("compute archive cache key");
+    let archive_sha_file = out_dir.join("runtime_archive.sha256");
+    let archive_sha256 = create_archive_if_needed(
+        &manifest_dir,
+        &archive_path,
+        &bun_path,
+        &archive_stamp,
+        &archive_key,
+        &archive_sha_file,
+    )
+    .expect("create/hash agent runtime archive");
 
     write_generated(
         &out_dir.join("agent_runtime_generated.rs"),
@@ -39,7 +52,11 @@ fn main() {
     .expect("write generated agent runtime metadata");
 }
 
-fn run_bun_install(manifest_dir: &Path, bun_path: &Path) {
+fn run_bun_install_if_needed(manifest_dir: &Path, bun_path: &Path, stamp_path: &Path, key: &str) {
+    if stamp_matches(stamp_path, key) && manifest_dir.join("node_modules").is_dir() {
+        return;
+    }
+
     let mut cmd = Command::new(bun_path);
     cmd.arg("install");
     if manifest_dir.join("bun.lock").exists() {
@@ -56,15 +73,42 @@ fn run_bun_install(manifest_dir: &Path, bun_path: &Path) {
             bun_path.display()
         );
     }
+
+    write_stamp(stamp_path, key).expect("write bun install stamp");
 }
 
-fn create_archive(manifest_dir: &Path, archive_path: &Path, bun_path: &Path) -> io::Result<()> {
+fn create_archive_if_needed(
+    manifest_dir: &Path,
+    archive_path: &Path,
+    bun_path: &Path,
+    stamp_path: &Path,
+    key: &str,
+    sha_path: &Path,
+) -> io::Result<String> {
+    if stamp_matches(stamp_path, key)
+        && archive_path.is_file()
+        && sha_path.is_file()
+        && let Ok(existing) = fs::read_to_string(sha_path)
+    {
+        let existing = existing.trim();
+        if !existing.is_empty() {
+            return Ok(existing.to_string());
+        }
+    }
+
+    let archive_sha256 = create_archive(manifest_dir, archive_path, bun_path)?;
+    fs::write(sha_path, &archive_sha256)?;
+    write_stamp(stamp_path, key)?;
+    Ok(archive_sha256)
+}
+
+fn create_archive(manifest_dir: &Path, archive_path: &Path, bun_path: &Path) -> io::Result<String> {
     if let Some(parent) = archive_path.parent() {
         fs::create_dir_all(parent)?;
     }
 
     let tar_gz = File::create(archive_path)?;
-    let encoder = GzEncoder::new(tar_gz, Compression::default());
+    let encoder = GzEncoder::new(tar_gz, Compression::best());
     let mut archive = Builder::new(encoder);
 
     append_file(&mut archive, manifest_dir, "package.json")?;
@@ -73,7 +117,7 @@ fn create_archive(manifest_dir: &Path, archive_path: &Path, bun_path: &Path) -> 
     archive.append_dir_all("node_modules", manifest_dir.join("node_modules"))?;
     archive.finish()?;
     archive.into_inner()?.finish()?;
-    Ok(())
+    sha256_file(archive_path)
 }
 
 fn append_file(
@@ -138,6 +182,42 @@ pub const ARCHIVE_BYTES: &[u8] = include_bytes!(r#"{archive_path}"#);
 "##
     );
     File::create(path)?.write_all(source.as_bytes())
+}
+
+fn install_cache_key(
+    manifest_dir: &Path,
+    bun_path: &Path,
+    target_os: &str,
+    target_arch: &str,
+) -> io::Result<String> {
+    let mut hasher = Sha256::new();
+    hasher.update(target_os.as_bytes());
+    hasher.update(target_arch.as_bytes());
+    hasher.update(file_sha256(manifest_dir.join("package.json"))?.as_bytes());
+    hasher.update(file_sha256(manifest_dir.join("bun.lock"))?.as_bytes());
+    hasher.update(file_sha256(bun_path)?.as_bytes());
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn archive_cache_key(install_key: &str) -> io::Result<String> {
+    let mut hasher = Sha256::new();
+    hasher.update(b"archive-v1");
+    hasher.update(install_key.as_bytes());
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn file_sha256(path: impl AsRef<Path>) -> io::Result<String> {
+    sha256_file(path.as_ref())
+}
+
+fn stamp_matches(path: &Path, expected: &str) -> bool {
+    fs::read_to_string(path)
+        .map(|contents| contents.trim() == expected)
+        .unwrap_or(false)
+}
+
+fn write_stamp(path: &Path, value: &str) -> io::Result<()> {
+    fs::write(path, value)
 }
 
 fn resolve_bun_path() -> PathBuf {
