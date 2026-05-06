@@ -3,9 +3,41 @@ use crate::agent::cmd::log;
 use crate::agent::launch::{auto_mode_overrides, merged_agent_env, model_selection_overrides};
 use crate::agent::process::{emit_event, set_active_child_pid, stop_requested};
 use crate::agent::types::{Agent, AgentEvent, AssistantMessage, ClaudeEvent, Config, ContentBlock};
+use agent_runtime::AgentRuntime;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
+
+fn native_command(binary: &str, args: &[String]) -> Command {
+    let mut cmd = if binary == "cursor" {
+        // Cursor remains external for now. If bundled runtime cannot resolve it,
+        // keep using the system CLI.
+        match AgentRuntime::prepare() {
+            Ok(runtime) => {
+                if runtime.binary_path(binary).is_some() {
+                    runtime.command_for_binary(binary)
+                } else {
+                    Command::new("cursor")
+                }
+            }
+            Err(_) => Command::new("cursor"),
+        }
+    } else {
+        match AgentRuntime::prepare() {
+            Ok(runtime) => {
+                let cli_cmd = agent_common::AgentCliCommand {
+                    binary: binary.to_string(),
+                    args: args.to_vec(),
+                };
+                return runtime.command_for_cli_command(&cli_cmd);
+            }
+            Err(_) => Command::new(binary),
+        }
+    };
+
+    cmd.args(args);
+    cmd
+}
 
 pub fn run_claude_native_with_env(
     binary: &str,
@@ -13,8 +45,7 @@ pub fn run_claude_native_with_env(
     extra_env: &[(String, String)],
     cwd: Option<&Path>,
 ) -> bool {
-    let mut cmd = Command::new(binary);
-    cmd.args(args);
+    let mut cmd = native_command(binary, args);
 
     if let Some(p) = cwd {
         cmd.current_dir(p);
@@ -177,8 +208,7 @@ pub fn run_codex_native_with_env(
     extra_env: &[(String, String)],
     cwd: Option<&Path>,
 ) -> bool {
-    let mut cmd = Command::new(binary);
-    cmd.args(args);
+    let mut cmd = native_command(binary, args);
 
     if let Some(p) = cwd {
         cmd.current_dir(p);
@@ -239,4 +269,37 @@ pub fn run_agent_with_env(cfg: &Config, prompt: &str, extra_env: &[(String, Stri
 
 pub fn local_inference_overrides(cfg: &Config) -> crate::agent::types::AgentLaunchOverrides {
     crate::agent::launch::local_inference_overrides(cfg)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::native_command;
+    use std::path::PathBuf;
+
+    #[test]
+    fn native_command_uses_bundled_runtime_for_codex_when_available() {
+        let cmd = native_command("codex", &["exec".to_string(), "--json".to_string()]);
+        let program = PathBuf::from(cmd.get_program());
+        let display = program.to_string_lossy();
+        assert!(
+            display.contains("freq-ai") || display == "codex",
+            "unexpected codex program path: {display}"
+        );
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().to_string())
+            .collect();
+        assert_eq!(args, vec!["exec".to_string(), "--json".to_string()]);
+    }
+
+    #[test]
+    fn native_command_falls_back_to_system_cursor() {
+        let cmd = native_command("cursor", &["-p".to_string(), "hi".to_string()]);
+        assert_eq!(cmd.get_program().to_string_lossy(), "cursor");
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().to_string())
+            .collect();
+        assert_eq!(args, vec!["-p".to_string(), "hi".to_string()]);
+    }
 }

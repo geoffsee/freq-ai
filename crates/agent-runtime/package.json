@@ -1,0 +1,22 @@
+{
+  "name": "freq-ai-agent-runtime",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "latest",
+    "@github/copilot": "latest",
+    "@google/gemini-cli": "latest",
+    "@jetbrains/junie": "latest",
+    "@kazuki-ookura/grok-cli": "latest",
+    "@openai/codex": "latest",
+    "cline": "latest"
+  },
+  "trustedDependencies": [
+    "@anthropic-ai/claude-code",
+    "@github/keytar",
+    "@jetbrains/junie",
+    "@vscode/ripgrep",
+    "node-pty",
+    "sharp"
+  ]
+}

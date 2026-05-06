@@ -27,6 +27,7 @@ gemini = { package = "freq-ai-gemini", path = "../gemini" }
 grok = { package = "freq-ai-grok", path = "../grok" }
 junie = { package = "freq-ai-junie", path = "../junie" }
 xai = { package = "freq-ai-xai", path = "../xai" }
+agent-runtime = { package = "freq-ai-agent-runtime", path = "../agent-runtime" }
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

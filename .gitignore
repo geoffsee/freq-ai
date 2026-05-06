@@ -20,3 +20,4 @@ node_modules/
 /playwright-freq-*
 .env.my-ci
 /docs/internal/
+/playground
