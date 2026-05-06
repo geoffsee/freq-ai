@@ -45,8 +45,8 @@ pub fn load_bot_credentials_from_env() -> Option<BotCredentials> {
         .filter(|s| !s.is_empty())?;
     let private_key_path = env::var("DEV_BOT_PRIVATE_KEY").unwrap_or_else(|_| {
         env::var("HOME")
-            .map(|h| format!("{h}/.config/freq-cloud/dev-ui-bot.pem"))
-            .unwrap_or_else(|_| ".config/freq-cloud/dev-ui-bot.pem".to_string())
+            .map(|h| format!("{h}/.config/freq-ai/dev-ui-bot.pem"))
+            .unwrap_or_else(|_| ".config/freq-ai/dev-ui-bot.pem".to_string())
     });
     let private_key_pem = std::fs::read_to_string(&private_key_path)
         .map_err(|e| {

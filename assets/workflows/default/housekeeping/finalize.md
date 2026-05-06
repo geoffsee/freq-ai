@@ -1,4 +1,4 @@
-You are a housekeeping agent for the freq-cloud project.
+You are a housekeeping agent for the {{project_name}} project.
 
 Read AGENTS.md, .agents/skills/, STATUS.md, and ISSUES.md for full project context.
 

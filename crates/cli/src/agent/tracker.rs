@@ -1583,6 +1583,7 @@ Use a clear, evocative title and a structured, scannable body."#,
 }
 
 pub fn build_ideation_draft_prompt(
+    project_name: &str,
     open_issues: &str,
     open_prs: &str,
     recent_commits: &str,
@@ -1599,7 +1600,7 @@ pub fn build_ideation_draft_prompt(
         crate_tree,
     );
     format!(
-        r#"You are an ideation partner for the freq-cloud project. Your job is to generate
+        r#"You are an ideation partner for the {project_name} project. Your job is to generate
 a wide, varied set of raw ideas — not to evaluate, prioritise, or structure them.
 Aim for quantity and variety over quality.
 
@@ -1643,6 +1644,7 @@ expand on a few, and provide feedback before anything is finalised."#
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_ideation_finalize_prompt(
+    project_name: &str,
     open_issues: &str,
     open_prs: &str,
     recent_commits: &str,
@@ -1668,7 +1670,7 @@ pub fn build_ideation_finalize_prompt(
         ""
     };
     format!(
-        r#"You are an ideation partner for the freq-cloud project.
+        r#"You are an ideation partner for the {project_name} project.
 
 Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
@@ -2635,6 +2637,7 @@ fn housekeeping_context(
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_housekeeping_draft_prompt(
+    project_name: &str,
     open_issues: &str,
     open_prs: &str,
     local_branches: &str,
@@ -2651,7 +2654,7 @@ pub fn build_housekeeping_draft_prompt(
         issues_md,
     );
     format!(
-        r#"You are a housekeeping agent for the freq-cloud project. Your job is to audit
+        r#"You are a housekeeping agent for the {project_name} project. Your job is to audit
 the project for orphaned, stale, and drifted artifacts and produce a structured report.
 
 Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
@@ -2764,6 +2767,7 @@ to gather data for the report."#
 
 #[allow(clippy::too_many_arguments)]
 pub fn build_housekeeping_finalize_prompt(
+    project_name: &str,
     open_issues: &str,
     open_prs: &str,
     local_branches: &str,
@@ -2781,7 +2785,7 @@ pub fn build_housekeeping_finalize_prompt(
         issues_md,
     );
     format!(
-        r#"You are a housekeeping agent for the freq-cloud project.
+        r#"You are a housekeeping agent for the {project_name} project.
 
 Read AGENTS.md, skills/, STATUS.md, and ISSUES.md for full project context.
 
@@ -3831,7 +3835,8 @@ mod tests {
 
     #[test]
     fn ideation_draft_is_divergent_draft() {
-        let p = build_ideation_draft_prompt("[i]", "[p]", "[c]", "[s]", "[m]", "[t]");
+        let p =
+            build_ideation_draft_prompt("test-project", "[i]", "[p]", "[c]", "[s]", "[m]", "[t]");
         assert!(p.contains("DRAFT"));
         assert!(p.contains("Capability ideas"));
         assert!(p.contains("Foundational ideas"));
@@ -3844,6 +3849,7 @@ mod tests {
     #[test]
     fn ideation_draft_includes_all_context() {
         let p = build_ideation_draft_prompt(
+            "test-project",
             "ISSUES_JSON",
             "PRS_JSON",
             "abc123 commit",
@@ -3862,6 +3868,7 @@ mod tests {
     #[test]
     fn ideation_finalize_includes_feedback_and_creates_issue() {
         let p = build_ideation_finalize_prompt(
+            "test-project",
             "[i]",
             "[p]",
             "[c]",
@@ -3881,7 +3888,15 @@ mod tests {
     #[test]
     fn ideation_finalize_dry_run_includes_dry_run_note() {
         let p = build_ideation_finalize_prompt(
-            "[i]", "[p]", "[c]", "[s]", "[m]", "[t]", "feedback", true,
+            "test-project",
+            "[i]",
+            "[p]",
+            "[c]",
+            "[s]",
+            "[m]",
+            "[t]",
+            "feedback",
+            true,
         );
         assert!(p.contains("DRY RUN"));
         assert!(p.contains("gh issue create"));
@@ -4721,6 +4736,7 @@ mod tests {
     #[test]
     fn housekeeping_draft_prompt_contains_all_sweep_categories() {
         let prompt = build_housekeeping_draft_prompt(
+            "test-project",
             "[]",
             "[]",
             "master\nagent/issue-1",
@@ -4742,6 +4758,7 @@ mod tests {
     #[test]
     fn housekeeping_draft_prompt_includes_context() {
         let prompt = build_housekeeping_draft_prompt(
+            "test-project",
             "[{\"number\":42}]",
             "[{\"number\":10}]",
             "master\nagent/issue-42",
@@ -4757,6 +4774,7 @@ mod tests {
     #[test]
     fn housekeeping_finalize_prompt_contains_feedback() {
         let prompt = build_housekeeping_finalize_prompt(
+            "test-project",
             "[]",
             "[]",
             "master",

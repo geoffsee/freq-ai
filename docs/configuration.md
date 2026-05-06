@@ -34,15 +34,15 @@ The **Code Review** action posts reviews via `gh pr review`. GitHub forbids appr
 3. Note the **App ID** and **Installation ID** (visible in the app's settings page under "Installations").
 4. **Generate a private key** (PEM) from the app settings and save it:
    ```sh
-   mkdir -p ~/.config/freq-cloud
-   mv ~/Downloads/<app-name>.pem ~/.config/freq-cloud/dev-ui-bot.pem
-   chmod 600 ~/.config/freq-cloud/dev-ui-bot.pem
+   mkdir -p ~/.config/freq-ai
+   mv ~/Downloads/<app-name>.pem ~/.config/freq-ai/dev-ui-bot.pem
+   chmod 600 ~/.config/freq-ai/dev-ui-bot.pem
    ```
 5. **Set environment variables** before launching the dev agent:
    ```sh
    export DEV_BOT_APP_ID="123456"
    export DEV_BOT_INSTALLATION_ID="78901234"
-   export DEV_BOT_PRIVATE_KEY="$HOME/.config/freq-cloud/dev-ui-bot.pem"
+   export DEV_BOT_PRIVATE_KEY="$HOME/.config/freq-ai/dev-ui-bot.pem"
    freq-ai
    ```
 
@@ -65,9 +65,9 @@ credential vault instead of plaintext project files.
    ```
    Or store it in a file and point to it:
    ```sh
-   echo "github_pat_..." > ~/.config/freq-cloud/bot-token
-   chmod 600 ~/.config/freq-cloud/bot-token
-   export DEV_BOT_TOKEN_PATH="$HOME/.config/freq-cloud/bot-token"
+   echo "github_pat_..." > ~/.config/freq-ai/bot-token
+   chmod 600 ~/.config/freq-ai/bot-token
+   export DEV_BOT_TOKEN_PATH="$HOME/.config/freq-ai/bot-token"
    freq-ai
    ```
 
@@ -79,7 +79,7 @@ credential vault instead of plaintext project files.
 | `DEV_BOT_TOKEN_PATH` | Path to a file containing the token | must be set |
 | `DEV_BOT_APP_ID` | GitHub App ID | Required for |
 | `DEV_BOT_INSTALLATION_ID` | Installation ID for the app on this repo | GitHub App mode |
-| `DEV_BOT_PRIVATE_KEY` | Path to the App's PEM private key (default: `~/.config/freq-cloud/dev-ui-bot.pem`) | Optional |
+| `DEV_BOT_PRIVATE_KEY` | Path to the App's PEM private key (default: `~/.config/freq-ai/dev-ui-bot.pem`) | Optional |
 
 ## Supported Agents
 
