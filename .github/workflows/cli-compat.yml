@@ -55,6 +55,9 @@ jobs:
           # Codex npm packaging can fail optional native dependency resolution on Node 22/npm 11+.
           node-version: "20"
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: "Install CLI compat fixture (npm drill, v2 breaks --version)"
         run: npm install -g freq-ai-cli-compat-fixture@2.0.0
 

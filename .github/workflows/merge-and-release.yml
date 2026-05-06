@@ -40,6 +40,9 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Install Codex CLI
         if: steps.key_check.outputs.present == 'true'
         run: npm install -g @openai/codex
