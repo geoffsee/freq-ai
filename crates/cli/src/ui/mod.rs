@@ -1,5 +1,6 @@
 pub mod components;
 pub mod editor;
+pub mod personas;
 pub mod security;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod server;

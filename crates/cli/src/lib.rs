@@ -393,6 +393,7 @@ fn App() -> Element {
     let mut chat_agent_buf = use_signal(String::new);
     let mut settings_status = use_signal(|| None::<String>);
     let root_sig = use_signal(|| config.read().root.clone());
+    let persona_skill_path_sig = use_signal(|| config.read().skill_paths.user_personas.clone());
     let mut all_files = use_signal(Vec::<String>::new);
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -1065,6 +1066,7 @@ fn App() -> Element {
                     feedback_text,
                     submit_feedback,
                     root: root_sig,
+                    persona_skill_path: persona_skill_path_sig,
                     follow_mode,
                     expand_all,
                     bottom_el,

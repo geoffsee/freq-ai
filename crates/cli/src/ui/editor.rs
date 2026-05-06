@@ -2,6 +2,7 @@ use crate::agent::types::{
     AgentEvent, ChangedFile, ClaudeEvent, ContentBlock, FileChangeKind, InterviewTurn, Workflow,
 };
 use crate::ui::components::EventRow;
+use crate::ui::personas::PersonasPanel;
 use crate::ui::security::{SecurityFinding, SecurityPanel};
 use dioxus::document::eval as js_eval;
 use dioxus::prelude::*;
@@ -26,6 +27,7 @@ fn build_tool_names(events: &[AgentEvent]) -> HashMap<String, String> {
 enum EditorTab {
     Output,
     Files,
+    Personas,
     Security,
     Interview,
     Chat,
@@ -100,6 +102,7 @@ pub fn Editor(
     feedback_text: Signal<String>,
     submit_feedback: EventHandler<MouseEvent>,
     root: Signal<String>,
+    persona_skill_path: Signal<String>,
     follow_mode: Signal<bool>,
     expand_all: Signal<bool>,
     bottom_el: Signal<Option<std::rc::Rc<MountedData>>>,
@@ -194,6 +197,11 @@ pub fn Editor(
                     class: if *active_tab.read() == EditorTab::Files { "tab tab-active" } else { "tab" },
                     onclick: move |_| active_tab.set(EditorTab::Files),
                     "Files ({file_count})"
+                }
+                div {
+                    class: if *active_tab.read() == EditorTab::Personas { "tab tab-active" } else { "tab" },
+                    onclick: move |_| active_tab.set(EditorTab::Personas),
+                    "Personas"
                 }
                 div {
                     class: if *active_tab.read() == EditorTab::Security { "tab tab-active" } else { "tab" },
@@ -358,6 +366,12 @@ pub fn Editor(
                     SecurityPanel {
                         findings: security_findings,
                         root,
+                    }
+                },
+                EditorTab::Personas => rsx! {
+                    PersonasPanel {
+                        root,
+                        skill_path: persona_skill_path,
                     }
                 },
                 EditorTab::Interview => rsx! {
