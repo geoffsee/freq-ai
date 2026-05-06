@@ -36,21 +36,22 @@ $ freq-ai fix-pr 1337
 # Continuously work issues from a tracker issue
 $ freq-ai loop 7
 
-# Tidy the repo (stale branches, label drift, etc.)
+# Sweep open issues, PRs, local branches, tracker bodies, STATUS.md, and ISSUES.md
 $ freq-ai housekeeping
 
-# Refresh AGENTS.md / project docs from the current state of the code
+# Refresh top-level project docs (README.md, AGENTS.md, etc.) against the current state of the code
 $ freq-ai refresh-docs
 
-# Serve the web UI on http://localhost:3030
+# Serve the web UI on http://localhost:8080 (override with --port)
 $ freq-ai serve
+$ freq-ai serve --port 3030
 
 # Pick a different agent CLI on the fly
 $ freq-ai --agent codex code-review
 $ freq-ai --agent gemini issue 42
 ```
 
-`--agent` accepts `claude`, `cline`, `codex`, `copilot`, `gemini`, `grok`, `junie`, `xai`, `cursor`. The matching CLI must be installed and authenticated. `--auto` skips confirmation prompts; `--dry-run` prints the resolved agent invocation without executing.
+`--agent` accepts `claude`, `cline`, `codex`, `copilot`, `gemini`, `grok`, `junie`, `xai`, `cursor` (default: `claude`). The matching CLI must be installed and authenticated. `--auto` passes adapter-specific flags that reduce permission prompts; `--dry-run` prints planned prompts and actions without making supported changes.
 
 ## Run it from CI: hands-off repo maintenance
 
@@ -59,13 +60,46 @@ Every CLI subcommand above is also available as a GitHub Action — [**geoffsee/
 A working end-to-end demo lives at [**geoffsee/freq-ai-hello-world**](https://github.com/geoffsee/freq-ai-hello-world) — a tiny Node project where labeling an issue `agent:work` is enough to land a merged PR with no further input.
 
 ```yaml
-- uses: geoffsee/freq-ai-action@v1
+- uses: geoffsee/freq-ai-action@main   # pin to a SHA or tag for production
   with:
     task: code-review
     agent: claude
   env:
-    CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    # ── Agent auth (pick the ones that match your `agent:` choice) ──
+    CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # claude (preferred)
+    # ANTHROPIC_API_KEY:     ${{ secrets.ANTHROPIC_API_KEY }}         # claude (alternative)
+    # OPENAI_API_KEY:        ${{ secrets.OPENAI_API_KEY }}            # codex
+    # GEMINI_API_KEY:        ${{ secrets.GEMINI_API_KEY }}            # gemini
+    # XAI_API_KEY:           ${{ secrets.XAI_API_KEY }}               # xai / grok
+    # (cline, copilot, junie, cursor authenticate via their own CLI login flow)
+
+    # ── GitHub auth for the `gh` CLI freq-ai shells out to ──
+    GH_TOKEN: ${{ secrets.FREQ_AI_PAT || github.token }}              # PAT preferred so PRs trigger downstream workflows
+
+    # ── Bot identity (so reviews/approvals don't run as the PR author) ──
+    # Pick ONE of the three styles below.
+    #
+    # 1. Direct token:
+    # DEV_BOT_TOKEN:           ${{ secrets.DEV_BOT_TOKEN }}
+    #
+    # 2. Token from a file:
+    # DEV_BOT_TOKEN_PATH:      /path/to/token-file
+    #
+    # 3. GitHub App (mints installation tokens at runtime):
+    DEV_BOT_APP_ID:          ${{ secrets.DEV_BOT_APP_ID }}
+    DEV_BOT_INSTALLATION_ID: ${{ secrets.DEV_BOT_INSTALLATION_ID }}
+    # DEV_BOT_PRIVATE_KEY is the *path* to a PEM. A prior step base64-decodes
+    # secrets.DEV_BOT_PRIVATE_KEY_B64 into $RUNNER_TEMP/dev-bot.pem and exports it.
+
+    # ── freq-ai knobs ──
+    # DEV_PROJECT_NAME: my-project   # override project name (otherwise inferred from the repo)
+    # DISABLE_TOAK: "1"              # skip the toak-rs bootstrap snapshot (faster, less context)
+
+    # ── Diagnostics ──
+    # RUST_LOG: info                 # the action defaults to info; bump to debug/trace if you need more
 ```
+
+The full hands-off setup (PAT, OAuth token, GitHub App credentials, branch protection) is documented step-by-step in the [freq-ai-hello-world README](https://github.com/geoffsee/freq-ai-hello-world#setup).
 
 ## Status: Unstable (Active Development)
 Expect unexpected breaking changes.
