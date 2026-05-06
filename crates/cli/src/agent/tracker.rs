@@ -521,8 +521,12 @@ Do NOT commit — the calling script handles commits."#
 }
 
 /// Fetch open PRs as JSON (number, title, headRefName, author login).
+///
+/// Returns an empty Vec when `gh` is unavailable or GitHub is unreachable —
+/// callers (including context gatherers used in `--dry-run`) treat the PR
+/// list as best-effort context, not a hard dependency.
 pub fn list_open_prs() -> Vec<PrSummary> {
-    let out = cmd_stdout_or_die(
+    let out = cmd_stdout(
         "gh",
         &[
             "pr",
@@ -534,8 +538,8 @@ pub fn list_open_prs() -> Vec<PrSummary> {
             "--limit",
             "50",
         ],
-        "failed to list open PRs",
-    );
+    )
+    .unwrap_or_default();
     serde_json::from_str(&out).unwrap_or_default()
 }
 
