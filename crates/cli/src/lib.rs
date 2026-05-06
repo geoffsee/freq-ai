@@ -93,7 +93,7 @@ struct Cli {
     #[arg(long)]
     dry_run: bool,
 
-    /// Workflow preset to use (overrides `workflow_preset` in dev.toml).
+    /// Workflow preset to use (overrides `workflow_preset` in freq-ai.toml).
     /// See `freq-ai presets` for the list of available presets.
     #[arg(long, value_name = "NAME")]
     preset: Option<String>,
@@ -173,7 +173,7 @@ pub fn run() {
 /// fields (e.g. a project-specific skill layout) before the agent runs.
 ///
 /// The closure receives a mutable `Config` populated from CLI args, env vars,
-/// and `dev.toml`. Mutate it however you need; freq-ai then dispatches to
+/// and `freq-ai.toml`. Mutate it however you need; freq-ai then dispatches to
 /// either the GUI or the requested CLI subcommand.
 pub fn run_with_overrides<F>(overrides: F)
 where
@@ -220,7 +220,7 @@ where
         config.dry_run = cli.dry_run;
         overrides(&mut config);
 
-        // CLI `--preset` wins over dev.toml and library overrides — fail fast
+        // CLI `--preset` wins over freq-ai.toml and library overrides — fail fast
         // with the available list if the name doesn't match a real preset dir.
         if let Some(preset) = &cli.preset {
             let available = list_presets(&config.root);
@@ -332,13 +332,13 @@ where
             }
             Some(Commands::Gui) | None => {
                 // Stash the finalised Config so the Dioxus App component can pick
-                // it up via `parse_args` (which already loads from dev.toml). The
+                // it up via `parse_args` (which already loads from freq-ai.toml). The
                 // App's own use of `parse_args()` would otherwise lose the
                 // overrides — but since the overrides are also persisted via the
                 // explicit init_issue_comment_triggers call above, the only place
                 // overrides matter inside the GUI is the next `parse_args` call,
-                // which already reads `dev.toml`. Library consumers who need to
-                // inject overrides that aren't expressible in `dev.toml` should
+                // which already reads `freq-ai.toml`. Library consumers who need to
+                // inject overrides that aren't expressible in `freq-ai.toml` should
                 // use the CLI subcommands instead of the GUI.
                 CONFIG_OVERRIDE
                     .set(config)
@@ -352,7 +352,7 @@ where
 /// Process-wide handoff for `run_with_overrides` → `App`. The Dioxus App
 /// component reads from this on first render so library consumers' overrides
 /// (e.g. custom `skill_paths`) survive into the GUI rather than being
-/// re-derived from `dev.toml` alone.
+/// re-derived from `freq-ai.toml` alone.
 static CONFIG_OVERRIDE: std::sync::OnceLock<Config> = std::sync::OnceLock::new();
 
 fn ensure_default_workflow_preset_first(mut presets: Vec<String>) -> Vec<String> {

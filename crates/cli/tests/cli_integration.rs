@@ -678,17 +678,21 @@ fn default_preset_covers_all_cli_subcommands() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 13. dev.toml — configuration file parsing
+// 13. freq-ai.toml — configuration file parsing
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
 fn dev_toml_in_repo_root_is_valid_toml() {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("dev.toml");
-    if path.exists() {
-        let content = std::fs::read_to_string(&path).unwrap();
-        let _: toml::Value = toml::from_str(&content).expect("dev.toml is not valid TOML");
+    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    for name in ["freq-ai.toml", "dev.toml"] {
+        let path = manifest_dir.join(name);
+        if path.exists() {
+            let content = std::fs::read_to_string(&path).unwrap();
+            let _: toml::Value =
+                toml::from_str(&content).unwrap_or_else(|_| panic!("{name} is not valid TOML"));
+        }
     }
-    // It's ok for dev.toml to not exist — the binary handles that gracefully
+    // It's ok for the config file to not exist — the binary handles that gracefully.
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -62,7 +62,7 @@ pub trait AgentCliAdapter {
     /// [`Self::launch_local_inference`] fragments are appended.
     fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String>;
 
-    /// Model selection from the freq-ai UI (`dev.toml` / config). `model` is non-empty.
+    /// Model selection from the freq-ai UI (`freq-ai.toml` / config). `model` is non-empty.
     fn launch_model_selection(&self, _model: &str) -> (Vec<String>, Vec<(String, String)>) {
         (Vec::new(), Vec::new())
     }

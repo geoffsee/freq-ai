@@ -56,7 +56,7 @@ The preset selector is always shown in the sidebar when presets are available. I
 
 To create a new preset, start from scratch with only the workflows you want, or copy a preset intentionally when you really want its full workflow shape.
 
-The active preset is stored in `dev.toml` as `workflow_preset` (defaults to `"default"`).
+The active preset is stored in `freq-ai.toml` as `workflow_preset` (defaults to `"default"`).
 
 ### Workflow files
 

@@ -65,17 +65,21 @@ impl AgentExt for Agent {
     }
 }
 
-/// Load `dev.toml` from the project root. Returns defaults if the file is absent or malformed.
+/// Load `freq-ai.toml` from the project root. Returns defaults if the file is absent or malformed.
+/// Falls back to the legacy `dev.toml` filename when `freq-ai.toml` is missing,
+/// so existing installs keep working until the next save rewrites the file.
 pub fn load_dev_config(root: &str) -> DevConfig {
-    let path = std::path::Path::new(root).join("dev.toml");
-    match std::fs::read_to_string(&path) {
-        Ok(contents) => toml::from_str(&contents).unwrap_or_default(),
-        Err(_) => DevConfig::default(),
+    let root = std::path::Path::new(root);
+    for name in ["freq-ai.toml", "dev.toml"] {
+        if let Ok(contents) = std::fs::read_to_string(root.join(name)) {
+            return toml::from_str(&contents).unwrap_or_default();
+        }
     }
+    DevConfig::default()
 }
 
 pub fn save_dev_config(root: &str, cfg: &Config) -> Result<(), String> {
-    let path = std::path::Path::new(root).join("dev.toml");
+    let path = std::path::Path::new(root).join("freq-ai.toml");
 
     // Merge current model selection into the persisted per-agent map.
     let mut agent_models = load_dev_config(root).agent_models;

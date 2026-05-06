@@ -53,11 +53,70 @@ $ freq-ai --agent gemini issue 42
 $ freq-ai presets
 $ freq-ai presets xp
 
-# Run a workflow under a different preset (overrides dev.toml)
+# Run a workflow under a different preset (overrides freq-ai.toml)
 $ freq-ai --preset xp ideation
 ```
 
 `--agent` accepts `claude`, `cline`, `codex`, `copilot`, `gemini`, `grok`, `junie`, `xai`, `cursor` (default: `claude`). The matching CLI must be installed and authenticated. `--auto` passes adapter-specific flags that reduce permission prompts; `--dry-run` prints planned prompts and actions without making supported changes. `--preset <name>` swaps the workflow preset for a single invocation (use `freq-ai presets` to see what's available; `freq-ai presets <name>` lists the workflows that preset ships with).
+
+## Configuration (`freq-ai.toml`)
+
+freq-ai reads `freq-ai.toml` from the repo root on every launch (the legacy filename `dev.toml` is still honored as a fallback). Every field is optional — drop in only what you want to change. The full surface looks like this:
+
+```toml
+# ── Top-level ─────────────────────────────────────────────────────────────
+project_name           = "my-project"   # default: inferred from the repo dir
+workflow_preset        = "default"      # default: "default"  (run `freq-ai presets`)
+bootstrap_agent_files  = true           # default: true   — refresh AGENTS.md on launch
+bootstrap_snapshot     = true           # default: true   — capture a toak-rs snapshot on launch
+use_subscription       = false          # default: false  — billing hint for adapters that support it
+
+# ── Per-agent default model ───────────────────────────────────────────────
+# Keys match `--agent` values. Empty / missing = adapter default.
+[agent_models]
+claude  = "claude-opus-4-7"
+codex   = "gpt-5-codex"
+gemini  = "gemini-2.5-pro"
+grok    = "grok-4"
+
+# ── Local inference (OpenAI-compatible endpoint) ──────────────────────────
+[local_inference]
+advanced = false                          # show advanced fields in the GUI
+preset   = "vllm"                         # vllm | lm_studio | ollama | custom
+base_url = "http://localhost:8000/v1"     # filled from preset unless preset = "custom"
+model    = "qwen2.5-coder-32b-instruct"
+# api_key stored via `freq-ai`'s OS keychain; do not commit it.
+
+# ── Skill files (override bundled paths) ──────────────────────────────────
+[skills]
+user_personas  = "skills/user-personas/SKILL.md"
+issue_tracking = "skills/issue-tracking/SKILL.md"
+
+# ── Bot identity for code review / approvals ──────────────────────────────
+# mode = "disabled" | "token" | "github_app". Tokens / private keys are
+# stored in the OS keychain via the GUI, not in this file.
+[bot]
+mode            = "github_app"
+app_id          = "1234567"
+installation_id = "12345678"
+
+# ── Security scan target paths ────────────────────────────────────────────
+# Defaults assume the original freq-cloud crate layout; override if your
+# project doesn't have those crates.
+[security_scan]
+edge           = "crates/edge-node/src/lib.rs"
+network        = "crates/network-node/src/lib.rs"
+network_kem    = "crates/network-node/src/kem.rs"
+network_crypto = "crates/network-node/src/crypto.rs"
+service        = "crates/service-node/src/lib.rs"
+gateway        = "crates/gateway-node/src/lib.rs"
+gateway_users  = "crates/gateway-node/src/users.rs"
+gateway_kms    = "crates/gateway-node/src/kms.rs"
+cli_build      = "crates/freq-cli/src/build.rs"
+compute        = "crates/compute-node/src/lib.rs"
+```
+
+CLI flags (`--agent`, `--auto`, `--dry-run`, `--preset`) override matching `freq-ai.toml` values for that single invocation. Secrets — agent API keys, GitHub bot tokens, GitHub App private keys — are not written to `freq-ai.toml`; they're stored in the OS keychain by the GUI's settings panel or supplied via env vars (see the [GitHub Actions example](#github-actions) below).
 
 ## Github Actions
 Every CLI subcommand above is also available as a GitHub Action — [**geoffsee/freq-ai-action**](https://github.com/geoffsee/freq-ai-action). Wire it to `pull_request`, `issues`, or `schedule` and your repo starts maintaining itself: issues become PRs, PRs get reviewed, review threads get addressed, weekly housekeeping happens on its own.
