@@ -6,7 +6,7 @@ factory flow before copying anything into `.github/workflows/`.
 These examples assume a `freq-ai` action invocation pattern:
 
 ```yaml
-- uses: geoffsee/freq-ai-action@v1
+- uses: geoffsee/freq-ai-action@v0.0.1
   with:
     task: housekeeping
     agent: claude

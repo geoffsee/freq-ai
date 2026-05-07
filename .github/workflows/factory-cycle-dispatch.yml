@@ -28,7 +28,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Run freq-ai housekeeping
-        uses: geoffsee/freq-ai-action@v1
+        uses: geoffsee/freq-ai-action@v0.0.1
         with:
           task: housekeeping
           agent: claude
@@ -43,7 +43,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Run freq-ai backlog curation
-        uses: geoffsee/freq-ai-action@v1
+        uses: geoffsee/freq-ai-action@v0.0.1
         with:
           task: backlog-curation
           agent: claude
@@ -58,7 +58,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Run freq-ai autonomous sprint
-        uses: geoffsee/freq-ai-action@v1
+        uses: geoffsee/freq-ai-action@v0.0.1
         with:
           task: autonomous-sprint
           agent: claude
@@ -73,7 +73,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Run freq-ai ci governance
-        uses: geoffsee/freq-ai-action@v1
+        uses: geoffsee/freq-ai-action@v0.0.1
         with:
           task: ci-governance
           agent: claude
@@ -88,7 +88,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Run freq-ai factory retrospective
-        uses: geoffsee/freq-ai-action@v1
+        uses: geoffsee/freq-ai-action@v0.0.1
         with:
           task: factory-retrospective
           agent: claude

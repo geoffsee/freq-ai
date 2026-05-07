@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run freq-ai backlog curation
-        uses: geoffsee/freq-ai-action@v1
+        uses: geoffsee/freq-ai-action@v0.0.1
         with:
           task: backlog-curation
           agent: claude
