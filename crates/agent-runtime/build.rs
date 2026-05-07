@@ -29,6 +29,11 @@ fn main() {
     let install_key =
         install_cache_key(&manifest_dir, &target_os, &target_arch).expect("compute install key");
     run_bun_install_if_needed(&manifest_dir, &bun_path, &install_stamp, &install_key);
+    // Run after the gated bun-install too: the workflow's "Install Agents"
+    // step performs its own `bun install`, and the stamp we wrote on a prior
+    // cargo run can short-circuit `run_bun_install_if_needed` while leaving
+    // the freshly-installed stub binary unrepaired in `node_modules/`.
+    ensure_claude_native_binary(&manifest_dir, &bun_path);
 
     let archive_name = format!("freq-ai-agents-{target_os}-{target_arch}.tar.gz");
     let generated_path = out_dir.join("agent_runtime_generated.rs");
@@ -97,6 +102,27 @@ fn run_bun_install_if_needed(manifest_dir: &Path, bun_path: &Path, stamp_path: &
     }
 
     write_stamp(stamp_path, key).expect("write bun install stamp");
+}
+
+/// `@anthropic-ai/claude-code` ships a no-shebang stub at `bin/claude.exe` and
+/// expects its `install.cjs` postinstall to overwrite it with the platform
+/// native binary from `@anthropic-ai/claude-code-{platform}`. Bun's handling
+/// of `trustedDependencies` postinstalls is inconsistent across CI containers
+/// — when it skips, the stub remains and `execve` returns ENOEXEC on Linux.
+/// Run the install script ourselves so the binary is always materialised.
+fn ensure_claude_native_binary(manifest_dir: &Path, bun_path: &Path) {
+    let pkg_dir = manifest_dir.join("node_modules/@anthropic-ai/claude-code");
+    let install_script = pkg_dir.join("install.cjs");
+    if !install_script.is_file() {
+        return;
+    }
+    // Bun runs CommonJS scripts in node-compat mode. We deliberately ignore
+    // the exit status: the script self-reports an "unsupported platform" or
+    // "native package missing" failure to stderr without exiting non-zero.
+    let _ = Command::new(bun_path)
+        .arg("install.cjs")
+        .current_dir(&pkg_dir)
+        .status();
 }
 
 fn create_archive_if_needed(
