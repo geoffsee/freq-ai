@@ -119,6 +119,7 @@ impl AgentRuntime {
 
         let decoder = GzDecoder::new(Cursor::new(generated::ARCHIVE_BYTES));
         Archive::new(decoder).unpack(&root)?;
+        ensure_entrypoints_executable(&root);
         fs::write(marker, ARCHIVE_SHA256)?;
 
         Ok(Self { root })
@@ -131,9 +132,9 @@ impl AgentRuntime {
     /// ignored so callers (including tests using a tempdir) keep working.
     #[cfg(not(feature = "bundle-runtime"))]
     pub fn prepare_at(_root: impl AsRef<Path>) -> io::Result<Self> {
-        Ok(Self {
-            root: PathBuf::from(generated::MANIFEST_DIR),
-        })
+        let root = PathBuf::from(generated::MANIFEST_DIR);
+        ensure_entrypoints_executable(&root);
+        Ok(Self { root })
     }
 
     pub fn root(&self) -> &Path {
@@ -276,6 +277,39 @@ fn marker_contains_current_archive(path: &Path) -> bool {
 
 fn resolve_executable_path(path: PathBuf) -> PathBuf {
     fs::canonicalize(&path).unwrap_or(path)
+}
+
+/// Ensure each known agent entrypoint under `root` has the executable bit set.
+///
+/// Some packages (notably `@anthropic-ai/claude-code`) only `chmod 0o755` the
+/// entrypoint as part of a postinstall script that may not run under Bun in
+/// every CI environment, leaving the file present but non-executable. This
+/// guard restores +x on Unix so spawning the binary doesn't fail with EACCES.
+fn ensure_entrypoints_executable(root: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        for agent in SUPPORTED_AGENTS {
+            let Some(entrypoint) = agent.entrypoint else {
+                continue;
+            };
+            let path = root.join(entrypoint);
+            let Ok(metadata) = fs::metadata(&path) else {
+                continue;
+            };
+            let mut perms = metadata.permissions();
+            let mode = perms.mode();
+            if mode & 0o111 != 0o111 {
+                perms.set_mode(mode | 0o755);
+                let _ = fs::set_permissions(&path, perms);
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = root;
+    }
 }
 
 fn runtime_path(paths: impl IntoIterator<Item = PathBuf>) -> OsString {
