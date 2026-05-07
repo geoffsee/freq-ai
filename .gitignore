@@ -22,3 +22,4 @@ node_modules/
 /docs/internal/
 /playground
 /.playground/
+/crates/agent-runtime/.grok/settings.json

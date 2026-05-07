@@ -1,4 +1,4 @@
-name: Factory Cycle Dispatch 
+name: Factory Cycle Dispatch
 
 on:
   push:
@@ -23,75 +23,40 @@ concurrency:
 
 jobs:
   housekeeping:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Run freq-ai housekeeping
-        uses: geoffsee/freq-ai-action@v0.0.1
-        with:
-          task: housekeeping
-          agent: claude
-          context: ${{ inputs.context }}
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    uses: ./.github/workflows/nightly-housekeeping.yml
+    with:
+      context: ${{ inputs.context }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   backlog-curation:
     needs: housekeeping
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Run freq-ai backlog curation
-        uses: geoffsee/freq-ai-action@v0.0.1
-        with:
-          task: backlog-curation
-          agent: claude
-          context: ${{ inputs.context }}
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    uses: ./.github/workflows/weekly-backlog-curation.yml
+    with:
+      context: ${{ inputs.context }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   autonomous-sprint:
     needs: backlog-curation
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Run freq-ai autonomous sprint
-        uses: geoffsee/freq-ai-action@v0.0.1
-        with:
-          task: autonomous-sprint
-          agent: claude
-          context: ${{ inputs.context }}
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    uses: ./.github/workflows/autonomous-sprint.yml
+    with:
+      context: ${{ inputs.context }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   ci-governance:
     needs: autonomous-sprint
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Run freq-ai ci governance
-        uses: geoffsee/freq-ai-action@v0.0.1
-        with:
-          task: ci-governance
-          agent: claude
-          context: ${{ inputs.context }}
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    uses: ./.github/workflows/weekly-ci-governance.yml
+    with:
+      context: ${{ inputs.context }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   factory-retrospective:
     needs: ci-governance
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Run freq-ai factory retrospective
-        uses: geoffsee/freq-ai-action@v0.0.1
-        with:
-          task: factory-retrospective
-          agent: claude
-          context: ${{ inputs.context }}
-        env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    uses: ./.github/workflows/monthly-factory-retrospective.yml
+    with:
+      context: ${{ inputs.context }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

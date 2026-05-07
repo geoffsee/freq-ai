@@ -1,4 +1,4 @@
-name: Autonomous Sprint 
+name: Autonomous Sprint
 
 on:
   workflow_dispatch:
@@ -7,6 +7,15 @@ on:
         description: "Optional natural-language steering context"
         required: false
         type: string
+  workflow_call:
+    inputs:
+      context:
+        description: "Optional natural-language steering context"
+        required: false
+        type: string
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
 
 permissions:
   contents: write
