@@ -191,7 +191,9 @@ where
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        tracing_subscriber::fmt::init();
+        let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+        tracing_subscriber::fmt().with_env_filter(env_filter).init();
 
         let cli = Cli::parse();
 
