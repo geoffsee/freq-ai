@@ -2,6 +2,12 @@ project = "freq-ai-ci"
 env_file = ".env.my-ci"
 
 [[workflow]]
+name = "ci"
+context = "."
+depends_on = []
+instructions = "ci.Containerfile"
+
+[[workflow]]
 name = "compat"
 context = "."
 depends_on = []

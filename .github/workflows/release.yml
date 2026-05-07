@@ -17,9 +17,11 @@ jobs:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             artifact: freq-ai-x86_64-linux
+            container: ghcr.io/geoffsee/freq-ai-ci:latest
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
             artifact: freq-ai-aarch64-linux
+            container: ghcr.io/geoffsee/freq-ai-ci:latest
           - target: aarch64-apple-darwin
             os: macos-latest
             artifact: freq-ai-aarch64-macos
@@ -28,11 +30,13 @@ jobs:
             artifact: freq-ai-x86_64-windows
 
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Bun
+        if: ${{ !matrix.container }}
         uses: oven-sh/setup-bun@v2
 
       - name: Install Rust toolchain
@@ -41,7 +45,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install system dependencies (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.container
         run: |
           sudo apt-get update
           sudo apt-get install -y \
