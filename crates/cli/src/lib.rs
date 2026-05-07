@@ -74,7 +74,7 @@ struct WorkflowEntriesResponse {
     name = "freq-ai",
     about = "Distributed application runtime agent",
     long_about = "freq-ai runs agent-powered project workflows from the command line or launches the desktop UI when no subcommand is given.",
-    after_help = "Examples:\n  freq-ai\n  freq-ai --agent codex code-review\n  freq-ai --dry-run refresh-docs\n  freq-ai serve --port 3000",
+    after_help = "Examples:\n  freq-ai\n  freq-ai --agent codex code-review\n  freq-ai --dry-run refresh-docs\n  freq-ai --preset software-factory run backlog-curation\n  freq-ai serve --port 3000",
     version
 )]
 struct Cli {
@@ -160,6 +160,13 @@ enum Commands {
         /// If given, list the workflows inside this preset instead of all presets
         #[arg(value_name = "NAME")]
         name: Option<String>,
+    },
+    /// Run any workflow from the active preset by ID (accepts hyphen or underscore form)
+    Run {
+        /// Workflow ID, e.g. `backlog-curation` or `backlog_curation`.
+        /// See `freq-ai presets <NAME>` for available IDs.
+        #[arg(value_name = "WORKFLOW")]
+        workflow: String,
     },
 }
 
@@ -265,6 +272,30 @@ where
                 run_single_issue(&config, tracker_num, number)
             }
             Some(Commands::Loop { tracker }) => run_loop(&config, tracker),
+            Some(Commands::Run { workflow }) => {
+                let workflows = load_workflows(&config.root, &config.workflow_preset);
+                let normalized = workflow.replace('-', "_");
+                let resolved = workflows
+                    .get(workflow.as_str())
+                    .or_else(|| workflows.get(normalized.as_str()));
+                match resolved {
+                    Some(wf) => {
+                        let id = wf.id.clone();
+                        run_workflow_draft(&config, &id);
+                    }
+                    None => {
+                        let mut ids: Vec<&str> =
+                            workflows.values().map(|w| w.id.as_str()).collect();
+                        ids.sort();
+                        eprintln!(
+                            "unknown workflow: {workflow}\npreset: {}\navailable workflows: {}",
+                            config.workflow_preset,
+                            ids.join(", ")
+                        );
+                        std::process::exit(2);
+                    }
+                }
+            }
             Some(Commands::Presets { name }) => match name {
                 None => {
                     let active = &config.workflow_preset;
