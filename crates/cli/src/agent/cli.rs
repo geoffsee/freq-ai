@@ -28,6 +28,7 @@ pub fn parse_args() -> Config {
         bootstrap_snapshot: false,
         workflow_preset: "default".to_string(),
         use_subscription: false,
+        pricing: Default::default(),
         bot_settings: Default::default(),
         bot_credentials: None,
     }
@@ -55,6 +56,7 @@ pub fn parse_args() -> Config {
     let bootstrap_agent_files = dev_cfg.bootstrap_agent_files.unwrap_or(true);
     let bootstrap_snapshot = dev_cfg.bootstrap_snapshot.unwrap_or(true);
     let use_subscription = dev_cfg.use_subscription.unwrap_or(false);
+    let pricing = dev_cfg.pricing;
 
     Config {
         agent: Agent::Claude, // Default, will be overridden by CLI
@@ -69,6 +71,7 @@ pub fn parse_args() -> Config {
         bootstrap_agent_files,
         bootstrap_snapshot,
         use_subscription,
+        pricing,
         workflow_preset: dev_cfg
             .workflow_preset
             .unwrap_or_else(|| "default".to_string()),

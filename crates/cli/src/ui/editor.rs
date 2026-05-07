@@ -1,5 +1,6 @@
 use crate::agent::types::{
-    AgentEvent, ChangedFile, ClaudeEvent, ContentBlock, FileChangeKind, InterviewTurn, Workflow,
+    AgentEvent, ChangedFile, ClaudeEvent, ContentBlock, FileChangeKind, InterviewTurn,
+    PricingConfig, Workflow, should_use_event_model,
 };
 use crate::ui::components::EventRow;
 use crate::ui::personas::PersonasPanel;
@@ -105,12 +106,35 @@ pub fn Editor(
     persona_skill_path: Signal<String>,
     follow_mode: Signal<bool>,
     expand_all: Signal<bool>,
+    usage_model: Option<String>,
+    pricing: PricingConfig,
     bottom_el: Signal<Option<std::rc::Rc<MountedData>>>,
 ) -> Element {
     let mut active_tab = use_signal(|| EditorTab::Output);
     let mut selected_file = use_signal(|| None::<String>);
     let mut file_view_mode = use_signal(|| FileViewMode::Interacted);
     let mut file_search = use_signal(String::new);
+    let output_events = {
+        let mut active_usage_model = usage_model.clone();
+        let has_configured_model = active_usage_model.is_some();
+        events
+            .read()
+            .iter()
+            .enumerate()
+            .map(|(i, event)| {
+                if let AgentEvent::Claude(ClaudeEvent::System {
+                    model: Some(model), ..
+                }) = event
+                    && should_use_event_model(model, has_configured_model)
+                {
+                    active_usage_model = Some(model.trim().to_string());
+                }
+
+                (i, event.clone(), active_usage_model.clone())
+            })
+            .collect::<Vec<_>>()
+    };
+    let output_empty = output_events.is_empty();
 
     use_effect(move || {
         if *active_tab.read() == EditorTab::Files {
@@ -251,15 +275,17 @@ pub fn Editor(
             match *active_tab.read() {
                 EditorTab::Output => rsx! {
                     div { class: "editor-content",
-                        for (i , event) in events.read().iter().enumerate() {
+                        for (i , event, event_usage_model) in output_events {
                             EventRow {
                                 key: "{i}",
-                                event: event.clone(),
+                                event,
                                 expand_all: *expand_all.read(),
                                 tool_names: tool_names.clone(),
+                                usage_model: event_usage_model,
+                                pricing: pricing.clone(),
                             }
                         }
-                        if events.read().is_empty() {
+                        if output_empty {
                             div { class: "text-muted editor-empty", "Waiting for activity..." }
                         }
                         div {

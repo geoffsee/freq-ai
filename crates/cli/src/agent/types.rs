@@ -140,6 +140,7 @@ pub fn save_dev_config(root: &str, cfg: &Config) -> Result<(), String> {
         bot,
         bootstrap_snapshot: Some(cfg.bootstrap_snapshot),
         use_subscription: Some(cfg.use_subscription),
+        pricing: cfg.pricing.clone(),
         log_redaction: existing.log_redaction,
         agent_models,
     };

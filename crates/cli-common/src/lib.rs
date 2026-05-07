@@ -106,6 +106,73 @@ pub enum AgentEvent {
     TrackerUpdate(Vec<PendingIssue>),
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ModelPricing {
+    /// USD per 1M input tokens. This is intentionally project-configured:
+    /// provider prices change too often to bake into freq-ai.
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub input_per_million: f64,
+    /// USD per 1M output tokens.
+    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    pub output_per_million: f64,
+}
+
+impl ModelPricing {
+    pub fn has_rate(self) -> bool {
+        (self.input_per_million.is_finite() && self.input_per_million > 0.0)
+            || (self.output_per_million.is_finite() && self.output_per_million > 0.0)
+    }
+
+    pub fn estimate_cost_usd(self, input_tokens: u32, output_tokens: u32) -> Option<f64> {
+        if !self.has_rate() {
+            return None;
+        }
+
+        let input_cost = (input_tokens as f64 / 1_000_000.0) * self.input_per_million.max(0.0);
+        let output_cost = (output_tokens as f64 / 1_000_000.0) * self.output_per_million.max(0.0);
+        Some(input_cost + output_cost)
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PricingConfig {
+    /// Per-model token rates keyed by provider model ID.
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub models: HashMap<String, ModelPricing>,
+}
+
+impl PricingConfig {
+    pub fn rate_for_model(&self, model: &str) -> Option<ModelPricing> {
+        let key = model.trim();
+        if key.is_empty() {
+            return None;
+        }
+        self.models
+            .get(key)
+            .copied()
+            .or_else(|| {
+                let lower = key.to_lowercase();
+                self.models
+                    .iter()
+                    .find(|(candidate, _)| candidate.to_lowercase() == lower)
+                    .map(|(_, rate)| *rate)
+            })
+            .filter(|rate| rate.has_rate())
+    }
+
+    pub fn estimate_cost_usd(
+        &self,
+        model: &str,
+        input_tokens: u32,
+        output_tokens: u32,
+    ) -> Option<f64> {
+        self.rate_for_model(model)
+            .and_then(|rate| rate.estimate_cost_usd(input_tokens, output_tokens))
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ClaudeEvent {
@@ -582,6 +649,7 @@ pub struct Config {
     pub bootstrap_snapshot: bool,
     pub workflow_preset: String,
     pub use_subscription: bool,
+    pub pricing: PricingConfig,
     pub bot_settings: BotSettings,
     pub bot_credentials: Option<BotCredentials>,
 }
@@ -596,6 +664,64 @@ impl Config {
     pub fn has_bot_credentials(&self) -> bool {
         self.effective_bot_credentials().is_some()
     }
+
+    pub fn pricing_model_key(&self) -> Option<String> {
+        if self.local_inference.advanced && !self.local_inference.model.trim().is_empty() {
+            Some(self.local_inference.model.trim().to_string())
+        } else if !self.model.trim().is_empty() {
+            Some(self.model.trim().to_string())
+        } else {
+            None
+        }
+    }
+}
+
+pub fn latest_event_model(events: &[AgentEvent]) -> Option<String> {
+    events.iter().rev().find_map(|event| match event {
+        AgentEvent::Claude(ClaudeEvent::System { model, .. }) => model
+            .as_ref()
+            .filter(|model| !model.trim().is_empty())
+            .cloned(),
+        _ => None,
+    })
+}
+
+pub fn should_use_event_model(model: &str, has_configured_model: bool) -> bool {
+    let model = model.trim();
+    if model.is_empty() {
+        return false;
+    }
+
+    !has_configured_model
+        || !matches!(
+            model,
+            "claude"
+                | "cline"
+                | "codex"
+                | "copilot"
+                | "cursor"
+                | "gemini"
+                | "grok"
+                | "junie"
+                | "xai"
+        )
+}
+
+pub fn usage_model_for_events(config: &Config, events: &[AgentEvent]) -> Option<String> {
+    let mut active_model = config.pricing_model_key();
+    let has_configured_model = active_model.is_some();
+
+    for event in events {
+        if let AgentEvent::Claude(ClaudeEvent::System {
+            model: Some(model), ..
+        }) = event
+            && should_use_event_model(model, has_configured_model)
+        {
+            active_model = Some(model.trim().to_string());
+        }
+    }
+
+    active_model
 }
 
 impl fmt::Debug for Config {
@@ -614,6 +740,7 @@ impl fmt::Debug for Config {
             .field("bootstrap_snapshot", &self.bootstrap_snapshot)
             .field("workflow_preset", &self.workflow_preset)
             .field("use_subscription", &self.use_subscription)
+            .field("pricing", &self.pricing)
             .field("bot_settings", &self.bot_settings)
             .field("bot_credentials", &self.bot_credentials)
             .finish()
@@ -684,6 +811,8 @@ pub struct DevConfig {
     pub bootstrap_snapshot: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_subscription: Option<bool>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub pricing: PricingConfig,
     #[serde(default, skip_serializing_if = "is_default")]
     pub log_redaction: LogRedactionConfigFile,
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
@@ -825,6 +954,10 @@ fn is_none<T>(opt: &Option<T>) -> bool {
     opt.is_none()
 }
 
+fn is_zero_f64(value: &f64) -> bool {
+    *value == 0.0
+}
+
 fn is_default<T: Default + PartialEq>(t: &T) -> bool {
     *t == T::default()
 }
@@ -839,10 +972,46 @@ pub use agent_common::{AgentCliAdapter, AgentCliCommand, AgentInvocation};
 
 #[cfg(test)]
 mod agent_binary_tests {
-    use super::Agent;
+    use super::{Agent, ModelPricing, PricingConfig};
+    use std::collections::HashMap;
 
     #[test]
     fn cursor_binary_matches_adapter_spawn_name() {
         assert_eq!(Agent::Cursor.binary(), "cursor");
+    }
+
+    #[test]
+    fn pricing_estimates_cost_from_configured_rates() {
+        let pricing = PricingConfig {
+            models: HashMap::from([(
+                "model-a".to_string(),
+                ModelPricing {
+                    input_per_million: 3.0,
+                    output_per_million: 15.0,
+                },
+            )]),
+        };
+
+        let cost = pricing
+            .estimate_cost_usd("model-a", 1_000_000, 500_000)
+            .expect("configured rate should estimate cost");
+        assert_eq!(cost, 10.5);
+    }
+
+    #[test]
+    fn pricing_skips_unknown_or_zero_rates() {
+        let pricing = PricingConfig {
+            models: HashMap::from([("model-a".to_string(), ModelPricing::default())]),
+        };
+
+        assert_eq!(pricing.estimate_cost_usd("model-a", 1_000, 1_000), None);
+        assert_eq!(pricing.estimate_cost_usd("missing", 1_000, 1_000), None);
+    }
+
+    #[test]
+    fn generic_event_model_does_not_override_configured_model() {
+        assert!(!super::should_use_event_model("codex", true));
+        assert!(super::should_use_event_model("gpt-5.2", true));
+        assert!(super::should_use_event_model("codex", false));
     }
 }

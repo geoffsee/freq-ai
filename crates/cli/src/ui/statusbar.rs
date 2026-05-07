@@ -1,6 +1,59 @@
 use crate::agent::tracker::TrackerInfo;
-use crate::agent::types::Config;
+use crate::agent::types::{AgentEvent, ClaudeEvent, Config, should_use_event_model};
+use crate::ui::components::{format_cost_usd, format_token_count, format_tokens_per_second};
 use dioxus::prelude::*;
+
+#[derive(Default)]
+struct UsageSummary {
+    input_tokens: u32,
+    output_tokens: u32,
+    last_output_tokens_per_second: Option<String>,
+    estimated_cost_usd: f64,
+}
+
+fn summarize_usage(events: &[AgentEvent], config: &Config) -> UsageSummary {
+    let mut summary = UsageSummary::default();
+    let mut active_model = config.pricing_model_key();
+    let has_configured_model = active_model.is_some();
+
+    for event in events {
+        match event {
+            AgentEvent::Claude(ClaudeEvent::System {
+                model: Some(model), ..
+            }) if should_use_event_model(model, has_configured_model) => {
+                active_model = Some(model.trim().to_string());
+            }
+            AgentEvent::Claude(ClaudeEvent::Result {
+                duration_ms,
+                input_tokens,
+                output_tokens,
+                ..
+            }) => {
+                let input_tokens = input_tokens.unwrap_or(0);
+                let output_tokens = output_tokens.unwrap_or(0);
+
+                summary.input_tokens = summary.input_tokens.saturating_add(input_tokens);
+                summary.output_tokens = summary.output_tokens.saturating_add(output_tokens);
+                if let Some(rate) =
+                    duration_ms.and_then(|ms| format_tokens_per_second(output_tokens, ms))
+                {
+                    summary.last_output_tokens_per_second = Some(rate);
+                }
+                if let Some(model) = &active_model
+                    && let Some(cost) =
+                        config
+                            .pricing
+                            .estimate_cost_usd(model, input_tokens, output_tokens)
+                {
+                    summary.estimated_cost_usd += cost;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    summary
+}
 
 #[component]
 pub fn Statusbar(
@@ -14,6 +67,11 @@ pub fn Statusbar(
     let working = *is_working.read();
     let issue_count = issues.read().len();
     let event_count = events.read().len();
+    let usage = summarize_usage(&events.read(), &config.read());
+    let total_tokens = usage.input_tokens.saturating_add(usage.output_tokens);
+    let total_token_label = format_token_count(total_tokens);
+    let estimated_cost_label =
+        (usage.estimated_cost_usd > 0.0).then(|| format_cost_usd(usage.estimated_cost_usd));
     let tracker_nums = tracker_ids
         .read()
         .iter()
@@ -36,6 +94,18 @@ pub fn Statusbar(
                 span { class: "status-sep", "|" }
                 span { "{event_count} events" }
                 span { class: "status-sep", "|" }
+                if total_tokens > 0 {
+                    span { "{total_token_label} tok" }
+                    span { class: "status-sep", "|" }
+                }
+                if let Some(rate) = usage.last_output_tokens_per_second {
+                    span { "{rate} out tok/s" }
+                    span { class: "status-sep", "|" }
+                }
+                if let Some(cost) = estimated_cost_label {
+                    span { "{cost}" }
+                    span { class: "status-sep", "|" }
+                }
                 span { "{config.read().agent}" }
                 span { class: "status-sep", "|" }
                 span { "{theme_name}" }

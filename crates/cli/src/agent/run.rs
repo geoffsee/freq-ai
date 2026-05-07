@@ -1,5 +1,5 @@
 use crate::agent::adapter_dispatch;
-use crate::agent::cmd::log;
+use crate::agent::cmd::{count_tokens, log};
 use crate::agent::launch::{auto_mode_overrides, merged_agent_env, model_selection_overrides};
 use crate::agent::process::{emit_event, set_active_child_pid, stop_requested};
 use crate::agent::types::{Agent, AgentEvent, AssistantMessage, ClaudeEvent, Config, ContentBlock};
@@ -7,6 +7,7 @@ use agent_runtime::AgentRuntime;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::time::Instant;
 
 fn native_command(binary: &str, args: &[String]) -> Command {
     let mut cmd = if binary == "cursor" {
@@ -45,6 +46,16 @@ pub fn run_claude_native_with_env(
     extra_env: &[(String, String)],
     cwd: Option<&Path>,
 ) -> bool {
+    run_claude_native_with_env_for_prompt(binary, args, extra_env, cwd, "")
+}
+
+fn run_claude_native_with_env_for_prompt(
+    binary: &str,
+    args: &[String],
+    extra_env: &[(String, String)],
+    cwd: Option<&Path>,
+    prompt: &str,
+) -> bool {
     let mut cmd = native_command(binary, args);
 
     if let Some(p) = cwd {
@@ -62,6 +73,9 @@ pub fn run_claude_native_with_env(
 
     let stdout = child.stdout.take().expect("piped stdout");
     let reader = BufReader::new(stdout);
+    let started_at = Instant::now();
+    let mut saw_result = false;
+    let mut raw_output = String::new();
 
     for line in reader.lines().map_while(Result::ok) {
         if stop_requested() {
@@ -73,13 +87,26 @@ pub fn run_claude_native_with_env(
             continue;
         }
         if let Ok(ev) = serde_json::from_str::<ClaudeEvent>(trimmed) {
+            if matches!(ev, ClaudeEvent::Result { .. }) {
+                saw_result = true;
+            }
             emit_event(AgentEvent::Claude(ev));
         } else {
+            raw_output.push_str(trimmed);
+            raw_output.push('\n');
             log(&format!("claude: {trimmed}"));
         }
     }
     let ok = child.wait().map(|s| s.success()).unwrap_or(false);
     set_active_child_pid(None);
+    if !saw_result {
+        emit_event(estimated_result_event(
+            ok,
+            started_at.elapsed().as_millis(),
+            prompt,
+            raw_output.trim(),
+        ));
+    }
     ok
 }
 
@@ -197,9 +224,101 @@ pub fn codex_events_from_json_line(line: &str) -> Option<Vec<AgentEvent>> {
                 }));
             }
         }
+        "turn.completed" | "turn.failed" | "response.completed" | "response.failed" => {
+            let usage = usage_value(&v);
+            let input_tokens = usage
+                .and_then(|u| json_u32_any(u, &["input_tokens", "prompt_tokens"]))
+                .or_else(|| json_u32_any(&v, &["input_tokens", "prompt_tokens"]));
+            let output_tokens = usage
+                .and_then(|u| json_u32_any(u, &["output_tokens", "completion_tokens"]))
+                .or_else(|| json_u32_any(&v, &["output_tokens", "completion_tokens"]));
+            let duration_ms = json_duration_ms(&v);
+            let status = v
+                .get("status")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_else(|| {
+                    if event_type.ends_with(".failed") {
+                        "failed"
+                    } else {
+                        "completed"
+                    }
+                })
+                .to_string();
+            let summary = v
+                .get("message")
+                .or_else(|| v.get("error"))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string);
+
+            out.push(AgentEvent::Claude(ClaudeEvent::Result {
+                status,
+                summary,
+                duration_ms,
+                input_tokens,
+                output_tokens,
+            }));
+        }
         _ => {}
     }
     Some(out)
+}
+
+fn usage_value(v: &serde_json::Value) -> Option<&serde_json::Value> {
+    v.get("usage")
+        .or_else(|| v.pointer("/response/usage"))
+        .or_else(|| v.pointer("/turn/usage"))
+}
+
+fn json_u32_any(v: &serde_json::Value, keys: &[&str]) -> Option<u32> {
+    keys.iter()
+        .find_map(|key| v.get(*key).and_then(serde_json::Value::as_u64))
+        .and_then(|n| u32::try_from(n).ok())
+}
+
+fn json_duration_ms(v: &serde_json::Value) -> Option<u64> {
+    ["duration_ms", "elapsed_ms", "wall_time_ms"]
+        .iter()
+        .find_map(|key| v.get(*key).and_then(serde_json::Value::as_u64))
+        .or_else(|| {
+            ["duration_seconds", "elapsed_seconds"]
+                .iter()
+                .find_map(|key| v.get(*key).and_then(serde_json::Value::as_f64))
+                .filter(|seconds| seconds.is_finite() && *seconds >= 0.0)
+                .map(|seconds| (seconds * 1000.0).round() as u64)
+        })
+}
+
+fn estimated_result_event(ok: bool, elapsed_ms: u128, prompt: &str, output: &str) -> AgentEvent {
+    AgentEvent::Claude(ClaudeEvent::Result {
+        status: if ok { "completed" } else { "failed" }.to_string(),
+        summary: Some(
+            "Usage estimated by freq-ai; provider token accounting was unavailable.".to_string(),
+        ),
+        duration_ms: u64::try_from(elapsed_ms).ok(),
+        input_tokens: u64_to_u32(Some(count_tokens(prompt) as u64)),
+        output_tokens: (!output.trim().is_empty())
+            .then(|| count_tokens(output) as u64)
+            .and_then(|tokens| u64_to_u32(Some(tokens))),
+    })
+}
+
+fn append_event_output(ev: &AgentEvent, output: &mut String) {
+    match ev {
+        AgentEvent::Claude(ClaudeEvent::Assistant { message }) => {
+            for block in &message.content {
+                if let ContentBlock::Text { text } = block {
+                    output.push_str(text);
+                    output.push('\n');
+                }
+            }
+        }
+        AgentEvent::Claude(ClaudeEvent::ContentBlockDelta { delta, .. }) => {
+            if let Some(text) = &delta.text {
+                output.push_str(text);
+            }
+        }
+        _ => {}
+    }
 }
 
 pub fn run_codex_native_with_env(
@@ -207,6 +326,16 @@ pub fn run_codex_native_with_env(
     args: &[String],
     extra_env: &[(String, String)],
     cwd: Option<&Path>,
+) -> bool {
+    run_codex_native_with_env_for_prompt(binary, args, extra_env, cwd, "")
+}
+
+fn run_codex_native_with_env_for_prompt(
+    binary: &str,
+    args: &[String],
+    extra_env: &[(String, String)],
+    cwd: Option<&Path>,
+    prompt: &str,
 ) -> bool {
     let mut cmd = native_command(binary, args);
 
@@ -225,6 +354,9 @@ pub fn run_codex_native_with_env(
 
     let stdout = child.stdout.take().expect("piped stdout");
     let reader = BufReader::new(stdout);
+    let started_at = Instant::now();
+    let mut saw_result = false;
+    let mut output_text = String::new();
 
     for line in reader.lines().map_while(Result::ok) {
         if stop_requested() {
@@ -237,14 +369,28 @@ pub fn run_codex_native_with_env(
         }
         if let Some(events) = codex_events_from_json_line(trimmed) {
             for ev in events {
+                if matches!(ev, AgentEvent::Claude(ClaudeEvent::Result { .. })) {
+                    saw_result = true;
+                }
+                append_event_output(&ev, &mut output_text);
                 emit_event(ev);
             }
         } else {
+            output_text.push_str(trimmed);
+            output_text.push('\n');
             log(&format!("codex: {trimmed}"));
         }
     }
     let ok = child.wait().map(|s| s.success()).unwrap_or(false);
     set_active_child_pid(None);
+    if !saw_result {
+        emit_event(estimated_result_event(
+            ok,
+            started_at.elapsed().as_millis(),
+            prompt,
+            output_text.trim(),
+        ));
+    }
     ok
 }
 
@@ -280,8 +426,10 @@ fn run_agent_with_env_with_cwd(
 
     let cmd = adapter_dispatch::freqai_native_command(cfg.agent, prompt, &overrides.args);
     match cfg.agent {
-        Agent::Codex => run_codex_native_with_env(&cmd.binary, &cmd.args, &env, cwd),
-        _ => run_claude_native_with_env(&cmd.binary, &cmd.args, &env, cwd),
+        Agent::Codex => {
+            run_codex_native_with_env_for_prompt(&cmd.binary, &cmd.args, &env, cwd, prompt)
+        }
+        _ => run_claude_native_with_env_for_prompt(&cmd.binary, &cmd.args, &env, cwd, prompt),
     }
 }
 
@@ -291,7 +439,8 @@ pub fn local_inference_overrides(cfg: &Config) -> crate::agent::types::AgentLaun
 
 #[cfg(test)]
 mod tests {
-    use super::native_command;
+    use super::{codex_events_from_json_line, native_command};
+    use crate::agent::types::{AgentEvent, ClaudeEvent};
     use std::path::PathBuf;
 
     #[test]
@@ -319,5 +468,30 @@ mod tests {
             .map(|a| a.to_string_lossy().to_string())
             .collect();
         assert_eq!(args, vec!["-p".to_string(), "hi".to_string()]);
+    }
+
+    #[test]
+    fn codex_turn_completed_maps_usage_to_result() {
+        let events = codex_events_from_json_line(
+            r#"{"type":"turn.completed","duration_seconds":1.25,"usage":{"input_tokens":1000,"output_tokens":250}}"#,
+        )
+        .expect("valid codex event");
+
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            AgentEvent::Claude(ClaudeEvent::Result {
+                status,
+                duration_ms,
+                input_tokens,
+                output_tokens,
+                ..
+            }) => {
+                assert_eq!(status, "completed");
+                assert_eq!(*duration_ms, Some(1250));
+                assert_eq!(*input_tokens, Some(1000));
+                assert_eq!(*output_tokens, Some(250));
+            }
+            other => panic!("expected result event, got {other:?}"),
+        }
     }
 }

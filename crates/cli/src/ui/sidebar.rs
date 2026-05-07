@@ -85,6 +85,53 @@ fn truncate_title(s: &str, max: usize) -> String {
     }
 }
 
+fn parse_pricing_rate(value: &str) -> f64 {
+    value
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|rate| rate.is_finite() && *rate > 0.0)
+        .unwrap_or(0.0)
+}
+
+fn format_pricing_rate(rate: f64) -> String {
+    if !rate.is_finite() || rate <= 0.0 {
+        String::new()
+    } else {
+        format!("{rate:.6}")
+            .trim_end_matches('0')
+            .trim_end_matches('.')
+            .to_string()
+    }
+}
+
+fn set_model_pricing_rate(
+    cfg: &mut Config,
+    model_key: &str,
+    input_per_million: Option<f64>,
+    output_per_million: Option<f64>,
+) {
+    let key = model_key.trim();
+    if key.is_empty() {
+        return;
+    }
+
+    let should_remove = {
+        let entry = cfg.pricing.models.entry(key.to_string()).or_default();
+        if let Some(rate) = input_per_million {
+            entry.input_per_million = rate;
+        }
+        if let Some(rate) = output_per_million {
+            entry.output_per_million = rate;
+        }
+        !entry.has_rate()
+    };
+
+    if should_remove {
+        cfg.pricing.models.remove(key);
+    }
+}
+
 #[component]
 fn IssueCommentReminder() -> Element {
     let triggers: &[String] = ISSUE_COMMENT_TRIGGERS
@@ -142,6 +189,15 @@ pub fn Sidebar(
     let auto_merge = *auto_merge_enabled.read();
     let has_bot = config.read().has_bot_credentials();
     let advanced_open = config.read().local_inference.advanced;
+    let pricing_model_key = config.read().pricing_model_key();
+    let pricing_for_model = pricing_model_key
+        .as_deref()
+        .and_then(|model| config.read().pricing.rate_for_model(model))
+        .unwrap_or_default();
+    let pricing_model_key_for_input = pricing_model_key.clone();
+    let pricing_model_key_for_output = pricing_model_key.clone();
+    let pricing_input_value = format_pricing_rate(pricing_for_model.input_per_million);
+    let pricing_output_value = format_pricing_rate(pricing_for_model.output_per_million);
     let preset_options = {
         let mut options = presets.read().to_vec();
         if options.is_empty() {
@@ -328,6 +384,60 @@ pub fn Sidebar(
                                     },
                                 }
                             }
+                        }
+                    }
+                    details { class: "bot-setup-details",
+                        summary { class: "btn btn-sm btn-action", "Usage Pricing" }
+                        if let Some(model_key) = pricing_model_key.clone() {
+                            div { class: "advanced-hint",
+                                "Project-configured USD rates for {model_key}. Costs are estimates from token counts and these saved rates."
+                            }
+                            label { class: "advanced-field",
+                                span { class: "control-label", "Input / 1M" }
+                                input {
+                                    class: "text-input",
+                                    r#type: "number",
+                                    min: "0",
+                                    step: "0.000001",
+                                    value: "{pricing_input_value}",
+                                    placeholder: "0.00",
+                                    oninput: move |evt| {
+                                        if let Some(model_key) = pricing_model_key_for_input.clone() {
+                                            let rate = parse_pricing_rate(&evt.value());
+                                            let mut cfg = config.write();
+                                            set_model_pricing_rate(&mut cfg, &model_key, Some(rate), None);
+                                        }
+                                    },
+                                }
+                            }
+                            label { class: "advanced-field",
+                                span { class: "control-label", "Output / 1M" }
+                                input {
+                                    class: "text-input",
+                                    r#type: "number",
+                                    min: "0",
+                                    step: "0.000001",
+                                    value: "{pricing_output_value}",
+                                    placeholder: "0.00",
+                                    oninput: move |evt| {
+                                        if let Some(model_key) = pricing_model_key_for_output.clone() {
+                                            let rate = parse_pricing_rate(&evt.value());
+                                            let mut cfg = config.write();
+                                            set_model_pricing_rate(&mut cfg, &model_key, None, Some(rate));
+                                        }
+                                    },
+                                }
+                            }
+                        } else {
+                            div { class: "advanced-hint",
+                                "Select a model before configuring per-token pricing. freq-ai does not ship provider price tables because they change often."
+                            }
+                        }
+                        button {
+                            class: "btn btn-sm btn-action",
+                            disabled: working,
+                            onclick: move |evt| save_settings.call(evt),
+                            "Save Pricing"
                         }
                     }
                     div { class: advanced_controls_class,

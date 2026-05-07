@@ -1,4 +1,4 @@
-use crate::agent::types::{AgentEvent, ClaudeEvent, ContentBlock};
+use crate::agent::types::{AgentEvent, ClaudeEvent, ContentBlock, PricingConfig};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 
@@ -629,6 +629,24 @@ body {
 }
 .ev-result .label { color: var(--purple); font-weight: 700; font-size: 11px; }
 .ev-result .summary { margin-top: 2px; font-size: 11px; font-style: italic; color: var(--fg-secondary); }
+.usage-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 10px;
+    color: var(--fg-secondary);
+}
+.usage-metric {
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--purple) 12%, transparent);
+    white-space: nowrap;
+}
+.usage-cost {
+    color: var(--green);
+    background: color-mix(in srgb, var(--green) 12%, transparent);
+}
 
 /* ── Content blocks ── */
 .block-text { white-space: pre-wrap; margin-bottom: 6px; }
@@ -1279,6 +1297,8 @@ pub fn EventRow(
     event: AgentEvent,
     expand_all: bool,
     tool_names: HashMap<String, String>,
+    usage_model: Option<String>,
+    pricing: PricingConfig,
 ) -> Element {
     match event {
         AgentEvent::Log(msg) => rsx! {
@@ -1288,7 +1308,7 @@ pub fn EventRow(
             }
         },
         AgentEvent::Claude(ev) => rsx! {
-            ClaudeEventRow { ev, expand_all, tool_names }
+            ClaudeEventRow { ev, expand_all, tool_names, usage_model, pricing }
         },
         AgentEvent::Done | AgentEvent::AwaitingFeedback(_) | AgentEvent::TrackerUpdate(_) => {
             rsx! {}
@@ -1301,6 +1321,8 @@ pub fn ClaudeEventRow(
     ev: ClaudeEvent,
     expand_all: bool,
     tool_names: HashMap<String, String>,
+    usage_model: Option<String>,
+    pricing: PricingConfig,
 ) -> Element {
     match ev {
         ClaudeEvent::System {
@@ -1339,19 +1361,121 @@ pub fn ClaudeEventRow(
             }
         }
         ClaudeEvent::Result {
-            status, summary, ..
-        } => rsx! {
-            div { class: "ev-result",
-                div { class: "label", "RESULT: {status}" }
-                if let Some(s) = summary { div { class: "summary", "{s}" } }
+            status,
+            summary,
+            duration_ms,
+            input_tokens,
+            output_tokens,
+        } => {
+            let input_label = input_tokens.map(format_token_count);
+            let output_label = output_tokens.map(format_token_count);
+            let total_tokens = input_tokens
+                .unwrap_or(0)
+                .saturating_add(output_tokens.unwrap_or(0));
+            let total_label = (total_tokens > 0).then(|| format_token_count(total_tokens));
+            let duration_label = duration_ms.map(format_duration_ms);
+            let output_rate_label = output_tokens
+                .zip(duration_ms)
+                .and_then(|(tokens, ms)| format_tokens_per_second(tokens, ms))
+                .map(|rate| format!("{rate} out tok/s"));
+            let total_rate_label = (total_tokens > 0)
+                .then_some(total_tokens)
+                .zip(duration_ms)
+                .and_then(|(tokens, ms)| format_tokens_per_second(tokens, ms))
+                .map(|rate| format!("{rate} total tok/s"));
+            let cost_label = usage_model
+                .as_deref()
+                .and_then(|model| {
+                    pricing.estimate_cost_usd(
+                        model,
+                        input_tokens.unwrap_or(0),
+                        output_tokens.unwrap_or(0),
+                    )
+                })
+                .map(format_cost_usd);
+
+            rsx! {
+                div { class: "ev-result",
+                    div { class: "label", "RESULT: {status}" }
+                    div { class: "usage-metrics",
+                        if let Some(input) = input_label { span { class: "usage-metric", "input {input}" } }
+                        if let Some(output) = output_label { span { class: "usage-metric", "output {output}" } }
+                        if let Some(total) = total_label { span { class: "usage-metric", "total {total}" } }
+                        if let Some(duration) = duration_label { span { class: "usage-metric", "{duration}" } }
+                        if let Some(rate) = output_rate_label { span { class: "usage-metric", "{rate}" } }
+                        if let Some(rate) = total_rate_label { span { class: "usage-metric", "{rate}" } }
+                        if let Some(cost) = cost_label { span { class: "usage-metric usage-cost", "{cost}" } }
+                    }
+                    if let Some(s) = summary { div { class: "summary", "{s}" } }
+                }
             }
-        },
+        }
         ClaudeEvent::ContentBlockDelta { .. } => rsx! {
             div { class: "ev-system",
                 div { class: "label", "STREAMING..." }
             }
         },
     }
+}
+
+pub fn format_token_count(tokens: u32) -> String {
+    if tokens >= 1_000_000 {
+        format_compact(tokens as f64 / 1_000_000.0, "M")
+    } else if tokens >= 10_000 {
+        format_compact(tokens as f64 / 1_000.0, "k")
+    } else {
+        tokens.to_string()
+    }
+}
+
+pub fn format_tokens_per_second(tokens: u32, duration_ms: u64) -> Option<String> {
+    if tokens == 0 || duration_ms == 0 {
+        return None;
+    }
+    let rate = tokens as f64 * 1000.0 / duration_ms as f64;
+    if rate >= 100.0 {
+        Some(format!("{rate:.0}"))
+    } else {
+        Some(trim_float(format!("{rate:.1}")))
+    }
+}
+
+pub fn format_duration_ms(duration_ms: u64) -> String {
+    if duration_ms >= 60_000 {
+        format!(
+            "{}m {}s",
+            duration_ms / 60_000,
+            (duration_ms % 60_000) / 1000
+        )
+    } else if duration_ms >= 1000 {
+        format!(
+            "{}s",
+            trim_float(format!("{:.1}", duration_ms as f64 / 1000.0))
+        )
+    } else {
+        format!("{duration_ms}ms")
+    }
+}
+
+pub fn format_cost_usd(cost: f64) -> String {
+    if cost >= 1.0 {
+        format!("${cost:.2} est")
+    } else if cost >= 0.01 {
+        format!("${cost:.4} est")
+    } else {
+        format!("${cost:.6} est")
+    }
+}
+
+fn format_compact(value: f64, suffix: &str) -> String {
+    format!("{}{}", trim_float(format!("{value:.1}")), suffix)
+}
+
+fn trim_float(value: String) -> String {
+    value
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
 }
 
 /// Generate a one-line summary for a tool use based on name + input params.

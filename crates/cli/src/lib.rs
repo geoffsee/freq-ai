@@ -1102,6 +1102,8 @@ fn App() -> Element {
                     persona_skill_path: persona_skill_path_sig,
                     follow_mode,
                     expand_all,
+                    usage_model: config.read().pricing_model_key(),
+                    pricing: config.read().pricing.clone(),
                     bottom_el,
                 }
             }
