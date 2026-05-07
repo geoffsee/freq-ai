@@ -22,6 +22,8 @@ These examples assume a `freq-ai` action invocation pattern:
 - `workflows/weekly-ci-governance.yml`
 - `workflows/monthly-factory-retrospective.yml`
 - `workflows/factory-cycle-dispatch.yml` (chained end-to-end runner)
+- `workflows/tracker-loop-dispatch.yml` (manual tracker execution)
+- `workflows/autopilot.yml` (scheduled issue/PR evaluator and dispatcher)
 
 ## Fast-mode behavior
 

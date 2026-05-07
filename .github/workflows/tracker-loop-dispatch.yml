@@ -1,0 +1,57 @@
+name: Tracker Loop Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      tracker:
+        description: "Tracker issue number (for example: 1234)"
+        required: true
+        type: string
+      context:
+        description: "Optional natural-language steering context"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: tracker-loop-dispatch-${{ inputs.tracker }}
+  cancel-in-progress: true
+
+jobs:
+  tracker-loop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run freq-ai tracker loop
+        uses: geoffsee/freq-ai-action@v0.0.2
+        with:
+          task: loop
+          args: ${{ inputs.tracker }}
+          preset: software-factory
+          agent: claude
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          FREQ_AI_CONTEXT: ${{ inputs.context }}
+
+  code-review:
+    needs: tracker-loop
+    if: ${{ needs.tracker-loop.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run freq-ai code review
+        uses: geoffsee/freq-ai-action@v0.0.2
+        with:
+          task: code-review
+          agent: claude
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          FREQ_AI_CONTEXT: ${{ inputs.context }}
