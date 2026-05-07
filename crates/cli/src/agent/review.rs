@@ -3,9 +3,11 @@ use crate::agent::cmd::{cmd_run, cmd_stdout, log};
 use crate::agent::issue::preflight;
 use crate::agent::launch::log_resolved_agent_launch;
 use crate::agent::process::{emit_event, stop_requested};
-use crate::agent::run::run_agent_with_env;
+use crate::agent::run::{run_agent_with_env, run_agent_with_env_in_dir};
 use crate::agent::tracker::{
-    build_code_review_prompt, build_security_review_prompt, list_open_prs, pr_body, pr_diff,
+    DEFAULT_REVIEW_BOT_LOGIN, build_code_review_prompt, build_pr_review_fix_prompt,
+    build_security_review_prompt, fetch_unresolved_review_threads, list_open_prs, pr_body, pr_diff,
+    pr_head_branch, resolve_review_thread,
 };
 use crate::agent::types::{AgentEvent, Config};
 use std::path::PathBuf;
@@ -113,7 +115,110 @@ pub fn run_pr_review_fix(cfg: &Config, pr_num: u32) {
         return;
     }
 
-    // Implementation continues...
-    log("Fix Comments logic not fully implemented in this step.");
+    let threads = fetch_unresolved_review_threads(pr_num, DEFAULT_REVIEW_BOT_LOGIN);
+    if threads.is_empty() {
+        log(&format!(
+            "No unresolved bot-authored review threads found for PR #{pr_num}."
+        ));
+        emit_event(AgentEvent::Done);
+        return;
+    }
+
+    let branch = pr_head_branch(pr_num);
+    let title = list_open_prs()
+        .into_iter()
+        .find(|pr| pr.number == pr_num)
+        .map(|pr| pr.title)
+        .unwrap_or_else(|| format!("PR #{pr_num}"));
+    let diff = pr_diff(pr_num);
+
+    let worktree_path =
+        std::env::temp_dir().join(format!("freq-ai-pr-{pr_num}-{}", std::process::id()));
+    let worktree_str = worktree_path.to_string_lossy().to_string();
+    let remote_ref = format!("origin/{branch}");
+
+    let fetch_refspec = format!("+refs/heads/{branch}:refs/remotes/origin/{branch}");
+    if !cmd_run("git", &["fetch", "origin", &fetch_refspec]) {
+        log(&format!("Failed to fetch branch '{branch}' from origin."));
+        emit_event(AgentEvent::Done);
+        return;
+    }
+
+    if !cmd_run(
+        "git",
+        &[
+            "worktree",
+            "add",
+            "--force",
+            "-B",
+            &branch,
+            &worktree_str,
+            &remote_ref,
+        ],
+    ) {
+        log(&format!(
+            "Failed to create worktree for PR #{pr_num} from {remote_ref}."
+        ));
+        emit_event(AgentEvent::Done);
+        return;
+    }
+
+    let _guard = WorktreeGuard {
+        path: worktree_path.clone(),
+    };
+    let prompt =
+        build_pr_review_fix_prompt(&cfg.project_name, pr_num, &title, &branch, &diff, &threads);
+
+    if !run_agent_with_env_in_dir(cfg, &prompt, &[], &worktree_path) {
+        log(&format!("Fix Comments agent failed for PR #{pr_num}."));
+        emit_event(AgentEvent::Done);
+        return;
+    }
+    if stop_requested() {
+        log("Stop requested. Fix Comments run cancelled.");
+        emit_event(AgentEvent::Done);
+        return;
+    }
+
+    let status =
+        cmd_stdout("git", &["-C", &worktree_str, "status", "--porcelain"]).unwrap_or_default();
+    if status.trim().is_empty() {
+        log(&format!(
+            "Fix Comments made no file changes for PR #{pr_num}; leaving review threads unresolved."
+        ));
+        emit_event(AgentEvent::Done);
+        return;
+    }
+
+    let message = format!(
+        "fix review comments on PR #{pr_num}\n\n{}",
+        cfg.agent.co_author()
+    );
+    let committed = cmd_run("git", &["-C", &worktree_str, "add", "."])
+        && cmd_run("git", &["-C", &worktree_str, "commit", "-m", &message]);
+    if !committed {
+        log(&format!(
+            "Failed to commit Fix Comments changes for PR #{pr_num}."
+        ));
+        emit_event(AgentEvent::Done);
+        return;
+    }
+
+    if !cmd_run("git", &["-C", &worktree_str, "push", "origin", &branch]) {
+        log(&format!(
+            "Failed to push Fix Comments changes for PR #{pr_num}."
+        ));
+        emit_event(AgentEvent::Done);
+        return;
+    }
+
+    let resolved = threads
+        .iter()
+        .filter(|thread| resolve_review_thread(&thread.id))
+        .count();
+    log(&format!(
+        "Fix Comments complete for PR #{pr_num}: pushed changes and resolved {resolved}/{} thread(s).",
+        threads.len()
+    ));
     emit_event(AgentEvent::Done);
 }

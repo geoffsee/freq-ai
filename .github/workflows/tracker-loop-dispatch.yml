@@ -43,6 +43,8 @@ jobs:
     needs: tracker-loop
     if: ${{ needs.tracker-loop.result == 'success' }}
     runs-on: ubuntu-latest
+    outputs:
+      prs: ${{ steps.open-prs.outputs.prs }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,6 +53,40 @@ jobs:
         uses: geoffsee/freq-ai-action@v0.0.2
         with:
           task: code-review
+          agent: claude
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          FREQ_AI_CONTEXT: ${{ inputs.context }}
+
+      - name: List open PRs for follow-up
+        id: open-prs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          prs="$(gh pr list --state open --limit 50 --json number --jq '[.[].number]')"
+          echo "prs=$prs" >> "$GITHUB_OUTPUT"
+
+  fix-review-comments:
+    needs: code-review
+    if: ${{ needs.code-review.result == 'success' && needs.code-review.outputs.prs != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJson(needs.code-review.outputs.prs) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run freq-ai review follow-up
+        uses: geoffsee/freq-ai-action@v0.0.2
+        with:
+          task: fix-pr
+          args: ${{ matrix.pr }}
           agent: claude
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

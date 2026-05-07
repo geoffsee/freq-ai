@@ -253,6 +253,24 @@ pub fn run_agent(cfg: &Config, prompt: &str) -> bool {
 }
 
 pub fn run_agent_with_env(cfg: &Config, prompt: &str, extra_env: &[(String, String)]) -> bool {
+    run_agent_with_env_with_cwd(cfg, prompt, extra_env, None)
+}
+
+pub fn run_agent_with_env_in_dir(
+    cfg: &Config,
+    prompt: &str,
+    extra_env: &[(String, String)],
+    cwd: &Path,
+) -> bool {
+    run_agent_with_env_with_cwd(cfg, prompt, extra_env, Some(cwd))
+}
+
+fn run_agent_with_env_with_cwd(
+    cfg: &Config,
+    prompt: &str,
+    extra_env: &[(String, String)],
+    cwd: Option<&Path>,
+) -> bool {
     let env = merged_agent_env(cfg, extra_env);
     let mut overrides = local_inference_overrides(cfg);
     let model_ov = model_selection_overrides(cfg);
@@ -262,8 +280,8 @@ pub fn run_agent_with_env(cfg: &Config, prompt: &str, extra_env: &[(String, Stri
 
     let cmd = adapter_dispatch::freqai_native_command(cfg.agent, prompt, &overrides.args);
     match cfg.agent {
-        Agent::Codex => run_codex_native_with_env(&cmd.binary, &cmd.args, &env, None),
-        _ => run_claude_native_with_env(&cmd.binary, &cmd.args, &env, None),
+        Agent::Codex => run_codex_native_with_env(&cmd.binary, &cmd.args, &env, cwd),
+        _ => run_claude_native_with_env(&cmd.binary, &cmd.args, &env, cwd),
     }
 }
 
