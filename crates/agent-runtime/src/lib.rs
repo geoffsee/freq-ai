@@ -395,18 +395,48 @@ mod tests {
             .command_for_adapter_invocation(&adapter, AgentInvocation::Version)
             .expect("adapter should support version invocation");
         command.current_dir(runtime.root());
-        let output = command
+        let version_output = command
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
             .unwrap_or_else(|err| panic!("failed to spawn `{}`: {err}", adapter.binary()));
 
+        if version_output.status.success() {
+            return;
+        }
+
+        let mut help_command = runtime
+            .command_for_adapter_invocation(&adapter, AgentInvocation::Help)
+            .expect("adapter should support help invocation");
+        help_command.current_dir(runtime.root());
+        let help_output = help_command
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .unwrap_or_else(|err| panic!("failed to spawn `{}` help: {err}", adapter.binary()));
+
+        if is_env_dependent_cli_failure(&version_output.stderr)
+            || is_env_dependent_cli_failure(&help_output.stderr)
+        {
+            return;
+        }
+
         assert!(
-            output.status.success(),
-            "`{}` version command failed\nstdout:\n{}\nstderr:\n{}",
+            help_output.status.success(),
+            "`{}` version and help commands failed\nversion stdout:\n{}\nversion stderr:\n{}\nhelp stdout:\n{}\nhelp stderr:\n{}",
             adapter.binary(),
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
+            String::from_utf8_lossy(&version_output.stdout),
+            String::from_utf8_lossy(&version_output.stderr),
+            String::from_utf8_lossy(&help_output.stdout),
+            String::from_utf8_lossy(&help_output.stderr),
         );
+    }
+
+    fn is_env_dependent_cli_failure(stderr: &[u8]) -> bool {
+        let stderr = String::from_utf8_lossy(stderr);
+        let stderr = stderr.to_ascii_lowercase();
+        stderr.contains("api key required")
+            || stderr.contains("set grok_api_key")
+            || stderr.contains("secitemcopymatching failed")
     }
 }

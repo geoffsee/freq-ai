@@ -13,8 +13,8 @@ impl AgentCliAdapter for GrokWrapper {
     }
 
     fn version_args(&self) -> Vec<String> {
-        // grok-cli versions differ: some reject `--version` but accept `version`.
-        vec!["version".to_string()]
+        // `grok version` can require auth in newer releases; `--version` is non-auth.
+        vec!["--version".to_string()]
     }
 
     fn model_args(&self, model: &str) -> Option<Vec<String>> {
@@ -85,8 +85,8 @@ mod tests {
     }
 
     #[test]
-    fn version_uses_subcommand_not_flag() {
+    fn version_uses_flag() {
         let wrapper = GrokWrapper;
-        assert_eq!(wrapper.version_args(), vec!["version".to_string()]);
+        assert_eq!(wrapper.version_args(), vec!["--version".to_string()]);
     }
 }
