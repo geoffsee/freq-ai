@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
       AUTOPILOT_CONTEXT: ${{ inputs.context || 'Autopilot scheduled evaluation of open issues and pull requests.' }}
       DRY_RUN: ${{ inputs.dry_run || 'false' }}
     steps:
