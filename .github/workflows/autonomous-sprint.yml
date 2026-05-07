@@ -36,7 +36,8 @@ jobs:
       - name: Run freq-ai autonomous sprint
         uses: geoffsee/freq-ai-action@v0.0.2
         with:
-          task: autonomous-sprint
+          task: run
+          args: autonomous-sprint
           preset: software-factory
           agent: claude
         env:

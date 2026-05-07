@@ -36,7 +36,8 @@ jobs:
       - name: Run freq-ai ci governance
         uses: geoffsee/freq-ai-action@v0.0.2
         with:
-          task: ci-governance
+          task: run
+          args: ci-governance
           preset: software-factory
           agent: claude
         env:

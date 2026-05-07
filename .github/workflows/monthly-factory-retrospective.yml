@@ -36,7 +36,8 @@ jobs:
       - name: Run freq-ai factory retrospective
         uses: geoffsee/freq-ai-action@v0.0.2
         with:
-          task: factory-retrospective
+          task: run
+          args: factory-retrospective
           preset: software-factory
           agent: claude
         env:
