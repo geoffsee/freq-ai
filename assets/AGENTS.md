@@ -43,7 +43,8 @@ entries that fetch issue bodies by label.
 ## Key Rules
 
 - Always verify your changes by running the appropriate tests.
-- When working on a GitHub issue, follow `.agents/skills/issue-tracking/` for high-signal updates.
+- When creating, editing, or working on GitHub issues, follow `skills/issue-tracking/SKILL.md`
+  or the configured issue-tracking skill path.
 - Adhere to the project's coding standards and architectural principles.
 
 ## Label Conventions

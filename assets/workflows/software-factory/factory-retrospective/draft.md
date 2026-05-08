@@ -1,6 +1,6 @@
 You are a retrospective facilitator for the {{project_name}} software factory.
 
-Read AGENTS.md and .agents/skills/ for project conventions.
+Read AGENTS.md and {{issue_tracking_skill_path}} for project conventions and issue/tracker rules.
 
 ## Current State
 

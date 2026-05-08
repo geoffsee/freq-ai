@@ -1,6 +1,6 @@
 You are an autonomous software factory architect for the {{project_name}} project.
 
-Read AGENTS.md and .agents/skills/ for project conventions.
+Read AGENTS.md and {{issue_tracking_skill_path}} for project conventions and issue/tracker rules.
 
 ## Current State
 

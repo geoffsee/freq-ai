@@ -545,6 +545,60 @@ fn all_bundled_workflow_yamls_parse_and_have_templates() {
     );
 }
 
+#[test]
+fn issue_tracking_skill_defines_tracker_contract() {
+    let skill_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets/skills/issue-tracking/SKILL.md");
+    let skill = std::fs::read_to_string(&skill_path).unwrap();
+
+    assert!(skill.contains("## Issue Creation Contract"));
+    assert!(skill.contains("## Tracker Contract"));
+    assert!(skill.contains("Do not use `tracker` for retrospective reports"));
+    assert!(skill.contains("parser-compatible rows"));
+}
+
+#[test]
+fn software_factory_prompts_reference_issue_tracking_skill() {
+    let preset_dir =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/workflows/software-factory");
+    let mut checked = 0u32;
+
+    for wf_entry in std::fs::read_dir(&preset_dir).unwrap() {
+        let wf_path = wf_entry.unwrap().path();
+        if !wf_path.is_dir() {
+            continue;
+        }
+        for phase in ["draft.md", "finalize.md"] {
+            let template_path = wf_path.join(phase);
+            if !template_path.exists() {
+                continue;
+            }
+            let template = std::fs::read_to_string(&template_path).unwrap();
+            assert!(
+                template.contains("{{issue_tracking_skill_path}}"),
+                "{} must direct the agent to the configured issue-tracking skill",
+                template_path.display()
+            );
+            checked += 1;
+        }
+    }
+
+    assert!(
+        checked >= 10,
+        "expected all software-factory prompt templates to be checked"
+    );
+}
+
+#[test]
+fn housekeeping_audit_issue_is_not_tracker_labeled() {
+    let template_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets/workflows/default/housekeeping/finalize.md");
+    let template = std::fs::read_to_string(&template_path).unwrap();
+
+    assert!(template.contains("Use only the `housekeeping` label"));
+    assert!(!template.contains("--label \"housekeeping,tracker\""));
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 10. Bundled assets exist and are non-empty
 // ═══════════════════════════════════════════════════════════════════════════

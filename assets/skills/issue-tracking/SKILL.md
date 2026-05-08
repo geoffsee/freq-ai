@@ -1,11 +1,32 @@
 ---
 name: issue-tracking
-description: Guidance for when agents should comment on GitHub issues, what belongs in the issue versus the PR description, and how to leave high-signal handoff notes.
+description: Guidance for creating GitHub issues and trackers, deciding when to comment on issues, and keeping issue/PR handoff notes high-signal.
 ---
 
 # Issue Tracking
 
-Use this skill when you are working on a GitHub issue and need to decide whether the issue itself needs a comment.
+Use this skill when you are creating, editing, closing, or working from GitHub issues.
+
+## Issue Creation Contract
+
+Create GitHub issues only when they represent schedulable work or a deliberate workflow artifact.
+
+- Schedulable work issues must have a clear outcome, acceptance criteria, verification steps, and at least one workflow or area label.
+- Workflow artifact issues such as retrospectives, roadmap documents, housekeeping reports, strategic reviews, release checkpoints, and stakeholder updates are records, not schedulable work. Label them only with their artifact label unless the prompt explicitly says otherwise.
+- Do not add `tracker` to an issue unless the issue is a parent or epic that groups child issues for execution.
+
+## Tracker Contract
+
+The `tracker` label is reserved for parent issues that the automation can execute.
+
+A tracker issue must contain all of the following:
+
+- The `tracker` label plus the workflow label it groups, for example `tracker,sprint` or `tracker,security`.
+- A dependency hierarchy or equivalent ordered plan.
+- An actionable checklist with child issue references in parser-compatible rows, for example `- [ ] #42 Title (blocked by #40)`.
+- Child issue bodies linked back with `Tracked by #<tracker>`.
+
+Do not use `tracker` for retrospective reports, housekeeping audit logs, single feature issues, child issues, or documents that merely mention other issues. If a workflow needs to record tracker maintenance, write that in the artifact body without adding the `tracker` label.
 
 ## Rule of Thumb
 

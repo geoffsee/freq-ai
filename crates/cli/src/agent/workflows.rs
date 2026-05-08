@@ -11,6 +11,8 @@ fn inject_common_vars(cfg: &Config, vars: &mut serde_json::Value) {
     vars["dry_run"] = serde_json::Value::Bool(cfg.dry_run);
     vars["user_personas_skill_path"] =
         serde_json::Value::String(cfg.skill_paths.user_personas.clone());
+    vars["issue_tracking_skill_path"] =
+        serde_json::Value::String(cfg.skill_paths.issue_tracking.clone());
 }
 
 /// Run the draft phase of any two-phase workflow loaded from YAML.
