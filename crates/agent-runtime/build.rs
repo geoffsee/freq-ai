@@ -86,8 +86,12 @@ fn run_bun_install_if_needed(manifest_dir: &Path, bun_path: &Path, stamp_path: &
 
     let mut cmd = Command::new(bun_path);
     cmd.arg("install");
+    cmd.arg("--trust");
     if manifest_dir.join("bun.lock").exists() {
-        cmd.arg("--frozen-lockfile");
+        println!(
+            "cargo:warning=Bun lockfile exists but --frozen-lockfile cannot be used; running `bun install --trust to trigger lifecycle scripts`"
+        );
+        // cmd.arg("--frozen-lockfile");
     }
     let status = cmd
         .current_dir(manifest_dir)

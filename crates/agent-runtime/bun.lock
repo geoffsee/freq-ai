@@ -16,12 +16,17 @@
     },
   },
   "trustedDependencies": [
+    "@kazuki-ookura/grok-cli",
     "@anthropic-ai/claude-code",
-    "@jetbrains/junie",
     "@github/keytar",
     "node-pty",
     "@vscode/ripgrep",
+    "cline",
+    "@github/copilot",
     "sharp",
+    "@jetbrains/junie",
+    "@google/gemini-cli",
+    "@openai/codex",
   ],
   "packages": {
     "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@0.13.1", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-6byvu+F/xc96GBkdAx4hq6/tB3vT63DSBO4i3gYCz8nuyZMerVFna2Gkhm8EHNpZX0J9DjUxzZCW+rnHXUg0FA=="],
@@ -120,7 +125,7 @@
 
     "@img/sharp-win32-x64": ["@img/sharp-win32-x64@0.34.5", "", { "os": "win32", "cpu": "x64" }, "sha512-+29YMsqY2/9eFEiW93eqWnuLcWcufowXewwSNIT6UwZdUUCrM3oFjMWH/Z6/TMmb4hlFenmfAVbpWeup2jryCw=="],
 
-    "@jetbrains/junie": ["@jetbrains/junie@1543.20.0", "", { "dependencies": { "yauzl": "^3.2.0" }, "bin": { "junie": "bin/index.js" } }, "sha512-ezCZeLAfRqKFXveIA4A2Tx5ld3DHOF1GxVQP+dx/BQQJIyRHbMWMjsTP63qTlsAlrIw9mrK6mIvNU8MA3i0LHg=="],
+    "@jetbrains/junie": ["@jetbrains/junie@1543.24.0", "", { "dependencies": { "yauzl": "^3.2.0" }, "bin": { "junie": "bin/index.js" } }, "sha512-pm6lCl4cuorfyl3i/GVPgkvgtZ6Jm1hJ4VEyrZt0i6+kANvr6terGCUsFmCqySytx/ZCUji5XopEVsuEyI0XqQ=="],
 
     "@kazuki-ookura/grok-cli": ["@kazuki-ookura/grok-cli@1.2.0", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.17.0", "axios": "^1.7.0", "cfonts": "^3.3.0", "chalk": "^5.3.0", "commander": "^12.0.0", "dotenv": "^16.4.0", "enquirer": "^2.4.1", "fs-extra": "^11.2.0", "ink": "^4.4.1", "marked": "^15.0.12", "marked-terminal": "^7.3.0", "node-pty": "^1.1.0", "openai": "^5.10.1", "react": "^18.3.1", "ripgrep-node": "^1.0.0", "tiktoken": "^1.0.21" }, "bin": { "grok": "dist/index.js" } }, "sha512-FpZ8AtwBiWMKIfmu9wPrfAV1JskrHy9biTnec3YLmG536oVaB8gtyhEPl0JzO8TfrAKBVEjhQV9URxRMiN5jGQ=="],
 

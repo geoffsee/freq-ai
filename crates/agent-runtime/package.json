@@ -13,8 +13,13 @@
   },
   "trustedDependencies": [
     "@anthropic-ai/claude-code",
-    "@github/keytar",
+    "@github/copilot",
+    "@google/gemini-cli",
     "@jetbrains/junie",
+    "@kazuki-ookura/grok-cli",
+    "@openai/codex",
+    "cline",
+    "@github/keytar",
     "@vscode/ripgrep",
     "node-pty",
     "sharp"
