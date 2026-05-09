@@ -39,8 +39,8 @@ cat > "$HOOK_DIR/pre-push" << 'HOOK'
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "==> Running cargo test (all crates)..."
-if ! cargo test --workspace; then
+echo "==> Running cargo test (all crates except GUI)..."
+if ! cargo test --workspace --exclude freq-ai; then
     echo ""
     echo "Tests failed. Fix them before pushing."
     exit 1

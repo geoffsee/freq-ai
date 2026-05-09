@@ -91,4 +91,21 @@ mod tests {
             Some(vec!["--resume".to_string()])
         );
     }
+
+    #[test]
+    fn adapter_launch_path_exits_with_code_or_binary_absent() {
+        let wrapper = CopilotWrapper;
+        match std::process::Command::new(wrapper.binary())
+            .args(wrapper.help_args())
+            .output()
+        {
+            Ok(out) => assert!(
+                out.status.code().is_some(),
+                "{} --help terminated by signal unexpectedly",
+                wrapper.binary()
+            ),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => panic!("unexpected error spawning {}: {e}", wrapper.binary()),
+        }
+    }
 }
