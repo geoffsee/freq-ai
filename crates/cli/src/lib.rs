@@ -74,7 +74,7 @@ struct WorkflowEntriesResponse {
     name = "freq-ai",
     about = "Distributed application runtime agent",
     long_about = "freq-ai runs agent-powered project workflows from the command line or launches the desktop UI when no subcommand is given.",
-    after_help = "Examples:\n  freq-ai\n  freq-ai --agent codex code-review\n  freq-ai --dry-run refresh-docs\n  freq-ai --preset software-factory run backlog-curation\n  freq-ai serve --port 3000",
+    after_help = "Examples:\n  freq-ai\n  freq-ai --agent codex code-review\n  freq-ai --dry-run refresh-docs\n  freq-ai --preset software-factory run backlog-curation\n  freq-ai models\n  freq-ai --agent codex models --plain\n  freq-ai serve --port 3000",
     version
 )]
 struct Cli {
@@ -97,6 +97,12 @@ struct Cli {
     /// See `freq-ai presets` for the list of available presets.
     #[arg(long, value_name = "NAME")]
     preset: Option<String>,
+
+    /// Agent model for this invocation (overrides persisted freq-ai dev config).
+    /// `FREQ_AI_MODEL` applies the same override when set.
+    /// Hint: `freq-ai --agent … models` lists bundled IDs from `assets/available-models.json`.
+    #[arg(long, value_name = "MODEL")]
+    model: Option<String>,
 
     /// Write the bundled label taxonomy to .github/labels.yml and exit
     #[arg(long)]
@@ -168,6 +174,17 @@ enum Commands {
         #[arg(value_name = "WORKFLOW")]
         workflow: String,
     },
+    /// List bundled model IDs and labels for `--model` / `FREQ_AI_MODEL`
+    ///
+    /// Data comes from assets/available-models.json (regenerate: cargo build -p freq-ai-agent-runtime).
+    Models {
+        /// Print only model IDs, one per line (for shell completion).
+        #[arg(long)]
+        plain: bool,
+        /// List every adapter; with `--plain`, deduplicate IDs across adapters.
+        #[arg(long)]
+        all: bool,
+    },
 }
 
 /// Standalone entry point — equivalent to `run_with_overrides(|_| {})`.
@@ -228,6 +245,8 @@ where
         config.auto_mode = cli.auto;
         config.dry_run = cli.dry_run;
         overrides(&mut config);
+
+        apply_freq_ai_model_env_and_cli(&mut config, cli.model.as_deref());
 
         // CLI `--preset` wins over freq-ai.toml and library overrides — fail fast
         // with the available list if the name doesn't match a real preset dir.
@@ -295,6 +314,9 @@ where
                         std::process::exit(2);
                     }
                 }
+            }
+            Some(Commands::Models { plain, all }) => {
+                agent::models_catalog::run_models_list(cli.agent, plain, all);
             }
             Some(Commands::Presets { name }) => match name {
                 None => {
@@ -387,6 +409,23 @@ where
 /// (e.g. custom `skill_paths`) survive into the GUI rather than being
 /// re-derived from `freq-ai.toml` alone.
 static CONFIG_OVERRIDE: std::sync::OnceLock<Config> = std::sync::OnceLock::new();
+
+fn apply_nonempty_model_trim(into: &mut String, candidate: Option<&str>) {
+    if let Some(m) = candidate {
+        let m = m.trim();
+        if !m.is_empty() {
+            *into = m.to_string();
+        }
+    }
+}
+
+fn apply_freq_ai_model_env_and_cli(config: &mut Config, cli_model: Option<&str>) {
+    apply_nonempty_model_trim(
+        &mut config.model,
+        std::env::var("FREQ_AI_MODEL").ok().as_deref(),
+    );
+    apply_nonempty_model_trim(&mut config.model, cli_model);
+}
 
 fn ensure_default_workflow_preset_first(mut presets: Vec<String>) -> Vec<String> {
     if !presets.iter().any(|preset| preset == "default") {
@@ -1118,5 +1157,27 @@ fn App() -> Element {
                 theme_name: theme.read().name.to_string(),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod model_trim_tests {
+    use super::apply_nonempty_model_trim;
+
+    #[test]
+    fn successive_nonempty_candidates_override() {
+        let mut m = "first".into();
+        apply_nonempty_model_trim(&mut m, Some("  second  "));
+        apply_nonempty_model_trim(&mut m, Some("third"));
+        assert_eq!(m, "third");
+    }
+
+    #[test]
+    fn skips_empty_or_whitespace_only() {
+        let mut m = "keep".into();
+        apply_nonempty_model_trim(&mut m, Some("   "));
+        apply_nonempty_model_trim(&mut m, Some(""));
+        apply_nonempty_model_trim(&mut m, None);
+        assert_eq!(m, "keep");
     }
 }

@@ -740,6 +740,24 @@ fn bundled_available_models_json_is_valid() {
 }
 
 #[test]
+fn models_plain_lists_bundled_ids() {
+    let out = run_ok(&["--agent", "claude", "models", "--plain"]);
+    assert!(
+        out.lines().any(|line| line.starts_with("claude-")),
+        "expected claude model ids from bundled JSON:\n{out}"
+    );
+}
+
+#[test]
+fn models_table_mentions_bundled_catalog() {
+    let out = run_ok(&["--agent", "claude", "models"]);
+    assert!(
+        out.contains("Bundled models") && out.contains("freq-ai-agent-runtime"),
+        "expected catalog header and regen hint:\n{out}"
+    );
+}
+
+#[test]
 fn bundled_skills_exist() {
     let skills_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/skills");
     assert!(skills_dir.exists(), "assets/skills/ not found");
