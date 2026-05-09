@@ -16,8 +16,15 @@ pub fn generate_codebase_snapshot(root: &str) -> String {
             let root = root.to_string();
             std::thread::spawn(move || generate_codebase_snapshot_on_new_runtime(&root))
                 .join()
-                .unwrap_or_else(|_| {
-                    log("WARNING: toak-rs snapshot worker thread panicked");
+                .unwrap_or_else(|panic_payload| {
+                    let reason = panic_payload
+                        .downcast_ref::<String>()
+                        .map(|s| s.as_str())
+                        .or_else(|| panic_payload.downcast_ref::<&str>().copied())
+                        .unwrap_or("(non-string panic payload)");
+                    log(&format!(
+                        "WARNING: toak-rs snapshot worker thread panicked: {reason}"
+                    ));
                     String::new()
                 })
         }
@@ -157,6 +164,38 @@ mod tests {
         );
     }
 
+    /// Exercises the current-thread branch: inside a current_thread runtime the
+    /// function must spawn a worker thread rather than calling block_in_place.
+    #[tokio::test(flavor = "current_thread")]
+    async fn generate_codebase_snapshot_works_inside_current_thread_runtime() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(root)
+            .output()
+            .unwrap();
+        fs::write(root.join("lib.rs"), "pub fn hello() {}\n").unwrap();
+        std::process::Command::new("git")
+            .args(["add", "lib.rs"])
+            .current_dir(root)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(root)
+            .output()
+            .unwrap();
+
+        let root_str = root.to_string_lossy().into_owned();
+        let result = generate_codebase_snapshot(&root_str);
+        assert!(
+            !result.is_empty(),
+            "current-thread branch should return a non-empty snapshot"
+        );
+    }
+
     /// Exercises the sync wrapper inside a tokio runtime, matching GUI dispatch.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn generate_codebase_snapshot_works_inside_tokio_runtime() {
@@ -192,6 +231,21 @@ mod tests {
         assert!(
             tokens > 0,
             "count_tokens should return >0 for non-empty input"
+        );
+    }
+
+    /// Verifies that a non-git directory makes toak-rs fail gracefully and
+    /// the function returns an empty string rather than panicking.
+    /// Does NOT use set_current_dir to avoid racing with other tests.
+    #[test]
+    fn generate_codebase_snapshot_returns_empty_on_non_git_root() {
+        let dir = tempfile::tempdir().unwrap();
+        // Deliberately skip `git init` so toak-rs has no tracked files to list.
+        let root = dir.path().to_string_lossy().into_owned();
+        let result = generate_codebase_snapshot(&root);
+        assert!(
+            result.is_empty(),
+            "a non-git root should yield an empty snapshot, not content"
         );
     }
 
