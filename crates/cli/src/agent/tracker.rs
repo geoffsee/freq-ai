@@ -440,7 +440,9 @@ pub fn close_issue(issue_num: u32) {
 }
 
 /// Given a list of blocker issue numbers, find the first one with an open PR
-/// and return its branch name. Falls back to `"master"`.
+/// and return its branch name. Otherwise returns [`origin_default_branch`].
+///
+/// [`origin_default_branch`]: crate::agent::cmd::origin_default_branch
 pub fn find_upstream_branch(blockers: &[u32]) -> String {
     for &blocker in blockers {
         let head = format!("agent/issue-{blocker}");
@@ -465,7 +467,7 @@ pub fn find_upstream_branch(blockers: &[u32]) -> String {
             return branch;
         }
     }
-    "master".to_string()
+    crate::agent::cmd::origin_default_branch()
 }
 
 pub fn fetch_issue(issue_num: u32) -> (String, String) {
@@ -4833,7 +4835,10 @@ mod tests {
 
     #[test]
     fn upstream_branch_no_blockers() {
-        assert_eq!(find_upstream_branch(&[]), "master");
+        assert_eq!(
+            find_upstream_branch(&[]),
+            crate::agent::cmd::origin_default_branch()
+        );
     }
 
     // ── Housekeeping prompt builders ──

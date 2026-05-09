@@ -1,4 +1,6 @@
-use crate::agent::cmd::{cmd_capture, cmd_run, count_tokens, die, has_command, log};
+use crate::agent::cmd::{
+    cmd_capture, cmd_run, cmd_stdout, count_tokens, die, has_command, log, origin_default_branch,
+};
 use crate::agent::launch::log_resolved_agent_launch;
 use crate::agent::process::stop_requested;
 use crate::agent::run::run_agent;
@@ -14,6 +16,41 @@ use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 use std::time::Instant;
+
+/// Fetch `origin/{branch}` first; if it exists, check it out and fast-forward pull.
+/// Otherwise create a new local branch (removing a stale local branch if needed).
+fn checkout_issue_working_branch(branch: &str) {
+    if cmd_run("git", &["fetch", "origin", branch]) {
+        let origin_ref = format!("origin/{branch}");
+        if !cmd_run("git", &["checkout", "-B", branch, &origin_ref]) {
+            die(&format!(
+                "Fetched {origin_ref} but could not check out local branch '{branch}'."
+            ));
+        }
+        if !cmd_run("git", &["pull", "--ff-only", "origin", branch]) {
+            log(&format!(
+                "Note: could not fast-forward '{branch}' from origin (continuing at checkout)."
+            ));
+        }
+    } else {
+        if cmd_stdout(
+            "git",
+            &[
+                "rev-parse",
+                "--quiet",
+                "--verify",
+                &format!("refs/heads/{branch}"),
+            ],
+        )
+        .is_some()
+        {
+            cmd_run("git", &["branch", "-D", branch]);
+        }
+        if !cmd_run("git", &["checkout", "-b", branch]) {
+            die(&format!("Could not create working branch '{branch}'."));
+        }
+    }
+}
 
 pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &[u32]) {
     if stop_requested() {
@@ -59,19 +96,21 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     }
 
     let branch = format!("{BRANCH_PREFIX}{issue_num}");
+    let trunk = origin_default_branch();
     let base = find_upstream_branch(blockers);
 
-    // Start from the upstream dependency branch (or master if no blockers).
-    if base != "master" {
+    // Start from the upstream dependency branch (or default trunk when unblocked).
+    if base != trunk {
         log(&format!("Chaining off upstream branch '{base}'"));
         cmd_run("git", &["fetch", "origin", &base]);
         cmd_run("git", &["checkout", &base]);
         cmd_run("git", &["pull", "origin", &base]);
     } else {
-        cmd_run("git", &["checkout", "master"]);
+        cmd_run("git", &["fetch", "origin", &trunk]);
+        cmd_run("git", &["checkout", &trunk]);
+        cmd_run("git", &["pull", "--ff-only", "origin", &trunk]);
     }
-    cmd_run("git", &["branch", "-D", &branch]); // remove stale branch if any
-    cmd_run("git", &["checkout", "-b", &branch]);
+    checkout_issue_working_branch(&branch);
 
     let codebase = timed!("snapshot", {
         if !cfg.bootstrap_snapshot || env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
