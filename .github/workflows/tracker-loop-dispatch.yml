@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: geoffsee/freq-ai-action@v0.0.3
+      - uses: geoffsee/freq-ai-action@v0.0.4
         id: plan
         with:
           task: tracker-matrix
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run freq-ai issue
-        uses: geoffsee/freq-ai-action@v0.0.3
+        uses: geoffsee/freq-ai-action@v0.0.4
         with:
           task: issue
           args: --tracker ${{ inputs.tracker }} ${{ matrix.issue }}
@@ -85,11 +85,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run freq-ai code review
-        uses: geoffsee/freq-ai-action@v0.0.3
+        uses: geoffsee/freq-ai-action@v0.0.4
         with:
           task: code-review
           agent: claude
         env:
+          DEV_BOT_TOKEN: ${{ secrets.DEV_BOT_TOKEN }}
+          DEV_BOT_INSTALLATION_ID: ${{ secrets.DEV_BOT_INSTALLATION_ID }}
+          DEV_BOT_PRIVATE_KEY_B64: ${{ secrets.DEV_BOT_PRIVATE_KEY_B64 }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           FREQ_AI_CONTEXT: ${{ inputs.context }}
           FREQ_AI_MODEL: ${{ inputs.model }}
@@ -119,7 +122,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run freq-ai review follow-up
-        uses: geoffsee/freq-ai-action@v0.0.3
+        uses: geoffsee/freq-ai-action@v0.0.4
         with:
           task: fix-pr
           args: ${{ matrix.pr }}
