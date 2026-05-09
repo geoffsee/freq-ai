@@ -267,18 +267,21 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(target_arch = "wasm32"))]
     fn describe_panic_payload_extracts_str_message() {
         let payload: Box<dyn std::any::Any + Send> = Box::new("boom");
         assert_eq!(describe_panic_payload(payload.as_ref()), "boom");
     }
 
     #[test]
+    #[cfg(not(target_arch = "wasm32"))]
     fn describe_panic_payload_extracts_string_message() {
         let payload: Box<dyn std::any::Any + Send> = Box::new(String::from("kaboom"));
         assert_eq!(describe_panic_payload(payload.as_ref()), "kaboom");
     }
 
     #[test]
+    #[cfg(not(target_arch = "wasm32"))]
     fn describe_panic_payload_falls_back_for_unknown_payload() {
         let payload: Box<dyn std::any::Any + Send> = Box::new(42u32);
         assert_eq!(
