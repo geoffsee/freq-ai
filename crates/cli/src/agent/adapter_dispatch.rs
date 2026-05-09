@@ -12,6 +12,19 @@ use grok::GrokWrapper;
 use junie::JunieWrapper;
 use xai::XaiWrapper;
 
+pub const PROMPT_STDIN_BYTE_THRESHOLD: usize = 64 * 1024;
+
+pub struct NativeRunCommand {
+    pub command: AgentCliCommand,
+    pub prompt_transport: PromptTransport,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PromptTransport {
+    Argv,
+    Stdin,
+}
+
 pub fn native_base_command(agent: Agent, prompt: &str) -> AgentCliCommand {
     match agent {
         Agent::Claude => AgentCliCommand {
@@ -57,6 +70,67 @@ pub fn freqai_native_command(agent: Agent, prompt: &str, extra_args: &[String]) 
     let mut cmd = native_base_command(agent, prompt);
     cmd.args.extend_from_slice(extra_args);
     cmd
+}
+
+pub fn freqai_native_command_with_prompt_transport(
+    agent: Agent,
+    prompt: &str,
+    extra_args: &[String],
+) -> NativeRunCommand {
+    let use_stdin = prompt.len() > PROMPT_STDIN_BYTE_THRESHOLD;
+    let mut command = if use_stdin {
+        native_stdin_command(agent).unwrap_or_else(|| native_base_command(agent, prompt))
+    } else {
+        native_base_command(agent, prompt)
+    };
+    command.args.extend_from_slice(extra_args);
+
+    NativeRunCommand {
+        command,
+        prompt_transport: if use_stdin && supports_stdin_prompt(agent) {
+            PromptTransport::Stdin
+        } else {
+            PromptTransport::Argv
+        },
+    }
+}
+
+fn supports_stdin_prompt(agent: Agent) -> bool {
+    matches!(
+        agent,
+        Agent::Claude | Agent::Cursor | Agent::Junie | Agent::Codex
+    )
+}
+
+fn native_stdin_command(agent: Agent) -> Option<AgentCliCommand> {
+    match agent {
+        Agent::Claude => Some(AgentCliCommand {
+            binary: ClaudeWrapper.binary().to_string(),
+            args: claude_family_native_stdin_argv(),
+        }),
+        Agent::Cursor => Some(AgentCliCommand {
+            binary: CursorWrapper.binary().to_string(),
+            args: claude_family_native_stdin_argv(),
+        }),
+        Agent::Junie => Some(AgentCliCommand {
+            binary: JunieWrapper.binary().to_string(),
+            args: claude_family_native_stdin_argv(),
+        }),
+        Agent::Codex => Some(AgentCliCommand {
+            binary: CodexWrapper.binary().to_string(),
+            args: vec!["exec".to_string(), "--json".to_string(), "-".to_string()],
+        }),
+        _ => None,
+    }
+}
+
+fn claude_family_native_stdin_argv() -> Vec<String> {
+    vec![
+        "-p".to_string(),
+        "--output-format".to_string(),
+        "stream-json".to_string(),
+        "--verbose".to_string(),
+    ]
 }
 
 pub fn launch_model_selection(agent: Agent, model: &str) -> (Vec<String>, Vec<(String, String)>) {
@@ -143,6 +217,45 @@ mod tests {
         let cmd = freqai_native_command(Agent::Gemini, "hi", &extra);
         assert_eq!(cmd.args[0..2], ["-p", "hi"]);
         assert_eq!(cmd.args[2..], ["--model", "m"]);
+    }
+
+    #[test]
+    fn oversized_claude_prompt_uses_stdin_transport() {
+        let prompt = "x".repeat(PROMPT_STDIN_BYTE_THRESHOLD + 1);
+        let cmd = freqai_native_command_with_prompt_transport(Agent::Claude, &prompt, &[]);
+
+        assert_eq!(cmd.command.binary, "claude");
+        assert_eq!(cmd.command.args, claude_family_native_stdin_argv());
+        assert_eq!(cmd.prompt_transport, PromptTransport::Stdin);
+        assert!(!cmd.command.args.iter().any(|arg| arg == &prompt));
+    }
+
+    #[test]
+    fn oversized_codex_prompt_uses_stdin_transport() {
+        let prompt = "x".repeat(PROMPT_STDIN_BYTE_THRESHOLD + 1);
+        let extra = vec!["--dangerously-bypass-approvals-and-sandbox".to_string()];
+        let cmd = freqai_native_command_with_prompt_transport(Agent::Codex, &prompt, &extra);
+
+        assert_eq!(cmd.command.binary, "codex");
+        assert_eq!(
+            cmd.command.args,
+            vec![
+                "exec".to_string(),
+                "--json".to_string(),
+                "-".to_string(),
+                "--dangerously-bypass-approvals-and-sandbox".to_string()
+            ]
+        );
+        assert_eq!(cmd.prompt_transport, PromptTransport::Stdin);
+        assert!(!cmd.command.args.iter().any(|arg| arg == &prompt));
+    }
+
+    #[test]
+    fn small_prompts_keep_existing_argv_shape() {
+        let cmd = freqai_native_command_with_prompt_transport(Agent::Claude, "small", &[]);
+
+        assert_eq!(cmd.command.args, claude_family_native_argv("small"));
+        assert_eq!(cmd.prompt_transport, PromptTransport::Argv);
     }
 
     #[test]

@@ -1,13 +1,26 @@
 use crate::agent::adapter_dispatch;
+use crate::agent::adapter_dispatch::PromptTransport;
 use crate::agent::cmd::{count_tokens, log};
 use crate::agent::launch::{auto_mode_overrides, merged_agent_env, model_selection_overrides};
 use crate::agent::process::{emit_event, set_active_child_pid, stop_requested};
 use crate::agent::types::{Agent, AgentEvent, AssistantMessage, ClaudeEvent, Config, ContentBlock};
 use agent_runtime::AgentRuntime;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Instant;
+use tempfile::NamedTempFile;
+
+const FREQ_AI_CLAUDE_SYSTEM_PROMPT: &str = r#"You are freq-ai's autonomous repository agent.
+
+Follow repository instructions from AGENTS.md, workflow prompts, tracker issues, and local status files when present.
+Treat the user or workflow prompt as the source of task-specific scope.
+When the task implies implementation, carry it through edits, verification, and a concise outcome report.
+Make the smallest coherent code changes that complete the task, and preserve unrelated worktree changes.
+Prefer existing project patterns and tools over new abstractions.
+Run the most relevant verification commands available in the repository, and report failures or blockers plainly.
+If required context is missing or instructions conflict, surface the blocker instead of guessing.
+"#;
 
 fn native_command(binary: &str, args: &[String]) -> Command {
     let mut cmd = if binary == "cursor" {
@@ -56,7 +69,39 @@ fn run_claude_native_with_env_for_prompt(
     cwd: Option<&Path>,
     prompt: &str,
 ) -> bool {
-    let mut cmd = native_command(binary, args);
+    run_claude_native_with_env_for_prompt_and_stdin(
+        binary, args, extra_env, cwd, prompt, None, None,
+    )
+}
+
+fn run_claude_native_with_env_for_prompt_and_stdin(
+    binary: &str,
+    args: &[String],
+    extra_env: &[(String, String)],
+    cwd: Option<&Path>,
+    prompt: &str,
+    stdin_prompt: Option<&str>,
+    append_system_prompt: Option<&str>,
+) -> bool {
+    let started_at = Instant::now();
+    let (launch_args, _system_prompt_file) =
+        match args_with_append_system_prompt_file(args, append_system_prompt) {
+            Ok(prepared) => prepared,
+            Err(err) => {
+                return handle_agent_launch_failure(
+                    format!("Failed to prepare system prompt file for {binary}: {err}"),
+                    started_at,
+                    prompt,
+                );
+            }
+        };
+    if append_system_prompt.is_some() {
+        log(&format!(
+            "Appending freq-ai system prompt for {binary} via --append-system-prompt-file"
+        ));
+    }
+
+    let mut cmd = native_command(binary, &launch_args);
 
     if let Some(p) = cwd {
         cmd.current_dir(p);
@@ -65,7 +110,11 @@ fn run_claude_native_with_env_for_prompt(
         cmd.env(k, v);
     }
     let program = cmd.get_program().to_string_lossy().to_string();
-    let started_at = Instant::now();
+    let _prompt_file =
+        match attach_prompt_stdin(&mut cmd, stdin_prompt, binary, &program, started_at, prompt) {
+            Ok(prompt_file) => prompt_file,
+            Err(ok) => return ok,
+        };
     let mut child = match cmd.stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn() {
         Ok(child) => child,
         Err(err) => {
@@ -311,7 +360,14 @@ fn handle_agent_spawn_error(
     started_at: Instant,
     prompt: &str,
 ) -> bool {
-    let message = format!("Failed to spawn {binary} at {program}: {err}");
+    handle_agent_launch_failure(
+        format!("Failed to spawn {binary} at {program}: {err}"),
+        started_at,
+        prompt,
+    )
+}
+
+fn handle_agent_launch_failure(message: String, started_at: Instant, prompt: &str) -> bool {
     log(&message);
     set_active_child_pid(None);
     emit_event(estimated_result_event(
@@ -321,6 +377,71 @@ fn handle_agent_spawn_error(
         &message,
     ));
     false
+}
+
+fn args_with_append_system_prompt_file(
+    args: &[String],
+    append_system_prompt: Option<&str>,
+) -> std::io::Result<(Vec<String>, Option<NamedTempFile>)> {
+    let Some(system_prompt) = append_system_prompt else {
+        return Ok((args.to_vec(), None));
+    };
+
+    let file = system_prompt_tempfile(system_prompt)?;
+    let mut args = args.to_vec();
+    args.push("--append-system-prompt-file".to_string());
+    args.push(file.path().to_string_lossy().to_string());
+    Ok((args, Some(file)))
+}
+
+fn attach_prompt_stdin(
+    cmd: &mut Command,
+    stdin_prompt: Option<&str>,
+    binary: &str,
+    program: &str,
+    started_at: Instant,
+    prompt: &str,
+) -> Result<Option<NamedTempFile>, bool> {
+    let Some(stdin_prompt) = stdin_prompt else {
+        return Ok(None);
+    };
+
+    match prompt_tempfile(stdin_prompt) {
+        Ok(file) => match file.reopen() {
+            Ok(stdin_file) => {
+                cmd.stdin(Stdio::from(stdin_file));
+                log(&format!(
+                    "Prompt is {} bytes; sending to {binary} through a temp-file stdin handle",
+                    stdin_prompt.len()
+                ));
+                Ok(Some(file))
+            }
+            Err(err) => Err(handle_agent_spawn_error(
+                binary, program, err, started_at, prompt,
+            )),
+        },
+        Err(err) => Err(handle_agent_spawn_error(
+            binary, program, err, started_at, prompt,
+        )),
+    }
+}
+
+fn prompt_tempfile(prompt: &str) -> std::io::Result<NamedTempFile> {
+    text_tempfile("freq-ai-prompt-", prompt)
+}
+
+fn system_prompt_tempfile(prompt: &str) -> std::io::Result<NamedTempFile> {
+    text_tempfile("freq-ai-system-prompt-", prompt)
+}
+
+fn text_tempfile(prefix: &str, contents: &str) -> std::io::Result<NamedTempFile> {
+    let mut file = tempfile::Builder::new()
+        .prefix(prefix)
+        .suffix(".txt")
+        .tempfile()?;
+    file.write_all(contents.as_bytes())?;
+    file.flush()?;
+    Ok(file)
 }
 
 fn append_event_output(ev: &AgentEvent, output: &mut String) {
@@ -358,6 +479,17 @@ fn run_codex_native_with_env_for_prompt(
     cwd: Option<&Path>,
     prompt: &str,
 ) -> bool {
+    run_codex_native_with_env_for_prompt_and_stdin(binary, args, extra_env, cwd, prompt, None)
+}
+
+fn run_codex_native_with_env_for_prompt_and_stdin(
+    binary: &str,
+    args: &[String],
+    extra_env: &[(String, String)],
+    cwd: Option<&Path>,
+    prompt: &str,
+    stdin_prompt: Option<&str>,
+) -> bool {
     let mut cmd = native_command(binary, args);
 
     if let Some(p) = cwd {
@@ -368,6 +500,11 @@ fn run_codex_native_with_env_for_prompt(
     }
     let program = cmd.get_program().to_string_lossy().to_string();
     let started_at = Instant::now();
+    let _prompt_file =
+        match attach_prompt_stdin(&mut cmd, stdin_prompt, binary, &program, started_at, prompt) {
+            Ok(prompt_file) => prompt_file,
+            Err(ok) => return ok,
+        };
     let mut child = match cmd.stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn() {
         Ok(child) => child,
         Err(err) => {
@@ -447,13 +584,36 @@ fn run_agent_with_env_with_cwd(
     let auto_ov = auto_mode_overrides(cfg);
     overrides.args.extend(auto_ov.args);
 
-    let cmd = adapter_dispatch::freqai_native_command(cfg.agent, prompt, &overrides.args);
+    let cmd = adapter_dispatch::freqai_native_command_with_prompt_transport(
+        cfg.agent,
+        prompt,
+        &overrides.args,
+    );
+    let stdin_prompt = (cmd.prompt_transport == PromptTransport::Stdin).then_some(prompt);
+    let append_system_prompt = appended_system_prompt_for_agent(cfg.agent);
     match cfg.agent {
-        Agent::Codex => {
-            run_codex_native_with_env_for_prompt(&cmd.binary, &cmd.args, &env, cwd, prompt)
-        }
-        _ => run_claude_native_with_env_for_prompt(&cmd.binary, &cmd.args, &env, cwd, prompt),
+        Agent::Codex => run_codex_native_with_env_for_prompt_and_stdin(
+            &cmd.command.binary,
+            &cmd.command.args,
+            &env,
+            cwd,
+            prompt,
+            stdin_prompt,
+        ),
+        _ => run_claude_native_with_env_for_prompt_and_stdin(
+            &cmd.command.binary,
+            &cmd.command.args,
+            &env,
+            cwd,
+            prompt,
+            stdin_prompt,
+            append_system_prompt,
+        ),
     }
+}
+
+fn appended_system_prompt_for_agent(agent: Agent) -> Option<&'static str> {
+    matches!(agent, Agent::Claude).then_some(FREQ_AI_CLAUDE_SYSTEM_PROMPT)
 }
 
 pub fn local_inference_overrides(cfg: &Config) -> crate::agent::types::AgentLaunchOverrides {
@@ -463,10 +623,12 @@ pub fn local_inference_overrides(cfg: &Config) -> crate::agent::types::AgentLaun
 #[cfg(test)]
 mod tests {
     use super::{
+        appended_system_prompt_for_agent, args_with_append_system_prompt_file,
         codex_events_from_json_line, native_command, run_claude_native_with_env,
         run_codex_native_with_env,
     };
-    use crate::agent::types::{AgentEvent, ClaudeEvent};
+    use crate::agent::types::{Agent, AgentEvent, ClaudeEvent};
+    use std::fs;
     use std::path::PathBuf;
 
     #[test]
@@ -518,6 +680,44 @@ mod tests {
             !result.expect("spawn failure should not panic"),
             "missing agent binary should report an unsuccessful run"
         );
+    }
+
+    #[test]
+    fn only_claude_gets_appended_system_prompt() {
+        let prompt = appended_system_prompt_for_agent(Agent::Claude)
+            .expect("claude should receive appended freq-ai guidance");
+
+        assert!(prompt.contains("freq-ai's autonomous repository agent"));
+        assert!(prompt.contains("preserve unrelated worktree changes"));
+        assert_eq!(appended_system_prompt_for_agent(Agent::Codex), None);
+        assert_eq!(appended_system_prompt_for_agent(Agent::Cursor), None);
+    }
+
+    #[test]
+    fn append_system_prompt_arg_uses_temp_file_without_inlining_prompt() {
+        let base_args = vec!["-p".to_string(), "hello".to_string()];
+        let (args, system_prompt_file) =
+            args_with_append_system_prompt_file(&base_args, Some("stable guidance"))
+                .expect("system prompt temp file should be created");
+        let system_prompt_file = system_prompt_file.expect("system prompt file should be retained");
+
+        assert_eq!(&args[..base_args.len()], base_args.as_slice());
+        let flag_index = args
+            .iter()
+            .position(|arg| arg == "--append-system-prompt-file")
+            .expect("append system prompt flag should be present");
+        let path_arg = args
+            .get(flag_index + 1)
+            .expect("append system prompt flag should include a file path");
+        let expected_path = system_prompt_file.path().to_string_lossy().to_string();
+
+        assert_eq!(path_arg, &expected_path);
+        assert_eq!(
+            fs::read_to_string(system_prompt_file.path())
+                .expect("system prompt should be readable"),
+            "stable guidance"
+        );
+        assert!(!args.iter().any(|arg| arg == "stable guidance"));
     }
 
     #[test]
