@@ -636,8 +636,12 @@ mod tests {
         let cmd = native_command("codex", &["exec".to_string(), "--json".to_string()]);
         let program = PathBuf::from(cmd.get_program());
         let display = program.to_string_lossy();
+        // Either the bundled runtime resolved a concrete codex entrypoint
+        // (path lives under `agent-runtime/node_modules`) or, on systems
+        // without the runtime prepared, we fall back to the bare `codex`
+        // command name.
         assert!(
-            display.contains("freq-ai") || display == "codex",
+            display.contains("agent-runtime") || display == "codex",
             "unexpected codex program path: {display}"
         );
         let args: Vec<String> = cmd

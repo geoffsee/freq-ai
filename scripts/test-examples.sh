@@ -5,6 +5,18 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
 cd "${repo_root}"
 
+# `freq-ai-agent-runtime`'s build script requires Bun. Locate it on PATH or via
+# `$BUN`; if neither is set, install into `~/.bun` and export `BUN` for the
+# build script to pick up. Without this the `cargo test` invocation below
+# panics on systems (e.g. fresh CI runners) where Bun is not preinstalled.
+if [ -z "${BUN:-}" ] && ! command -v bun >/dev/null 2>&1; then
+  echo "==> installing bun (not found on PATH)"
+  curl -fsSL https://bun.sh/install | bash >&2
+  BUN="${HOME}/.bun/bin/bun"
+  export BUN
+  export PATH="${HOME}/.bun/bin:${PATH}"
+fi
+
 echo "==> cargo test --workspace"
 cargo test --workspace --quiet
 
