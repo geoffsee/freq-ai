@@ -33,7 +33,7 @@ impl AgentCliAdapter for GrokWrapper {
         Some(vec!["--directory".to_string(), project.to_string()])
     }
 
-    fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String> {
+    fn caretta_native_run_argv(&self, prompt: &str) -> Vec<String> {
         vec!["-p".to_string(), prompt.to_string()]
     }
 
@@ -72,7 +72,7 @@ mod tests {
     fn native_run_uses_dash_p() {
         let wrapper = GrokWrapper;
         assert_eq!(
-            wrapper.freqai_native_run_argv("x"),
+            wrapper.caretta_native_run_argv("x"),
             vec!["-p".to_string(), "x".to_string()]
         );
     }

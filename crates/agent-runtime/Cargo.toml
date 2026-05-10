@@ -1,9 +1,9 @@
 [package]
-name = "freq-ai-agent-runtime"
+name = "caretta-agent-runtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Bundled agent CLI runtime for freq-ai"
+description = "Bundled agent CLI runtime for caretta"
 repository.workspace = true
 homepage.workspace = true
 
@@ -40,12 +40,12 @@ tar = "0.4"
 walkdir = "2.5.0"
 
 [dev-dependencies]
-claude = { package = "freq-ai-claude", path = "../claude" }
-cline = { package = "freq-ai-cline", path = "../cline" }
-codex = { package = "freq-ai-codex", path = "../codex" }
-copilot = { package = "freq-ai-copilot", path = "../copilot" }
-gemini = { package = "freq-ai-gemini", path = "../gemini" }
-grok = { package = "freq-ai-grok", path = "../grok" }
-junie = { package = "freq-ai-junie", path = "../junie" }
+claude = { package = "caretta-claude", path = "../claude" }
+cline = { package = "caretta-cline", path = "../cline" }
+codex = { package = "caretta-codex", path = "../codex" }
+copilot = { package = "caretta-copilot", path = "../copilot" }
+gemini = { package = "caretta-gemini", path = "../gemini" }
+grok = { package = "caretta-grok", path = "../grok" }
+junie = { package = "caretta-junie", path = "../junie" }
 tempfile = "3"
-xai = { package = "freq-ai-xai", path = "../xai" }
+xai = { package = "caretta-xai", path = "../xai" }

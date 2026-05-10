@@ -8,7 +8,7 @@ fn main() {
         let status = Command::new(w.binary())
             .args(&args)
             .status()
-            .expect("failed to spawn freq-ai-dummy-agent — is it on PATH?");
+            .expect("failed to spawn caretta-dummy-agent — is it on PATH?");
         assert!(
             status.success(),
             "{} {:?} exited with {:?}",
@@ -19,11 +19,11 @@ fn main() {
         println!("ok: {} {:?}", w.binary(), args);
     }
 
-    let probe = w.freqai_native_run_argv("probe");
+    let probe = w.caretta_native_run_argv("probe");
     let status = Command::new(w.binary())
         .args(&probe)
         .status()
-        .expect("failed to spawn freq-ai-dummy-agent");
+        .expect("failed to spawn caretta-dummy-agent");
     assert!(
         status.success(),
         "{} {:?} exited with {:?}",

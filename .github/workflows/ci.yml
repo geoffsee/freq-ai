@@ -21,7 +21,7 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    container: ghcr.io/geoffsee/freq-ai-ci:latest
+    container: ghcr.io/geoffsee/caretta-ci:latest
     steps:
       - uses: actions/checkout@v4
 

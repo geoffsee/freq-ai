@@ -47,7 +47,7 @@ impl AgentCliAdapter for CodexWrapper {
         ])
     }
 
-    fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String> {
+    fn caretta_native_run_argv(&self, prompt: &str) -> Vec<String> {
         vec!["exec".to_string(), "--json".to_string(), prompt.to_string()]
     }
 
@@ -92,7 +92,7 @@ mod tests {
     fn builds_prompt_model_and_project_args() {
         let wrapper = CodexWrapper;
         assert_eq!(
-            wrapper.freqai_native_run_argv("ship it"),
+            wrapper.caretta_native_run_argv("ship it"),
             vec![
                 "exec".to_string(),
                 "--json".to_string(),

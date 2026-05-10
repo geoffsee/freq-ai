@@ -34,7 +34,7 @@ fn main() {
     let repo_root = manifest_dir
         .parent()
         .and_then(Path::parent)
-        .expect("freq-ai-agent-runtime should live at workspace/crates/agent-runtime");
+        .expect("caretta-agent-runtime should live at workspace/crates/agent-runtime");
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
     let target_os = env::var("CARGO_CFG_TARGET_OS").expect("CARGO_CFG_TARGET_OS");
     let target_arch = env::var("CARGO_CFG_TARGET_ARCH").expect("CARGO_CFG_TARGET_ARCH");
@@ -58,7 +58,7 @@ fn main() {
         );
     });
 
-    let archive_name = format!("freq-ai-agents-{target_os}-{target_arch}.tar.gz");
+    let archive_name = format!("caretta-agents-{target_os}-{target_arch}.tar.gz");
     let generated_path = out_dir.join("agent_runtime_generated.rs");
 
     if bundle_runtime {

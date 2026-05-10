@@ -10,5 +10,8 @@ fn main() {
     println!("project_args     : {:?}", w.project_args("/tmp"));
     println!("output_format    : {:?}", w.output_format_args("json"));
     println!("yolo_args        : {:?}", w.yolo_args());
-    println!("native_run_argv  : {:?}", w.freqai_native_run_argv("hello"));
+    println!(
+        "native_run_argv  : {:?}",
+        w.caretta_native_run_argv("hello")
+    );
 }

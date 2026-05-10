@@ -6,9 +6,9 @@ resolver = "3"
 version = "0.10.4"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-description = "freq-ai agent"
-repository = "https://github.com/geoffsee/freq-ai"
-homepage = "https://github.com/geoffsee/freq-ai"
+description = "caretta agent"
+repository = "https://github.com/geoffsee/caretta"
+homepage = "https://github.com/geoffsee/caretta"
 
 [profile.release]
 opt-level = 'z'        # LLVM size optimization

@@ -17,7 +17,7 @@ impl AgentExt for Agent {
     /// Populated from `assets/available-models.json` (generated while building
     /// Rebuild that crate so its build script rescans embedded provider bundles in
     /// `crates/agent-runtime/node_modules` and refreshes this file.
-    /// CLI: `freq-ai --agent … models` lists the same catalog.
+    /// CLI: `caretta --agent … models` lists the same catalog.
     fn available_models(self) -> &'static [(&'static str, &'static str)] {
         use std::collections::HashMap;
         use std::sync::OnceLock;
@@ -67,12 +67,12 @@ impl AgentExt for Agent {
     }
 }
 
-/// Load `freq-ai.toml` from the project root. Returns defaults if the file is absent or malformed.
-/// Falls back to the legacy `dev.toml` filename when `freq-ai.toml` is missing,
+/// Load `caretta.toml` from the project root. Returns defaults if the file is absent or malformed.
+/// Falls back to the legacy `dev.toml` filename when `caretta.toml` is missing,
 /// so existing installs keep working until the next save rewrites the file.
 pub fn load_dev_config(root: &str) -> DevConfig {
     let root = std::path::Path::new(root);
-    for name in ["freq-ai.toml", "dev.toml"] {
+    for name in ["caretta.toml", "dev.toml"] {
         if let Ok(contents) = std::fs::read_to_string(root.join(name)) {
             return toml::from_str(&contents).unwrap_or_default();
         }
@@ -81,7 +81,7 @@ pub fn load_dev_config(root: &str) -> DevConfig {
 }
 
 pub fn save_dev_config(root: &str, cfg: &Config) -> Result<(), String> {
-    let path = std::path::Path::new(root).join("freq-ai.toml");
+    let path = std::path::Path::new(root).join("caretta.toml");
     let existing = load_dev_config(root);
 
     // Merge current model selection into the persisted per-agent map.

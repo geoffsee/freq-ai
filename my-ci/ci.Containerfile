@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# CI image for freq-ai.
+# CI image for caretta.
 #
 # Bundles every dependency needed to run `cargo test --workspace --all-targets
 # --locked` and the integration tests under `crates/cli/tests/`:

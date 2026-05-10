@@ -42,7 +42,7 @@ impl AgentRuntime {
     #[cfg(feature = "bundle-runtime")]
     pub fn prepare_at(root: impl AsRef<Path>) -> io::Result<Self> {
         let root = root.as_ref().to_path_buf();
-        let marker = root.join(".freq-ai-agent-runtime");
+        let marker = root.join(".caretta-agent-runtime");
         if marker_contains_current_archive(&marker) {
             return Ok(Self { root });
         }
@@ -201,10 +201,10 @@ impl AgentRuntime {
 }
 
 pub fn default_runtime_root() -> PathBuf {
-    let override_dir = env::var_os("FREQ_AI_AGENT_RUNTIME_DIR").map(PathBuf::from);
+    let override_dir = env::var_os("CARETTA_AGENT_RUNTIME_DIR").map(PathBuf::from);
     override_dir.unwrap_or_else(|| {
         env::temp_dir()
-            .join("freq-ai")
+            .join("caretta")
             .join("agent-runtime")
             .join(format!(
                 "{}-{}-{}",
@@ -324,7 +324,7 @@ mod tests {
     #[test]
     fn command_path_prefers_runtime_and_agent_bins() {
         let runtime = AgentRuntime {
-            root: PathBuf::from("/tmp/freq-ai-agent-runtime-test"),
+            root: PathBuf::from("/tmp/caretta-agent-runtime-test"),
         };
         let path = runtime_path([runtime.runtime_bin_dir(), runtime.bin_dir()]);
         let paths: Vec<PathBuf> = env::split_paths(&path).collect();

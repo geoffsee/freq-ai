@@ -3,7 +3,7 @@
 ## Options
 
 ```sh
-freq-ai [OPTIONS] [COMMAND]
+caretta [OPTIONS] [COMMAND]
 ```
 
 | Flag | Description | Default |
@@ -11,7 +11,7 @@ freq-ai [OPTIONS] [COMMAND]
 | `--agent <name>` | AI agent (`claude`, `cline`, `codex`, `copilot`, `cursor`, `gemini`, `grok`, `junie`, `xai`) | `claude` |
 | `--auto` | Unattended mode (skip permission prompts) | off |
 | `--dry-run` | Show what would happen without executing | off |
-| `--preset <name>` | Use a workflow preset for this invocation | `freq-ai.toml` / `default` |
+| `--preset <name>` | Use a workflow preset for this invocation | `caretta.toml` / `default` |
 | `--create-labels` | Write the bundled label taxonomy to `.github/labels.yml` and exit | — |
 
 ## Tips
@@ -40,24 +40,24 @@ disabled.
 3. Note the **App ID** and **Installation ID** (visible in the app's settings page under "Installations").
 4. **Generate a private key** (PEM) from the app settings and save it:
    ```sh
-   mkdir -p ~/.config/freq-ai
-   mv ~/Downloads/<app-name>.pem ~/.config/freq-ai/dev-ui-bot.pem
-   chmod 600 ~/.config/freq-ai/dev-ui-bot.pem
+   mkdir -p ~/.config/caretta
+   mv ~/Downloads/<app-name>.pem ~/.config/caretta/dev-ui-bot.pem
+   chmod 600 ~/.config/caretta/dev-ui-bot.pem
    ```
 5. **Set environment variables** before launching the dev agent:
    ```sh
    export DEV_BOT_APP_ID="123456"
    export DEV_BOT_INSTALLATION_ID="78901234"
-   export DEV_BOT_PRIVATE_KEY="$HOME/.config/freq-ai/dev-ui-bot.pem"
-   freq-ai
+   export DEV_BOT_PRIVATE_KEY="$HOME/.config/caretta/dev-ui-bot.pem"
+   caretta
    ```
 
-freq-ai mints short-lived installation tokens on demand (cached for 50 minutes)
+caretta mints short-lived installation tokens on demand (cached for 50 minutes)
 and injects `GH_TOKEN` into the review subprocess. Audit logs show the GitHub App
 bot identity, such as `dev-ui-bot[bot]`.
 
 You can also configure review-bot access in the GUI under `Configuration` and
-click `Save Configuration`. Non-secret settings are written to `freq-ai.toml`
+click `Save Configuration`. Non-secret settings are written to `caretta.toml`
 (legacy `dev.toml` is still read on startup as a fallback); stored GitHub
 tokens, GitHub App PEM keys, and local inference API keys go into the OS
 credential vault instead of plaintext project files.
@@ -69,14 +69,14 @@ credential vault instead of plaintext project files.
 3. Set the token directly:
    ```sh
    export DEV_BOT_TOKEN="github_pat_..."
-   freq-ai
+   caretta
    ```
    Or store it in a file and point to it:
    ```sh
-   echo "github_pat_..." > ~/.config/freq-ai/bot-token
-   chmod 600 ~/.config/freq-ai/bot-token
-   export DEV_BOT_TOKEN_PATH="$HOME/.config/freq-ai/bot-token"
-   freq-ai
+   echo "github_pat_..." > ~/.config/caretta/bot-token
+   chmod 600 ~/.config/caretta/bot-token
+   export DEV_BOT_TOKEN_PATH="$HOME/.config/caretta/bot-token"
+   caretta
    ```
 
 ### Environment Variables
@@ -87,7 +87,7 @@ credential vault instead of plaintext project files.
 | `DEV_BOT_TOKEN_PATH` | Path to a file containing the token | must be set |
 | `DEV_BOT_APP_ID` | GitHub App ID | Required for |
 | `DEV_BOT_INSTALLATION_ID` | Installation ID for the app on this repo | GitHub App mode |
-| `DEV_BOT_PRIVATE_KEY` | Path to the App's PEM private key (default: `~/.config/freq-ai/dev-ui-bot.pem`) | Optional |
+| `DEV_BOT_PRIVATE_KEY` | Path to the App's PEM private key (default: `~/.config/caretta/dev-ui-bot.pem`) | Optional |
 
 ## Supported Agents
 

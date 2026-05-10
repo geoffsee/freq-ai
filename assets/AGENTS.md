@@ -54,28 +54,28 @@ exposed as constants in `crates/cli/src/agent/tracker.rs` → `pub mod labels`.
 
 ### Workflow labels (no prefix)
 
-| Label | When to apply |
-|---|---|
-| `tracker` | Parent/epic issue grouping children — **required** on every tracker |
-| `ideation` | Issues filed by the Ideation workflow |
-| `uxr-synthesis` | Issues filed by the UXR Synth workflow |
+| Label | When to apply                                                                   |
+|---|---------------------------------------------------------------------------------|
+| `tracker` | Parent/epic issue grouping children — **required** on every tracker             |
+| `ideation` | Issues filed by the Ideation workflow                                           |
+| `uxr-synthesis` | Issues filed by the UXR Synth workflow                                          |
 | `strategic-review` | The single living strategic-review issue produced by the Strategic Review workflow |
-| `roadmap` | The single living roadmap issue produced by the Roadmapper workflow |
-| `sprint` | Issues filed by the Sprint Planning workflow |
-| `code-review` | Issues filed by the Code Review workflow |
-| `security` | Issues filed by the Security Code Review workflow |
-| `retrospective` | The single living retrospective issue produced by the Retrospective workflow |
-| `dev-ui` | Related to the freq-ai UI (`crates/cli/src/ui`) — workflow-equivalent alias |
+| `roadmap` | The single living roadmap issue produced by the Roadmapper workflow             |
+| `sprint` | Issues filed by the Sprint Planning workflow                                    |
+| `code-review` | Issues filed by the Code Review workflow                                        |
+| `security` | Issues filed by the Security Code Review workflow                               |
+| `retrospective` | The single living retrospective issue produced by the Retrospective workflow    |
+| `dev-ui` | Related to the caretta UI (`crates/cli/src/ui`) — workflow-equivalent alias     |
 
 ### Namespaced labels
 
-| Prefix | Purpose | Examples |
-|---|---|---|
-| `area:` | Crate / subsystem | `area:edge-node`, `area:freq-cli`, `area:ci` |
+| Prefix | Purpose | Examples                                                  |
+|---|---|-----------------------------------------------------------|
+| `area:` | Crate / subsystem | `area:edge-node`, `area:caretta-cli`, `area:ci`           |
 | `kind:` | Type of work | `kind:bug`, `kind:feature`, `kind:refactor`, `kind:chore` |
-| `severity:` | Security / bug severity (ordered) | `severity:critical` > `high` > `medium` > `low` > `info` |
-| `priority:` | Sprint scheduling | `priority:p0` (must ship) → `priority:p3` (backlog) |
-| `status:` | State beyond open/closed (rare) | `status:blocked`, `status:needs-review` |
+| `severity:` | Security / bug severity (ordered) | `severity:critical` > `high` > `medium` > `low` > `info`  |
+| `priority:` | Sprint scheduling | `priority:p0` (must ship) → `priority:p3` (backlog)       |
+| `status:` | State beyond open/closed (rare) | `status:blocked`, `status:needs-review`                   |
 
 ### Composition rules
 

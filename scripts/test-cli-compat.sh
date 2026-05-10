@@ -11,13 +11,13 @@ set -euo pipefail
 #   ALLOW_MISSING_BINARIES=1 ./scripts/test-cli-compat.sh
 
 ALLOW_MISSING_BINARIES="${ALLOW_MISSING_BINARIES:-0}"
-export FREQ_AI_LIVE_CLI_TESTS=1
+export CARETTA_LIVE_CLI_TESTS=1
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "${script_dir}/.." && pwd)"
-dummy_bin="${repo_root}/target/debug/freq-ai-dummy-agent"
+dummy_bin="${repo_root}/target/debug/caretta-dummy-agent"
 if [[ ! -x "${dummy_bin}" ]]; then
-  (cd "${repo_root}" && cargo build -q -p dummy-agent --bin freq-ai-dummy-agent)
+  (cd "${repo_root}" && cargo build -q -p dummy-agent --bin caretta-dummy-agent)
 fi
 if [[ -x "${dummy_bin}" ]]; then
   export PATH="${repo_root}/target/debug:${PATH}"
@@ -28,15 +28,15 @@ if command -v npm >/dev/null 2>&1; then
 fi
 
 agents=(
-  "dummy-agent:freq-ai-dummy-agent"
-  "freq-ai-claude:claude"
-  "freq-ai-cline:cline"
-  "freq-ai-codex:codex"
-  "freq-ai-copilot:copilot"
-  "freq-ai-gemini:gemini"
-  "freq-ai-grok:grok"
-  "freq-ai-junie:junie"
-  "freq-ai-xai:copilot"
+  "dummy-agent:caretta-dummy-agent"
+  "caretta-claude:claude"
+  "caretta-cline:cline"
+  "caretta-codex:codex"
+  "caretta-copilot:copilot"
+  "caretta-gemini:gemini"
+  "caretta-grok:grok"
+  "caretta-junie:junie"
+  "caretta-xai:copilot"
 )
 
 missing=()
@@ -63,8 +63,8 @@ fi
 echo "==> agent-common (shared trait + argv helpers)"
 cargo test -p agent-common
 
-echo "==> freq-ai (CLI ↔ adapter wiring)"
-cargo test -p freq-ai --lib adapter_dispatch
+echo "==> caretta (CLI ↔ adapter wiring)"
+cargo test -p caretta --lib adapter_dispatch
 
 # Live probes: exercise argv shapes the app uses (model, prompt/native argv, resume,
 # project, output-format, yolo/bypass) where the installed CLI accepts them. These
@@ -84,15 +84,15 @@ live_probe() {
 }
 
 echo "==> live CLI argv probes (best-effort)"
-if command -v freq-ai-dummy-agent >/dev/null 2>&1; then
-  live_probe "dummy-agent help" freq-ai-dummy-agent --help
-  live_probe "dummy-agent version" freq-ai-dummy-agent --version
-  live_probe "dummy-agent exec" freq-ai-dummy-agent exec --json "probe"
+if command -v caretta-dummy-agent >/dev/null 2>&1; then
+  live_probe "dummy-agent help" caretta-dummy-agent --help
+  live_probe "dummy-agent version" caretta-dummy-agent --version
+  live_probe "dummy-agent exec" caretta-dummy-agent exec --json "probe"
 fi
-if command -v freq-ai-cli-compat-fixture >/dev/null 2>&1; then
-  live_probe "cli-compat-fixture help" freq-ai-cli-compat-fixture --help
-  live_probe "cli-compat-fixture version flag" freq-ai-cli-compat-fixture --version
-  live_probe "cli-compat-fixture version cmd" freq-ai-cli-compat-fixture version
+if command -v caretta-cli-compat-fixture >/dev/null 2>&1; then
+  live_probe "cli-compat-fixture help" caretta-cli-compat-fixture --help
+  live_probe "cli-compat-fixture version flag" caretta-cli-compat-fixture --version
+  live_probe "cli-compat-fixture version cmd" caretta-cli-compat-fixture version
 fi
 if command -v claude >/dev/null 2>&1; then
   live_probe "claude help" claude --help

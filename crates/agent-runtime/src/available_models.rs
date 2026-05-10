@@ -33,7 +33,7 @@ pub type CuratedModels = BTreeMap<String, Vec<CuratedModel>>;
 
 /// Writes `assets/available-models.json` under `repo_root` using model strings
 /// harvested from each provider's **bundled** `node_modules` entrypoint under
-/// `runtime_root` (`freq-ai-agent-runtime`'s crate directory).
+/// `runtime_root` (`caretta-agent-runtime`'s crate directory).
 pub fn scan_available_models(
     repo_root: impl AsRef<Path>,
     runtime_root: impl AsRef<Path>,
@@ -62,7 +62,7 @@ pub fn scan_all_clis(runtime_root: &Path) -> io::Result<RawScanResult> {
 }
 
 /// Scan one agent's bundled JavaScript entrypoint under `runtime_root` (the
-/// `freq-ai-agent-runtime` crate directory that contains `node_modules`).
+/// `caretta-agent-runtime` crate directory that contains `node_modules`).
 pub fn scan_cli(runtime_root: &Path, cli: &str) -> io::Result<CliScan> {
     let Some(entrypoint_path) = embedded_entrypoint_path(runtime_root, cli) else {
         return Ok(CliScan {

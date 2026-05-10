@@ -152,7 +152,7 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     }
 
     if cfg.test.command.is_empty() {
-        log("Skipping test step (no `[test] command` configured in freq-ai.toml).");
+        log("Skipping test step (no `[test] command` configured in caretta.toml).");
     } else {
         timed!("tests", {
             log(&format!("Running tests: {}", cfg.test.command.join(" ")));
@@ -184,7 +184,7 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     if push_ok {
         let pr_title = format!("implement #{issue_num}: {title}");
         let pr_body =
-            format!("Closes #{issue_num}\n\nAutomated PR opened by freq-ai issue runner.");
+            format!("Closes #{issue_num}\n\nAutomated PR opened by caretta issue runner.");
         create_pr_if_missing(&branch, &base, &pr_title, &pr_body);
     }
     log(&format!("Issue #{issue_num} loop iteration complete."));

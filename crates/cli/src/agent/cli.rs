@@ -21,7 +21,7 @@ pub fn parse_args() -> Config {
         dry_run: true,
         local_inference: Default::default(),
         root: "/".into(),
-        project_name: "freq-ai-web".into(),
+        project_name: "caretta-web".into(),
         scan_targets: Default::default(),
         skill_paths: Default::default(),
         bootstrap_agent_files: false,

@@ -18,7 +18,7 @@ pub struct SkillAssets;
 pub struct WorkflowAssets;
 
 /// Return the stable app-data directory for materialized assets
-/// (`~/.local/share/freq-ai`). Created on first call if missing.
+/// (`~/.local/share/caretta`). Created on first call if missing.
 pub fn assets_dir() -> PathBuf {
     #[cfg(not(target_arch = "wasm32"))]
     let base = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
@@ -26,7 +26,7 @@ pub fn assets_dir() -> PathBuf {
     #[cfg(target_arch = "wasm32")]
     let base = PathBuf::from(".");
 
-    let dir = base.join("freq-ai");
+    let dir = base.join("caretta");
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
@@ -34,7 +34,7 @@ pub fn assets_dir() -> PathBuf {
 /// Materialize embedded AGENTS.md and skills into the app-data directory.
 /// Existing files are refreshed so the bundled guidance stays in sync with
 /// the current binary.
-/// Returns the app-data root (e.g. `~/.local/share/freq-ai`).
+/// Returns the app-data root (e.g. `~/.local/share/caretta`).
 pub fn materialize_assets() -> PathBuf {
     let dir = assets_dir();
 

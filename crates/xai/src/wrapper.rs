@@ -39,7 +39,7 @@ impl AgentCliAdapter for XaiWrapper {
         Some(vec!["--yolo".to_string()])
     }
 
-    fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String> {
+    fn caretta_native_run_argv(&self, prompt: &str) -> Vec<String> {
         vec!["-p".to_string(), prompt.to_string()]
     }
 
@@ -84,7 +84,7 @@ mod tests {
     fn native_run_uses_dash_p() {
         let wrapper = XaiWrapper;
         assert_eq!(
-            wrapper.freqai_native_run_argv("go"),
+            wrapper.caretta_native_run_argv("go"),
             vec!["-p".to_string(), "go".to_string()]
         );
     }

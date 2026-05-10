@@ -1,20 +1,20 @@
 {
-  "name": "freq-ai-cli-compat-fixture",
+  "name": "caretta-cli-compat-fixture",
   "version": "2.0.0",
   "description": "Tiny CLI published to npm so CLI Compat can simulate flag drift and exercise Codex autofix.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/geoffsee/freq-ai.git",
+    "url": "https://github.com/geoffsee/caretta.git",
     "directory": "packages/cli-compat-fixture"
   },
-  "homepage": "https://github.com/geoffsee/freq-ai",
+  "homepage": "https://github.com/geoffsee/caretta",
   "type": "module",
   "engines": {
     "node": ">=18"
   },
   "bin": {
-    "freq-ai-cli-compat-fixture": "./bin/freq-ai-cli-compat-fixture.mjs"
+    "caretta-cli-compat-fixture": "./bin/caretta-cli-compat-fixture.mjs"
   },
   "files": [
     "bin"

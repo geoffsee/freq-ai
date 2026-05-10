@@ -19,7 +19,7 @@ const major = Number.parseInt(String(version).split(".")[0], 10) || 1;
 const argv = process.argv.slice(2);
 
 if (argv.length === 0) {
-  console.error("freq-ai-cli-compat-fixture: missing args (try --help)");
+  console.error("caretta-cli-compat-fixture: missing args (try --help)");
   process.exit(2);
 }
 
@@ -32,11 +32,11 @@ const wantVersionFlag = argv.includes("--version") || argv.includes("-V");
 const wantVersionCmd = argv[0] === "version";
 
 if (wantHelp && !wantVersionCmd && !wantVersionFlag) {
-  console.log(`freq-ai-cli-compat-fixture ${version}
+  console.log(`caretta-cli-compat-fixture ${version}
 Usage:
-  freq-ai-cli-compat-fixture --help
-  freq-ai-cli-compat-fixture --version   (1.x only; removed in 2.x drill)
-  freq-ai-cli-compat-fixture version`);
+  caretta-cli-compat-fixture --help
+  caretta-cli-compat-fixture --version   (1.x only; removed in 2.x drill)
+  caretta-cli-compat-fixture version`);
   process.exit(0);
 }
 
@@ -45,7 +45,7 @@ const allowLegacyVersionFlags = major < 2;
 if (wantVersionCmd || wantVersionFlag) {
   if (!allowLegacyVersionFlags && wantVersionFlag) {
     console.error(
-      "freq-ai-cli-compat-fixture: unknown flag (2.x drill: use the `version` subcommand)",
+      "caretta-cli-compat-fixture: unknown flag (2.x drill: use the `version` subcommand)",
     );
     process.exit(1);
   }

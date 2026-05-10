@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="geoffsee/freq-ai"
+REPO="geoffsee/caretta"
 INSTALL_SCRIPT="https://raw.githubusercontent.com/${REPO}/master/install.sh"
 
 bold="\033[1m"
@@ -37,13 +37,13 @@ check_output() {
 }
 
 # ── install via remote script ───────────────────────────────────────
-INSTALL_DIR="$(mktemp -d)/freq-ai-smoke"
+INSTALL_DIR="$(mktemp -d)/caretta-smoke"
 trap 'rm -rf "$INSTALL_DIR"' EXIT
-export FREQ_AI_INSTALL_DIR="$INSTALL_DIR"
+export CARETTA_INSTALL_DIR="$INSTALL_DIR"
 
-BIN="$INSTALL_DIR/freq-ai"
+BIN="$INSTALL_DIR/caretta"
 
-printf "\n${bold}freq-ai smoke test${reset}\n\n"
+printf "\n${bold}caretta smoke test${reset}\n\n"
 printf "${dim}install script: %s${reset}\n" "$INSTALL_SCRIPT"
 printf "${dim}install dir:    %s${reset}\n\n" "$INSTALL_DIR"
 
@@ -52,8 +52,8 @@ check "remote install script runs successfully" \
 
 # ── post-install checks ────────────────────────────────────────────
 check "binary exists and is executable"           test -x "$BIN"
-check_output "--help exits 0 and shows usage"     "USAGE|Usage|usage|freq-ai" "$BIN" --help
-check_output "--version prints version"           "freq-ai [0-9]" "$BIN" --version
+check_output "--help exits 0 and shows usage"     "USAGE|Usage|usage|caretta" "$BIN" --help
+check_output "--version prints version"           "caretta [0-9]" "$BIN" --version
 
 for cmd in gui ideation code-review security-review sprint-planning retrospective roadmapper housekeeping refresh-agents refresh-docs; do
   check "$cmd --help exits 0" "$BIN" "$cmd" --help

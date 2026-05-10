@@ -1,5 +1,5 @@
 [package]
-name = "freq-ai-codex"
+name = "caretta-codex"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -110,7 +110,7 @@ pub enum AgentEvent {
 #[serde(default)]
 pub struct ModelPricing {
     /// USD per 1M input tokens. This is intentionally project-configured:
-    /// provider prices change too often to bake into freq-ai.
+    /// provider prices change too often to bake into caretta.
     #[serde(default, skip_serializing_if = "is_zero_f64")]
     pub input_per_million: f64,
     /// USD per 1M output tokens.
@@ -323,7 +323,7 @@ impl Agent {
     /// Basename of the provider CLI on `PATH`, aligned with each crate's
     /// `agent_common::AgentCliAdapter::binary` implementation.
     ///
-    /// freq-ai constructs subprocess argv via `crates/cli/src/agent/adapter_dispatch.rs`
+    /// caretta constructs subprocess argv via `crates/cli/src/agent/adapter_dispatch.rs`
     /// and those adapters — not via this method alone.
     pub fn binary(self) -> &'static str {
         match self {
@@ -660,7 +660,7 @@ pub struct Config {
 /// Both fields are argv-style (program followed by args). An empty
 /// `command` skips the test step entirely; an empty `format_command`
 /// skips post-fix formatting. Configured via the `[test]` section of
-/// `freq-ai.toml`.
+/// `caretta.toml`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TestCommands {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

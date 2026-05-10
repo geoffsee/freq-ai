@@ -1,6 +1,6 @@
-//! # freq-ai
+//! # caretta
 //!
-//! Library entry point for the freq-ai dev agent. The standalone `freq-ai`
+//! Library entry point for the caretta dev agent. The standalone `caretta`
 //! binary is a thin shim around [`run_with_overrides`]; library consumers
 //! (e.g. project-specific shims that want to inject a custom skill layout)
 //! should call [`run_with_overrides`] with a closure that mutates the
@@ -9,9 +9,9 @@
 //! ## Example
 //!
 //! ```no_run
-//! use freq_ai::SkillPaths;
+//! use caretta::SkillPaths;
 //!
-//! freq_ai::run_with_overrides(|config| {
+//! caretta::run_with_overrides(|config| {
 //!     config.skill_paths = SkillPaths {
 //!         user_personas: "/custom/skills/user-personas/SKILL.md".into(),
 //!         issue_tracking: "/custom/skills/issue-tracking/SKILL.md".into(),
@@ -72,10 +72,10 @@ struct WorkflowEntriesResponse {
 
 #[derive(Parser)]
 #[command(
-    name = "freq-ai",
+    name = "caretta",
     about = "Distributed application runtime agent",
-    long_about = "freq-ai runs agent-powered project workflows from the command line or launches the desktop UI when no subcommand is given.",
-    after_help = "Examples:\n  freq-ai\n  freq-ai --agent codex code-review\n  freq-ai --dry-run refresh-docs\n  freq-ai --preset software-factory run backlog-curation\n  freq-ai tracker-matrix 51 --json\n  freq-ai models\n  freq-ai --agent codex models --plain\n  freq-ai serve --port 3000",
+    long_about = "caretta runs agent-powered project workflows from the command line or launches the desktop UI when no subcommand is given.",
+    after_help = "Examples:\n  caretta\n  caretta --agent codex code-review\n  caretta --dry-run refresh-docs\n  caretta --preset software-factory run backlog-curation\n  caretta tracker-matrix 51 --json\n  caretta models\n  caretta --agent codex models --plain\n  caretta serve --port 3000",
     version
 )]
 struct Cli {
@@ -94,14 +94,14 @@ struct Cli {
     #[arg(long)]
     dry_run: bool,
 
-    /// Workflow preset to use (overrides `workflow_preset` in freq-ai.toml).
-    /// See `freq-ai presets` for the list of available presets.
+    /// Workflow preset to use (overrides `workflow_preset` in caretta.toml).
+    /// See `caretta presets` for the list of available presets.
     #[arg(long, value_name = "NAME")]
     preset: Option<String>,
 
-    /// Agent model for this invocation (overrides persisted freq-ai dev config).
-    /// `FREQ_AI_MODEL` applies the same override when set.
-    /// Hint: `freq-ai --agent … models` lists bundled IDs from `assets/available-models.json`.
+    /// Agent model for this invocation (overrides persisted caretta dev config).
+    /// `CARETTA_MODEL` applies the same override when set.
+    /// Hint: `caretta --agent … models` lists bundled IDs from `assets/available-models.json`.
     #[arg(long, value_name = "MODEL")]
     model: Option<String>,
 
@@ -197,13 +197,13 @@ enum Commands {
     /// Run any workflow from the active preset by ID (accepts hyphen or underscore form)
     Run {
         /// Workflow ID, e.g. `backlog-curation` or `backlog_curation`.
-        /// See `freq-ai presets <NAME>` for available IDs.
+        /// See `caretta presets <NAME>` for available IDs.
         #[arg(value_name = "WORKFLOW")]
         workflow: String,
     },
-    /// List bundled model IDs and labels for `--model` / `FREQ_AI_MODEL`
+    /// List bundled model IDs and labels for `--model` / `CARETTA_MODEL`
     ///
-    /// Data comes from assets/available-models.json (regenerate: cargo build -p freq-ai-agent-runtime).
+    /// Data comes from assets/available-models.json (regenerate: cargo build -p caretta-agent-runtime).
     Models {
         /// Print only model IDs, one per line (for shell completion).
         #[arg(long)]
@@ -215,7 +215,7 @@ enum Commands {
 }
 
 /// Standalone entry point — equivalent to `run_with_overrides(|_| {})`.
-/// Used by the `freq-ai` binary.
+/// Used by the `caretta` binary.
 pub fn run() {
     run_with_overrides(|_| {});
 }
@@ -224,7 +224,7 @@ pub fn run() {
 /// fields (e.g. a project-specific skill layout) before the agent runs.
 ///
 /// The closure receives a mutable `Config` populated from CLI args, env vars,
-/// and `freq-ai.toml`. Mutate it however you need; freq-ai then dispatches to
+/// and `caretta.toml`. Mutate it however you need; caretta then dispatches to
 /// either the GUI or the requested CLI subcommand.
 pub fn run_with_overrides<F>(overrides: F)
 where
@@ -273,9 +273,9 @@ where
         config.dry_run = cli.dry_run;
         overrides(&mut config);
 
-        apply_freq_ai_model_env_and_cli(&mut config, cli.model.as_deref());
+        apply_caretta_model_env_and_cli(&mut config, cli.model.as_deref());
 
-        // CLI `--preset` wins over freq-ai.toml and library overrides — fail fast
+        // CLI `--preset` wins over caretta.toml and library overrides — fail fast
         // with the available list if the name doesn't match a real preset dir.
         if let Some(preset) = &cli.preset {
             let available = list_presets(&config.root);
@@ -446,13 +446,13 @@ where
             }
             Some(Commands::Gui) | None => {
                 // Stash the finalised Config so the Dioxus App component can pick
-                // it up via `parse_args` (which already loads from freq-ai.toml). The
+                // it up via `parse_args` (which already loads from caretta.toml). The
                 // App's own use of `parse_args()` would otherwise lose the
                 // overrides — but since the overrides are also persisted via the
                 // explicit init_issue_comment_triggers call above, the only place
                 // overrides matter inside the GUI is the next `parse_args` call,
-                // which already reads `freq-ai.toml`. Library consumers who need to
-                // inject overrides that aren't expressible in `freq-ai.toml` should
+                // which already reads `caretta.toml`. Library consumers who need to
+                // inject overrides that aren't expressible in `caretta.toml` should
                 // use the CLI subcommands instead of the GUI.
                 CONFIG_OVERRIDE
                     .set(config)
@@ -466,7 +466,7 @@ where
 /// Process-wide handoff for `run_with_overrides` → `App`. The Dioxus App
 /// component reads from this on first render so library consumers' overrides
 /// (e.g. custom `skill_paths`) survive into the GUI rather than being
-/// re-derived from `freq-ai.toml` alone.
+/// re-derived from `caretta.toml` alone.
 static CONFIG_OVERRIDE: std::sync::OnceLock<Config> = std::sync::OnceLock::new();
 
 fn apply_nonempty_model_trim(into: &mut String, candidate: Option<&str>) {
@@ -478,10 +478,10 @@ fn apply_nonempty_model_trim(into: &mut String, candidate: Option<&str>) {
     }
 }
 
-fn apply_freq_ai_model_env_and_cli(config: &mut Config, cli_model: Option<&str>) {
+fn apply_caretta_model_env_and_cli(config: &mut Config, cli_model: Option<&str>) {
     apply_nonempty_model_trim(
         &mut config.model,
-        std::env::var("FREQ_AI_MODEL").ok().as_deref(),
+        std::env::var("CARETTA_MODEL").ok().as_deref(),
     );
     apply_nonempty_model_trim(&mut config.model, cli_model);
 }
@@ -963,7 +963,7 @@ fn App() -> Element {
             return;
         }
 
-        // Auto merge (lineage-aware; same runner as CLI `freq-ai auto-merge`).
+        // Auto merge (lineage-aware; same runner as CLI `caretta auto-merge`).
         if workflow_id == "auto_merge" || workflow_id == "auto-merge" {
             info!("Running lineage-aware auto-merge pass…");
             spawn(async move {

@@ -1,9 +1,9 @@
 # Assets
 
-Bundled agent skills and workflow definitions for freq-ai. This directory is
+Bundled agent skills and workflow definitions for caretta. This directory is
 the compile-time source — skills and workflows are embedded via `rust-embed`.
-When materialized, they are written under freq-ai's app-data directory
-(`~/.local/share/freq-ai` on typical Linux desktops, platform equivalent
+When materialized, they are written under caretta's app-data directory
+(`~/.local/share/caretta` on typical Linux desktops, platform equivalent
 elsewhere). Workflow templates are loaded from bundled
 `assets/workflows/{preset}/`, materialized app-data workflows, and
 project-local `.agents/workflows/{preset}/` overrides.
@@ -13,8 +13,8 @@ This keeps the target repo's `.agents/` directory clean for its own agent config
 ## Skills
 
 Skills in `skills/` are embedded at compile time and can be materialized to the
-freq-ai app-data assets directory. Project config can override individual skill
-paths via `[skills]` in `freq-ai.toml`.
+caretta app-data assets directory. Project config can override individual skill
+paths via `[skills]` in `caretta.toml`.
 
 | Skill | Description |
 | :--- | :--- |
@@ -65,7 +65,7 @@ The preset selector is always shown in the sidebar when presets are available. I
 
 To create a new preset, start from scratch with only the workflows you want, or copy a preset intentionally when you really want its full workflow shape.
 
-The active preset is stored in `freq-ai.toml` as `workflow_preset` (defaults to `"default"`).
+The active preset is stored in `caretta.toml` as `workflow_preset` (defaults to `"default"`).
 
 ### Workflow files
 

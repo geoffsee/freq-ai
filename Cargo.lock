@@ -421,6 +421,125 @@ dependencies = [
 ]
 
 [[package]]
+name = "caretta"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+ "anyhow",
+ "axum",
+ "caretta-agent-runtime",
+ "caretta-claude",
+ "caretta-cline",
+ "caretta-codex",
+ "caretta-copilot",
+ "caretta-gemini",
+ "caretta-grok",
+ "caretta-junie",
+ "caretta-xai",
+ "clap",
+ "cli-common",
+ "dioxus",
+ "dirs",
+ "gloo-net 0.2.6",
+ "handlebars",
+ "indexmap 2.13.1",
+ "jsonwebtoken",
+ "keyring",
+ "mime_guess",
+ "regex",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "toak-rs",
+ "tokio",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "caretta-agent-runtime"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+ "caretta-claude",
+ "caretta-cline",
+ "caretta-codex",
+ "caretta-copilot",
+ "caretta-gemini",
+ "caretta-grok",
+ "caretta-junie",
+ "caretta-xai",
+ "cli-common",
+ "flate2",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tar",
+ "tempfile",
+ "walkdir",
+]
+
+[[package]]
+name = "caretta-claude"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
+name = "caretta-cline"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
+name = "caretta-codex"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
+name = "caretta-copilot"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
+name = "caretta-gemini"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
+name = "caretta-grok"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
+name = "caretta-junie"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
+name = "caretta-xai"
+version = "0.10.4"
+dependencies = [
+ "agent-common",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.59"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1704,125 +1823,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
-]
-
-[[package]]
-name = "freq-ai"
-version = "0.10.4"
-dependencies = [
- "agent-common",
- "anyhow",
- "axum",
- "clap",
- "cli-common",
- "dioxus",
- "dirs",
- "freq-ai-agent-runtime",
- "freq-ai-claude",
- "freq-ai-cline",
- "freq-ai-codex",
- "freq-ai-copilot",
- "freq-ai-gemini",
- "freq-ai-grok",
- "freq-ai-junie",
- "freq-ai-xai",
- "gloo-net 0.2.6",
- "handlebars",
- "indexmap 2.13.1",
- "jsonwebtoken",
- "keyring",
- "mime_guess",
- "regex",
- "rust-embed",
- "serde",
- "serde_json",
- "serde_yaml",
- "tempfile",
- "toak-rs",
- "tokio",
- "toml",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "freq-ai-agent-runtime"
-version = "0.10.4"
-dependencies = [
- "agent-common",
- "cli-common",
- "flate2",
- "freq-ai-claude",
- "freq-ai-cline",
- "freq-ai-codex",
- "freq-ai-copilot",
- "freq-ai-gemini",
- "freq-ai-grok",
- "freq-ai-junie",
- "freq-ai-xai",
- "regex",
- "serde",
- "serde_json",
- "sha2",
- "tar",
- "tempfile",
- "walkdir",
-]
-
-[[package]]
-name = "freq-ai-claude"
-version = "0.10.4"
-dependencies = [
- "agent-common",
-]
-
-[[package]]
-name = "freq-ai-cline"
-version = "0.10.4"
-dependencies = [
- "agent-common",
-]
-
-[[package]]
-name = "freq-ai-codex"
-version = "0.10.4"
-dependencies = [
- "agent-common",
-]
-
-[[package]]
-name = "freq-ai-copilot"
-version = "0.10.4"
-dependencies = [
- "agent-common",
-]
-
-[[package]]
-name = "freq-ai-gemini"
-version = "0.10.4"
-dependencies = [
- "agent-common",
-]
-
-[[package]]
-name = "freq-ai-grok"
-version = "0.10.4"
-dependencies = [
- "agent-common",
-]
-
-[[package]]
-name = "freq-ai-junie"
-version = "0.10.4"
-dependencies = [
- "agent-common",
-]
-
-[[package]]
-name = "freq-ai-xai"
-version = "0.10.4"
-dependencies = [
- "agent-common",
 ]
 
 [[package]]

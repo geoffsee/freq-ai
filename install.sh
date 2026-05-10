@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="geoffsee/freq-ai"
-BINARY="freq-ai"
-INSTALL_DIR="${FREQ_AI_INSTALL_DIR:-$HOME/.local/bin}"
+REPO="geoffsee/caretta"
+BINARY="caretta"
+INSTALL_DIR="${CARETTA_INSTALL_DIR:-$HOME/.local/bin}"
 
 # ── colors ──────────────────────────────────────────────────────────
 bold="\033[1m"
@@ -63,7 +63,7 @@ download() {
 
 # ── main ────────────────────────────────────────────────────────────
 main() {
-  printf "\n${bold}  freq-ai installer${reset}\n\n"
+  printf "\n${bold}  caretta installer${reset}\n\n"
 
   local platform version artifact url tmpdir
 
@@ -97,7 +97,7 @@ main() {
     printf "${dim}  Add that line to ~/.bashrc or ~/.zshrc to make it permanent.${reset}\n"
   fi
 
-  printf "\n  Run ${bold}freq-ai --help${reset} to get started.\n\n"
+  printf "\n  Run ${bold}caretta --help${reset} to get started.\n\n"
 }
 
 main

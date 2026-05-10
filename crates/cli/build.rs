@@ -17,7 +17,7 @@ fn main() {
         println!("cargo::rustc-env=WEB_ASSETS_DIR={}", stub.display());
     }
 
-    let wasm_path = Path::new("dist/wasm/freq-ai_bg.wasm");
+    let wasm_path = Path::new("dist/wasm/caretta_bg.wasm");
 
     println!("cargo::rerun-if-changed={}", wasm_path.display());
 
@@ -45,7 +45,7 @@ fn main() {
                 .map(|m| m.len() / (1024 * 1024))
                 .unwrap_or(0);
             println!(
-                "cargo::warning=wasm-opt: optimized freq-ai_bg.wasm to {}MB",
+                "cargo::warning=wasm-opt: optimized caretta_bg.wasm to {}MB",
                 new_size
             );
         }

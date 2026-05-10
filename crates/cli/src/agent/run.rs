@@ -11,7 +11,7 @@ use std::process::{Command, Stdio};
 use std::time::Instant;
 use tempfile::NamedTempFile;
 
-const FREQ_AI_CLAUDE_SYSTEM_PROMPT: &str = r#"You are freq-ai's autonomous repository agent.
+const CARETTA_CLAUDE_SYSTEM_PROMPT: &str = r#"You are caretta's autonomous repository agent.
 
 Follow repository instructions from AGENTS.md, workflow prompts, tracker issues, and local status files when present.
 Treat the user or workflow prompt as the source of task-specific scope.
@@ -97,7 +97,7 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
         };
     if append_system_prompt.is_some() {
         log(&format!(
-            "Appending freq-ai system prompt for {binary} via --append-system-prompt-file"
+            "Appending caretta system prompt for {binary} via --append-system-prompt-file"
         ));
     }
 
@@ -343,7 +343,7 @@ fn estimated_result_event(ok: bool, elapsed_ms: u128, prompt: &str, output: &str
     AgentEvent::Claude(ClaudeEvent::Result {
         status: if ok { "completed" } else { "failed" }.to_string(),
         summary: Some(
-            "Usage estimated by freq-ai; provider token accounting was unavailable.".to_string(),
+            "Usage estimated by caretta; provider token accounting was unavailable.".to_string(),
         ),
         duration_ms: u64::try_from(elapsed_ms).ok(),
         input_tokens: u64_to_u32(Some(count_tokens(prompt) as u64)),
@@ -427,11 +427,11 @@ fn attach_prompt_stdin(
 }
 
 fn prompt_tempfile(prompt: &str) -> std::io::Result<NamedTempFile> {
-    text_tempfile("freq-ai-prompt-", prompt)
+    text_tempfile("caretta-prompt-", prompt)
 }
 
 fn system_prompt_tempfile(prompt: &str) -> std::io::Result<NamedTempFile> {
-    text_tempfile("freq-ai-system-prompt-", prompt)
+    text_tempfile("caretta-system-prompt-", prompt)
 }
 
 fn text_tempfile(prefix: &str, contents: &str) -> std::io::Result<NamedTempFile> {
@@ -584,7 +584,7 @@ fn run_agent_with_env_with_cwd(
     let auto_ov = auto_mode_overrides(cfg);
     overrides.args.extend(auto_ov.args);
 
-    let cmd = adapter_dispatch::freqai_native_command_with_prompt_transport(
+    let cmd = adapter_dispatch::caretta_native_command_with_prompt_transport(
         cfg.agent,
         prompt,
         &overrides.args,
@@ -613,7 +613,7 @@ fn run_agent_with_env_with_cwd(
 }
 
 fn appended_system_prompt_for_agent(agent: Agent) -> Option<&'static str> {
-    matches!(agent, Agent::Claude).then_some(FREQ_AI_CLAUDE_SYSTEM_PROMPT)
+    matches!(agent, Agent::Claude).then_some(CARETTA_CLAUDE_SYSTEM_PROMPT)
 }
 
 pub fn local_inference_overrides(cfg: &Config) -> crate::agent::types::AgentLaunchOverrides {
@@ -637,7 +637,7 @@ mod tests {
         let program = PathBuf::from(cmd.get_program());
         let display = program.to_string_lossy();
         assert!(
-            display.contains("freq-ai") || display == "codex",
+            display.contains("caretta") || display == "codex",
             "unexpected codex program path: {display}"
         );
         let args: Vec<String> = cmd
@@ -661,7 +661,7 @@ mod tests {
     #[test]
     fn claude_spawn_error_returns_false_instead_of_panicking() {
         let result = std::panic::catch_unwind(|| {
-            run_claude_native_with_env("__freq_ai_missing_agent__", &[], &[], None)
+            run_claude_native_with_env("__caretta_missing_agent__", &[], &[], None)
         });
 
         assert!(
@@ -673,7 +673,7 @@ mod tests {
     #[test]
     fn codex_spawn_error_returns_false_instead_of_panicking() {
         let result = std::panic::catch_unwind(|| {
-            run_codex_native_with_env("__freq_ai_missing_agent__", &[], &[], None)
+            run_codex_native_with_env("__caretta_missing_agent__", &[], &[], None)
         });
 
         assert!(
@@ -685,9 +685,9 @@ mod tests {
     #[test]
     fn only_claude_gets_appended_system_prompt() {
         let prompt = appended_system_prompt_for_agent(Agent::Claude)
-            .expect("claude should receive appended freq-ai guidance");
+            .expect("claude should receive appended caretta guidance");
 
-        assert!(prompt.contains("freq-ai's autonomous repository agent"));
+        assert!(prompt.contains("caretta's autonomous repository agent"));
         assert!(prompt.contains("preserve unrelated worktree changes"));
         assert_eq!(appended_system_prompt_for_agent(Agent::Codex), None);
         assert_eq!(appended_system_prompt_for_agent(Agent::Cursor), None);

@@ -28,7 +28,7 @@ pub mod labels {
     pub const AREA_NETWORK_NODE: &str = "area:network-node";
     pub const AREA_SERVICE_NODE: &str = "area:service-node";
     pub const AREA_CONSOLE_NODE: &str = "area:console-node";
-    pub const AREA_FREQ_CLI: &str = "area:freq-cli";
+    pub const AREA_FREQ_CLI: &str = "area:caretta-cli";
     pub const AREA_DOCS: &str = "area:docs";
     pub const AREA_CI: &str = "area:ci";
 
@@ -1167,7 +1167,7 @@ pub fn build_pr_review_verification_prompt(
     let thread_count = threads.len();
 
     format!(
-        r#"You are a freq-ai code-review verifier on pull request #{pr_num} for the {project_name} project.
+        r#"You are a caretta code-review verifier on pull request #{pr_num} for the {project_name} project.
 
 The Fix Comments agent has just pushed changes intended to address each review thread below.
 Your job: for each thread, decide whether the change actually addresses the original concern.
@@ -5133,7 +5133,7 @@ mod tests {
             },
         ];
         let prompt = build_pr_review_verification_prompt(
-            "freq-ai",
+            "caretta",
             42,
             "diff --git a/src/lib.rs b/src/lib.rs\n",
             &threads,

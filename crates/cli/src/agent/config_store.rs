@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use keyring::Entry;
 use std::hash::{Hash, Hasher};
 
-const SERVICE_PREFIX: &str = "freq-ai";
+const SERVICE_PREFIX: &str = "caretta";
 const BOT_TOKEN_SLOT: &str = "bot-token";
 const BOT_PEM_SLOT: &str = "bot-private-key-pem";
 const LOCAL_INFERENCE_API_KEY_SLOT: &str = "local-inference-api-key";

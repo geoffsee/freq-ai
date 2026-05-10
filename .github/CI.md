@@ -1,6 +1,6 @@
 # GitHub Software Factory
 
-This directory defines the GitHub Actions control plane for running `freq-ai`
+This directory defines the GitHub Actions control plane for running `caretta`
 against issues, trackers, pull requests, and release checkpoints.
 
 ## Action contract
@@ -8,7 +8,7 @@ against issues, trackers, pull requests, and release checkpoints.
 Most agent workflows call the published action:
 
 ```yaml
-- uses: geoffsee/freq-ai-action@v0.0.2
+- uses: geoffsee/caretta-action@v0.0.2
   with:
     task: loop
     args: 123
@@ -17,7 +17,7 @@ Most agent workflows call the published action:
     CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 ```
 
-For preset workflows that are not native top-level `freq-ai` commands, use:
+For preset workflows that are not native top-level `caretta` commands, use:
 
 ```yaml
 with:
@@ -49,8 +49,8 @@ should use their native `task` value directly.
 2. If an open `tracker` issue exists, Autopilot dispatches `tracker-loop-dispatch.yml`.
 3. If work exists but no tracker exists, Autopilot dispatches backlog curation.
 4. Tracker loop work creates or updates PRs.
-5. After tracker work succeeds, `tracker-loop-dispatch.yml` runs `freq-ai code-review`.
-6. After code review succeeds, it runs `freq-ai fix-pr <PR>` for each open PR.
+5. After tracker work succeeds, `tracker-loop-dispatch.yml` runs `caretta code-review`.
+6. After code review succeeds, it runs `caretta fix-pr <PR>` for each open PR.
 7. `Release Mediator` creates a neutral, time-bounded checkpoint issue each Friday.
 8. `Release Mediator` calls `Release Tag Publisher` with the checkpoint issue number.
 9. `Release Tag Publisher` creates and pushes the next annotated `v*` tag.

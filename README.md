@@ -1,4 +1,4 @@
-# freq-ai
+# caretta
 Workflow-driven agents
 
 - Desktop
@@ -6,58 +6,58 @@ Workflow-driven agents
 - CLI
 - GitHub Actions
 
-<img src="freq-ai.png" alt="freq-ai.png" style="max-width: 33%;" />
+<img src="caretta.png" alt="caretta.png" style="max-width: 33%;" />
 
 ## Origins
 It was upon an evening not unlike any other that the toils of my labour grew so weighty in the chambers of my mind as to brook no further dismissal. I had set myself to the construction of a cloud of mine own devising, a work, I confess, of no small ambition, and found that its foundations demanded a most particular order of laying: first the accounts of users, then the permissions that govern them, then the documentation by which they are made intelligible, then the compliance by which they are made lawful, and at the last the security by which the whole is preserved from ruin. Each stone, you see, rested upon the one before it, and to misplace a single course was to invite the slow and silent decay of the edifice entire. The labour was not, in truth, beyond the compass of a single mind; yet it lay manifestly beyond the reach of a single pair of hands. And so, after the manner of those who, finding themselves outnumbered by their own undertakings, resolve to multiply their instruments rather than their hours, I set about the fashioning of further hands, and of a cycle by which they might turn in concert.
 
 ## Quickstart
 ```shell
-$ cargo binstall freq-ai
-$ freq-ai --help
+$ cargo binstall caretta
+$ caretta --help
 ```
 
 ## CLI examples
 
 ```shell
 # Launch the desktop UI (default subcommand)
-$ freq-ai
+$ caretta
 
 # Review every open PR in the current repo
-$ freq-ai code-review
+$ caretta code-review
 
 # Work a single issue end-to-end (drafts a branch + PR)
-$ freq-ai issue 42
+$ caretta issue 42
 
 # Address review threads on a PR
-$ freq-ai fix-pr 1337
+$ caretta fix-pr 1337
 
 # Continuously work issues from a tracker issue
-$ freq-ai loop 7
+$ caretta loop 7
 
 # Sweep open issues, PRs, local branches, tracker bodies, STATUS.md, and ISSUES.md
-$ freq-ai housekeeping
+$ caretta housekeeping
 
 # Refresh root-level project docs against the current state of the code
-$ freq-ai refresh-docs
+$ caretta refresh-docs
 
 # Serve the web UI on http://localhost:8080 (override with --port)
-$ freq-ai serve
-$ freq-ai serve --port 3030
+$ caretta serve
+$ caretta serve --port 3030
 
 # Pick a different agent CLI on the fly
-$ freq-ai --agent codex code-review
-$ freq-ai --agent gemini issue 42
+$ caretta --agent codex code-review
+$ caretta --agent gemini issue 42
 
 # List available workflow presets, or peek inside one
-$ freq-ai presets
-$ freq-ai presets xp
+$ caretta presets
+$ caretta presets xp
 
-# Run a workflow under a different preset (overrides freq-ai.toml)
-$ freq-ai --preset xp ideation
+# Run a workflow under a different preset (overrides caretta.toml)
+$ caretta --preset xp ideation
 ```
 
-`--agent` accepts `claude`, `cline`, `codex`, `copilot`, `gemini`, `grok`, `junie`, `xai`, `cursor` (default: `claude`). The matching CLI must be installed and authenticated. `--auto` passes adapter-specific flags that reduce permission prompts and, for two-phase workflows (ideation, housekeeping, sprint-planning, retrospective, etc.), synthesizes stand-in feedback so the draft chains straight into finalize without a human in the loop — without `--auto` the CLI stops after the draft so you can review before any side effects fire. `--dry-run` prints planned prompts and actions without making supported changes. `--preset <name>` swaps the workflow preset for a single invocation (use `freq-ai presets` to see what's available; `freq-ai presets <name>` lists the workflows that preset ships with).
+`--agent` accepts `claude`, `cline`, `codex`, `copilot`, `gemini`, `grok`, `junie`, `xai`, `cursor` (default: `claude`). The matching CLI must be installed and authenticated. `--auto` passes adapter-specific flags that reduce permission prompts and, for two-phase workflows (ideation, housekeeping, sprint-planning, retrospective, etc.), synthesizes stand-in feedback so the draft chains straight into finalize without a human in the loop — without `--auto` the CLI stops after the draft so you can review before any side effects fire. `--dry-run` prints planned prompts and actions without making supported changes. `--preset <name>` swaps the workflow preset for a single invocation (use `caretta presets` to see what's available; `caretta presets <name>` lists the workflows that preset ships with).
 
 ## Desktop UI
 
@@ -80,14 +80,14 @@ configured `user_personas` skill file. With the default config, that is
 the Personas tab reads and writes next to that custom skill path so UXR workflows
 and the studio share the same persona set.
 
-## Configuration (`freq-ai.toml`)
+## Configuration (`caretta.toml`)
 
-freq-ai reads `freq-ai.toml` from the repo root on every launch (the legacy filename `dev.toml` is still honored as a fallback). Every field is optional — drop in only what you want to change. The full surface looks like this:
+caretta reads `caretta.toml` from the repo root on every launch (the legacy filename `dev.toml` is still honored as a fallback). Every field is optional — drop in only what you want to change. The full surface looks like this:
 
 ```toml
 # ── Top-level ─────────────────────────────────────────────────────────────
 project_name           = "my-project"   # default: inferred from the repo dir
-workflow_preset        = "default"      # default: "default"  (run `freq-ai presets`)
+workflow_preset        = "default"      # default: "default"  (run `caretta presets`)
 bootstrap_agent_files  = true           # default: true   — legacy agent-file bootstrap flag
 bootstrap_snapshot     = false          # default: false  — opt-in toak-rs codebase snapshot on launch
 use_subscription       = false          # default: false  — billing hint for adapters that support it
@@ -106,7 +106,7 @@ advanced = false                          # show advanced fields in the GUI
 preset   = "vllm"                         # vllm | lm_studio | ollama | custom
 base_url = "http://localhost:8000/v1"     # filled from preset unless preset = "custom"
 model    = "qwen2.5-coder-32b-instruct"
-# api_key stored via `freq-ai`'s OS keychain; do not commit it.
+# api_key stored via `caretta`'s OS keychain; do not commit it.
 
 # ── Skill files (override bundled paths) ──────────────────────────────────
 [skills]
@@ -140,15 +140,15 @@ compute        = "crates/compute-node/src/lib.rs"
 `user_personas` also controls the Personas Studio storage location: persona JSON
 documents live in a `personas/` directory beside that `SKILL.md`.
 
-CLI flags (`--agent`, `--auto`, `--dry-run`, `--preset`) override matching `freq-ai.toml` values for that single invocation. Secrets — agent API keys, GitHub bot tokens, GitHub App private keys — are not written to `freq-ai.toml`; they're stored in the OS keychain by the GUI's settings panel or supplied via env vars (see the [GitHub Actions example](#github-actions) below).
+CLI flags (`--agent`, `--auto`, `--dry-run`, `--preset`) override matching `caretta.toml` values for that single invocation. Secrets — agent API keys, GitHub bot tokens, GitHub App private keys — are not written to `caretta.toml`; they're stored in the OS keychain by the GUI's settings panel or supplied via env vars (see the [GitHub Actions example](#github-actions) below).
 
 ## GitHub Actions
-Every CLI subcommand above is also available as a GitHub Action — [**geoffsee/freq-ai-action**](https://github.com/geoffsee/freq-ai-action). Wire it to `pull_request`, `issues`, or `schedule` and your repo starts maintaining itself: issues become PRs, PRs get reviewed, review threads get addressed, weekly housekeeping happens on its own.
+Every CLI subcommand above is also available as a GitHub Action — [**geoffsee/caretta-action**](https://github.com/geoffsee/caretta-action). Wire it to `pull_request`, `issues`, or `schedule` and your repo starts maintaining itself: issues become PRs, PRs get reviewed, review threads get addressed, weekly housekeeping happens on its own.
 
-A working end-to-end demo lives at [**geoffsee/freq-ai-hello-world**](https://github.com/geoffsee/freq-ai-hello-world) — a tiny Node project where labeling an issue `agent:work` is enough to land a merged PR with no further input.
+A working end-to-end demo lives at [**geoffsee/caretta-hello-world**](https://github.com/geoffsee/caretta-hello-world) — a tiny Node project where labeling an issue `agent:work` is enough to land a merged PR with no further input.
 
 ```yaml
-- uses: geoffsee/freq-ai-action@main   # pin to a SHA or tag for production
+- uses: geoffsee/caretta-action@main   # pin to a SHA or tag for production
   with:
     task: code-review
     agent: claude
@@ -161,8 +161,8 @@ A working end-to-end demo lives at [**geoffsee/freq-ai-hello-world**](https://gi
     # XAI_API_KEY:           ${{ secrets.XAI_API_KEY }}               # xai / grok
     # (cline, copilot, junie, cursor authenticate via their own CLI login flow)
 
-    # ── GitHub auth for the `gh` CLI freq-ai shells out to ──
-    GH_TOKEN: ${{ secrets.FREQ_AI_PAT || github.token }}              # PAT preferred so PRs trigger downstream workflows
+    # ── GitHub auth for the `gh` CLI caretta shells out to ──
+    GH_TOKEN: ${{ secrets.CARETTA_PAT || github.token }}              # PAT preferred so PRs trigger downstream workflows
 
     # ── Bot identity (so reviews/approvals don't run as the PR author) ──
     # Pick ONE of the three styles below.
@@ -179,7 +179,7 @@ A working end-to-end demo lives at [**geoffsee/freq-ai-hello-world**](https://gi
     # DEV_BOT_PRIVATE_KEY is the *path* to a PEM. A prior step base64-decodes
     # secrets.DEV_BOT_PRIVATE_KEY_B64 into $RUNNER_TEMP/dev-bot.pem and exports it.
 
-    # ── freq-ai knobs ──
+    # ── caretta knobs ──
     # DEV_PROJECT_NAME: my-project   # override project name (otherwise inferred from the repo)
     # DISABLE_TOAK: "1"              # skip the toak-rs bootstrap snapshot (faster, less context)
 
@@ -187,7 +187,7 @@ A working end-to-end demo lives at [**geoffsee/freq-ai-hello-world**](https://gi
     # RUST_LOG: info                 # the action defaults to info; bump to debug/trace if you need more
 ```
 
-The full hands-off setup (PAT, OAuth token, GitHub App credentials, branch protection) is documented step-by-step in the [freq-ai-hello-world README](https://github.com/geoffsee/freq-ai-hello-world#setup).
+The full hands-off setup (PAT, OAuth token, GitHub App credentials, branch protection) is documented step-by-step in the [caretta-hello-world README](https://github.com/geoffsee/caretta-hello-world#setup).
 
 ## Status: Unstable (Active Development)
 Expect unexpected breaking changes.

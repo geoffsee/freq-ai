@@ -11,5 +11,5 @@ homepage.workspace = true
 agent-common = { path = "../agent-common" }
 
 [[bin]]
-name = "freq-ai-dummy-agent"
+name = "caretta-dummy-agent"
 path = "src/main.rs"

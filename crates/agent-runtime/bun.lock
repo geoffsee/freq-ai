@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "freq-ai-agent-runtime",
+      "name": "caretta-agent-runtime",
       "devDependencies": {
         "@anthropic-ai/claude-code": "latest",
         "@github/copilot": "latest",

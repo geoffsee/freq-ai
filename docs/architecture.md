@@ -1,8 +1,8 @@
 # Project Structure
 
-freq-ai is a Cargo workspace. Shared enums and configuration types live in
+caretta is a Cargo workspace. Shared enums and configuration types live in
 `crates/cli-common`; each supported agent CLI has a small adapter crate; the main
-application is `crates/cli` (package `freq-ai`).
+application is `crates/cli` (package `caretta`).
 
 ```
 crates/
@@ -31,7 +31,7 @@ crates/
       security.rs              Local security scan model and panel
       sidebar.rs               Config, actions, feedback, tracker, issues, PRs
       statusbar.rs             Status bar
-      server.rs                HTTP server for `freq-ai serve`
+      server.rs                HTTP server for `caretta serve`
     src/custom_themes.rs       Theme definitions
 assets/
   skills/                      Bundled skills embedded at compile time

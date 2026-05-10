@@ -1,4 +1,4 @@
-project = "freq-ai-ci"
+project = "caretta-ci"
 env_file = ".env.my-ci"
 
 [[workflow]]

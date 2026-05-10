@@ -36,7 +36,7 @@ pub fn run_models_list(selected: Agent, plain: bool, all: bool) {
     let models = selected.available_models();
     if models.is_empty() {
         eprintln!(
-            "No bundled models for {selected}. Rebuild `freq-ai-agent-runtime` (bundled CLIs in node_modules) and then the CLI, or pick any ID your adapter accepts."
+            "No bundled models for {selected}. Rebuild `caretta-agent-runtime` (bundled CLIs in node_modules) and then the CLI, or pick any ID your adapter accepts."
         );
         return;
     }
@@ -49,7 +49,7 @@ pub fn run_models_list(selected: Agent, plain: bool, all: bool) {
     }
 
     let id_w = models.iter().map(|(id, _)| id.len()).max().unwrap_or(0);
-    println!("Bundled models for {selected} (regenerate: cargo build -p freq-ai-agent-runtime)\n");
+    println!("Bundled models for {selected} (regenerate: cargo build -p caretta-agent-runtime)\n");
     for (id, label) in models {
         println!("{id:id_w$}  {label}", id_w = id_w);
     }

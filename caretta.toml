@@ -1,4 +1,4 @@
-project_name = "freq-ai"
+project_name = "caretta"
 bootstrap_agent_files = true
 
 [local_inference]

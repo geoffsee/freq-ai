@@ -27,18 +27,18 @@ jobs:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
-            artifact: freq-ai-x86_64-linux
-            container: ghcr.io/geoffsee/freq-ai-ci:latest
+            artifact: caretta-x86_64-linux
+            container: ghcr.io/geoffsee/caretta-ci:latest
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-24.04-arm
-            artifact: freq-ai-aarch64-linux
-            container: ghcr.io/geoffsee/freq-ai-ci:latest
+            artifact: caretta-aarch64-linux
+            container: ghcr.io/geoffsee/caretta-ci:latest
           - target: aarch64-apple-darwin
             os: macos-latest
-            artifact: freq-ai-aarch64-macos
+            artifact: caretta-aarch64-macos
           - target: x86_64-pc-windows-msvc
             os: windows-latest
-            artifact: freq-ai-x86_64-windows
+            artifact: caretta-x86_64-windows
 
     runs-on: ${{ matrix.os }}
     container: ${{ matrix.container }}
@@ -84,14 +84,14 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          tar czf ../../../${{ matrix.artifact }}.tar.gz freq-ai
+          tar czf ../../../${{ matrix.artifact }}.tar.gz caretta
           cd ../../..
 
       - name: Package (windows)
         if: runner.os == 'Windows'
         run: |
           cd target/${{ matrix.target }}/release
-          7z a ../../../${{ matrix.artifact }}.zip freq-ai.exe
+          7z a ../../../${{ matrix.artifact }}.zip caretta.exe
           cd ../../..
 
       - name: Upload artifact

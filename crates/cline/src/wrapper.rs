@@ -48,7 +48,7 @@ impl AgentCliAdapter for ClineWrapper {
         Some(vec!["--yolo".to_string()])
     }
 
-    fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String> {
+    fn caretta_native_run_argv(&self, prompt: &str) -> Vec<String> {
         vec!["chat".to_string(), prompt.to_string()]
     }
 
@@ -81,7 +81,7 @@ mod tests {
     fn native_run_uses_chat_subcommand() {
         let wrapper = ClineWrapper;
         assert_eq!(
-            wrapper.freqai_native_run_argv("hi"),
+            wrapper.caretta_native_run_argv("hi"),
             vec!["chat".to_string(), "hi".to_string()]
         );
     }

@@ -134,7 +134,7 @@ pub fn run_pr_review_fix(cfg: &Config, pr_num: u32) {
     let diff = pr_diff(pr_num);
 
     let worktree_path =
-        std::env::temp_dir().join(format!("freq-ai-pr-{pr_num}-{}", std::process::id()));
+        std::env::temp_dir().join(format!("caretta-pr-{pr_num}-{}", std::process::id()));
     let worktree_str = worktree_path.to_string_lossy().to_string();
     let remote_ref = format!("origin/{branch}");
 
@@ -249,7 +249,7 @@ fn run_verification_pass(
     let empty = HashSet::new();
 
     let verdict_path = std::env::temp_dir().join(format!(
-        "freq-ai-pr-{pr_num}-{}-verify.json",
+        "caretta-pr-{pr_num}-{}-verify.json",
         std::process::id()
     ));
     let _ = std::fs::remove_file(&verdict_path);
@@ -350,7 +350,7 @@ pub fn try_approve_pr(cfg: &Config, pr_num: u32) -> bool {
 
     let pr_num_s = pr_num.to_string();
     let body =
-        "All requested changes have been addressed. Approving via freq-ai code-review follow-up.";
+        "All requested changes have been addressed. Approving via caretta code-review follow-up.";
     let ok = cmd_run_env(
         "gh",
         &["pr", "review", &pr_num_s, "--approve", "--body", body],

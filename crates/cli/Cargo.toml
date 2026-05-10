@@ -1,5 +1,5 @@
 [package]
-name = "freq-ai"
+name = "caretta"
 version.workspace = true
 edition.workspace = true
 description.workspace = true
@@ -9,15 +9,15 @@ homepage.workspace = true
 exclude = ["dist/"]
 
 [lib]
-name = "freq_ai"
+name = "caretta"
 path = "src/lib.rs"
 
 [[bin]]
-name = "freq-ai"
+name = "caretta"
 path = "src/main.rs"
 
 [features]
-# Forwarded to `freq-ai-agent-runtime`. Off by default so `cargo build` /
+# Forwarded to `caretta-agent-runtime`. Off by default so `cargo build` /
 # `cargo test` are fast in development; pass `--features bundle-runtime` for
 # release / distribution builds that must ship a self-contained binary with
 # the agent runtime archive embedded.
@@ -27,15 +27,15 @@ bundle-runtime = ["agent-runtime/bundle-runtime"]
 [dependencies]
 agent-common = { path = "../agent-common" }
 cli-common = { path = "../cli-common" }
-claude = { package = "freq-ai-claude", path = "../claude" }
-cline = { package = "freq-ai-cline", path = "../cline" }
-codex = { package = "freq-ai-codex", path = "../codex" }
-copilot = { package = "freq-ai-copilot", path = "../copilot" }
-gemini = { package = "freq-ai-gemini", path = "../gemini" }
-grok = { package = "freq-ai-grok", path = "../grok" }
-junie = { package = "freq-ai-junie", path = "../junie" }
-xai = { package = "freq-ai-xai", path = "../xai" }
-agent-runtime = { package = "freq-ai-agent-runtime", path = "../agent-runtime" }
+claude = { package = "caretta-claude", path = "../claude" }
+cline = { package = "caretta-cline", path = "../cline" }
+codex = { package = "caretta-codex", path = "../codex" }
+copilot = { package = "caretta-copilot", path = "../copilot" }
+gemini = { package = "caretta-gemini", path = "../gemini" }
+grok = { package = "caretta-grok", path = "../grok" }
+junie = { package = "caretta-junie", path = "../junie" }
+xai = { package = "caretta-xai", path = "../xai" }
+agent-runtime = { package = "caretta-agent-runtime", path = "../agent-runtime" }
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

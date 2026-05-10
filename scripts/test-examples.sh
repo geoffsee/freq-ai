@@ -9,7 +9,7 @@ echo "==> cargo test --workspace"
 cargo test --workspace --quiet
 
 echo "==> building dummy-agent binary"
-cargo build -q -p dummy-agent --bin freq-ai-dummy-agent
+cargo build -q -p dummy-agent --bin caretta-dummy-agent
 
 export PATH="${repo_root}/target/debug:${PATH}"
 

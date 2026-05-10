@@ -1,4 +1,4 @@
-/// argv shape used by Claude Code, Junie, and Cursor in freq-ai's native runner.
+/// argv shape used by Claude Code, Junie, and Cursor in caretta's native runner.
 pub fn claude_family_native_argv(prompt: &str) -> Vec<String> {
     vec![
         "-p".to_string(),
@@ -37,10 +37,10 @@ pub trait AgentCliAdapter {
     fn model_args(&self, model: &str) -> Option<Vec<String>>;
 
     /// Alternate prompt argv shape for compatibility tooling or tests.
-    /// `command_for(AgentInvocation::Prompt)` uses [`Self::freqai_native_run_argv`] only,
-    /// not `prompt_args`, so the freq-ai runner matches native `run_agent` argv.
+    /// `command_for(AgentInvocation::Prompt)` uses [`Self::caretta_native_run_argv`] only,
+    /// not `prompt_args`, so the caretta runner matches native `run_agent` argv.
     fn prompt_args(&self, prompt: &str) -> Vec<String> {
-        self.freqai_native_run_argv(prompt)
+        self.caretta_native_run_argv(prompt)
     }
 
     fn resume_args(&self, session_id: Option<&str>) -> Option<Vec<String>>;
@@ -57,12 +57,12 @@ pub trait AgentCliAdapter {
         None
     }
 
-    /// Base argv for freq-ai's native runner (`run_agent` / `run_agent_with_env`),
+    /// Base argv for caretta's native runner (`run_agent` / `run_agent_with_env`),
     /// before [`Self::launch_model_selection`], [`Self::launch_auto_mode`], and
     /// [`Self::launch_local_inference`] fragments are appended.
-    fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String>;
+    fn caretta_native_run_argv(&self, prompt: &str) -> Vec<String>;
 
-    /// Model selection from the freq-ai UI (`freq-ai.toml` / config). `model` is non-empty.
+    /// Model selection from the caretta UI (`caretta.toml` / config). `model` is non-empty.
     fn launch_model_selection(&self, _model: &str) -> (Vec<String>, Vec<(String, String)>) {
         (Vec::new(), Vec::new())
     }
@@ -87,7 +87,7 @@ pub trait AgentCliAdapter {
             AgentInvocation::Help => Some(self.help_args()),
             AgentInvocation::Version => Some(self.version_args()),
             AgentInvocation::Model(model) => self.model_args(&model),
-            AgentInvocation::Prompt(prompt) => Some(self.freqai_native_run_argv(&prompt)),
+            AgentInvocation::Prompt(prompt) => Some(self.caretta_native_run_argv(&prompt)),
             AgentInvocation::Resume(session_id) => self.resume_args(session_id.as_deref()),
             AgentInvocation::Project(project) => self.project_args(&project),
             AgentInvocation::OutputFormat(format) => self.output_format_args(&format),
@@ -125,7 +125,7 @@ mod tests {
             Some(vec!["--model".to_string(), model.to_string()])
         }
 
-        fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String> {
+        fn caretta_native_run_argv(&self, prompt: &str) -> Vec<String> {
             vec!["--prompt".to_string(), prompt.to_string()]
         }
 

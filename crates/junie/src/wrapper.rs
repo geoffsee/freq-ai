@@ -41,7 +41,7 @@ impl AgentCliAdapter for JunieWrapper {
         Some(vec!["--brave".to_string()])
     }
 
-    fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String> {
+    fn caretta_native_run_argv(&self, prompt: &str) -> Vec<String> {
         claude_family_native_argv(prompt)
     }
 
@@ -68,7 +68,7 @@ mod tests {
             Some(vec!["--model".to_string(), "junie-pro".to_string()])
         );
         assert_eq!(
-            wrapper.freqai_native_run_argv("write tests"),
+            wrapper.caretta_native_run_argv("write tests"),
             claude_family_native_argv("write tests")
         );
         assert_eq!(

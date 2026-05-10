@@ -4,7 +4,7 @@ use std::process::Command;
 
 #[test]
 fn cli_help_and_version_are_compatible() {
-    if std::env::var_os("FREQ_AI_LIVE_CLI_TESTS").is_none() {
+    if std::env::var_os("CARETTA_LIVE_CLI_TESTS").is_none() {
         return;
     }
 

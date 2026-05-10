@@ -8,7 +8,7 @@ use std::sync::OnceLock;
 
 /// Process-wide cache of the parsed issue-comment trigger list.
 ///
-/// Populated once by `init_issue_comment_triggers` (called from `freq_ai::run`
+/// Populated once by `init_issue_comment_triggers` (called from `caretta::run`
 /// after the `Config` is finalised, so library consumers that override
 /// `Config::skill_paths.issue_tracking` get their custom path honoured).
 /// Empty until that call lands; the reminder component then renders an empty
@@ -21,7 +21,7 @@ static ISSUE_COMMENT_TRIGGERS: OnceLock<Vec<String>> = OnceLock::new();
 const ISSUE_COMMENT_TRIGGERS_HEADING: &str = "## Comment When One of These Triggers Fires";
 
 /// Initialise [`ISSUE_COMMENT_TRIGGERS`] from the skill file at `path`. Called
-/// once from `freq_ai::run` (or the standalone binary's `main`) after the
+/// once from `caretta::run` (or the standalone binary's `main`) after the
 /// `Config` is finalised. Idempotent — subsequent calls are a no-op.
 ///
 /// Panics if the file is missing, the canonical heading is missing, or the
@@ -430,7 +430,7 @@ pub fn Sidebar(
                             }
                         } else {
                             div { class: "advanced-hint",
-                                "Select a model before configuring per-token pricing. freq-ai does not ship provider price tables because they change often."
+                                "Select a model before configuring per-token pricing. caretta does not ship provider price tables because they change often."
                             }
                         }
                         button {
@@ -756,7 +756,7 @@ pub fn Sidebar(
 mod tests {
     use super::*;
 
-    /// Guards issue #127: the bundled freq-ai SKILL.md must still expose the
+    /// Guards issue #127: the bundled caretta SKILL.md must still expose the
     /// canonical trigger heading and bullets, so the standalone binary keeps
     /// rendering a non-empty reminder when it boots against its own defaults.
     #[test]
@@ -806,6 +806,6 @@ mod tests {
         // We can't directly test the OnceLock from another test (state leaks
         // across tests in the same module), so we just exercise the early
         // return path explicitly via `.get().is_some()` semantics.
-        // The real init path is exercised end-to-end by the freq-ai binary.
+        // The real init path is exercised end-to-end by the caretta binary.
     }
 }

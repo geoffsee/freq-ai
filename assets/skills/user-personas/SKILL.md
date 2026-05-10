@@ -17,7 +17,7 @@ Use this skill when you have research signal — interview snippets, support tic
 
 Personas are stored as JSON documents in the `personas/` subdirectory.
 The desktop UI's Personas Studio reads and writes the same directory. If
-`freq-ai.toml` overrides `[skills].user_personas`, the studio stores persona JSON
+`caretta.toml` overrides `[skills].user_personas`, the studio stores persona JSON
 beside that custom `SKILL.md`; otherwise it uses this bundled skill's
 `personas/` directory.
 

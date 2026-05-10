@@ -68,7 +68,7 @@ impl AgentCliAdapter for ClaudeWrapper {
         Some(vec!["--output-format".to_string(), format.to_string()])
     }
 
-    fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String> {
+    fn caretta_native_run_argv(&self, prompt: &str) -> Vec<String> {
         claude_family_native_argv(prompt)
     }
 
@@ -120,7 +120,7 @@ impl AgentCliAdapter for CursorWrapper {
         Some(vec!["--output-format".to_string(), format.to_string()])
     }
 
-    fn freqai_native_run_argv(&self, prompt: &str) -> Vec<String> {
+    fn caretta_native_run_argv(&self, prompt: &str) -> Vec<String> {
         claude_family_native_argv(prompt)
     }
 
@@ -147,7 +147,7 @@ mod tests {
             Some(vec!["--model".to_string(), "opus".to_string()])
         );
         assert_eq!(
-            wrapper.freqai_native_run_argv("hello"),
+            wrapper.caretta_native_run_argv("hello"),
             claude_family_native_argv("hello")
         );
     }
@@ -156,7 +156,10 @@ mod tests {
     fn cursor_matches_claude_argv_and_binary_differs() {
         let c = ClaudeWrapper;
         let u = CursorWrapper;
-        assert_eq!(c.freqai_native_run_argv("x"), u.freqai_native_run_argv("x"));
+        assert_eq!(
+            c.caretta_native_run_argv("x"),
+            u.caretta_native_run_argv("x")
+        );
         assert_eq!(c.binary(), "claude");
         assert_eq!(u.binary(), "cursor");
         assert_eq!(

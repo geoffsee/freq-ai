@@ -75,7 +75,7 @@ pub fn tracker_merge_candidates_order(body: &str, pr_issues: &HashSet<u32>) -> V
 }
 
 pub fn tracker_from_env() -> Option<u32> {
-    std::env::var("FREQ_AI_MERGE_TRACKER")
+    std::env::var("CARETTA_MERGE_TRACKER")
         .ok()
         .and_then(|v| v.parse::<u32>().ok())
 }
@@ -243,7 +243,7 @@ fn resolve_execution_order(
     }
     if trackers.len() > 1 {
         log(
-            "auto-merge (lineage): multiple trackers and no `--tracker` / `FREQ_AI_MERGE_TRACKER`; falling back to stack graph traversal. Specify a tracker to mirror sprint deterministic ordering.",
+            "auto-merge (lineage): multiple trackers and no `--tracker` / `CARETTA_MERGE_TRACKER`; falling back to stack graph traversal. Specify a tracker to mirror sprint deterministic ordering.",
         );
     }
     merge_order_topological(pr_by_issue, trunk)

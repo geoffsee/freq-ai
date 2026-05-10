@@ -50,8 +50,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run freq-ai approve-pr
-        uses: geoffsee/freq-ai-action@v0.0.4
+      - name: Run caretta approve-pr
+        uses: geoffsee/caretta-action@v0.0.4
         with:
           task: approve-pr
           args: ${{ matrix.pr }}

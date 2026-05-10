@@ -29,50 +29,54 @@ pub fn native_base_command(agent: Agent, prompt: &str) -> AgentCliCommand {
     match agent {
         Agent::Claude => AgentCliCommand {
             binary: ClaudeWrapper.binary().to_string(),
-            args: ClaudeWrapper.freqai_native_run_argv(prompt),
+            args: ClaudeWrapper.caretta_native_run_argv(prompt),
         },
         Agent::Cursor => AgentCliCommand {
             binary: CursorWrapper.binary().to_string(),
-            args: CursorWrapper.freqai_native_run_argv(prompt),
+            args: CursorWrapper.caretta_native_run_argv(prompt),
         },
         Agent::Junie => AgentCliCommand {
             binary: JunieWrapper.binary().to_string(),
-            args: JunieWrapper.freqai_native_run_argv(prompt),
+            args: JunieWrapper.caretta_native_run_argv(prompt),
         },
         Agent::Copilot => AgentCliCommand {
             binary: CopilotWrapper.binary().to_string(),
-            args: CopilotWrapper.freqai_native_run_argv(prompt),
+            args: CopilotWrapper.caretta_native_run_argv(prompt),
         },
         Agent::Codex => AgentCliCommand {
             binary: CodexWrapper.binary().to_string(),
-            args: CodexWrapper.freqai_native_run_argv(prompt),
+            args: CodexWrapper.caretta_native_run_argv(prompt),
         },
         Agent::Gemini => AgentCliCommand {
             binary: GeminiWrapper.binary().to_string(),
-            args: GeminiWrapper.freqai_native_run_argv(prompt),
+            args: GeminiWrapper.caretta_native_run_argv(prompt),
         },
         Agent::Grok => AgentCliCommand {
             binary: GrokWrapper.binary().to_string(),
-            args: GrokWrapper.freqai_native_run_argv(prompt),
+            args: GrokWrapper.caretta_native_run_argv(prompt),
         },
         Agent::Xai => AgentCliCommand {
             binary: XaiWrapper.binary().to_string(),
-            args: XaiWrapper.freqai_native_run_argv(prompt),
+            args: XaiWrapper.caretta_native_run_argv(prompt),
         },
         Agent::Cline => AgentCliCommand {
             binary: ClineWrapper.binary().to_string(),
-            args: ClineWrapper.freqai_native_run_argv(prompt),
+            args: ClineWrapper.caretta_native_run_argv(prompt),
         },
     }
 }
 
-pub fn freqai_native_command(agent: Agent, prompt: &str, extra_args: &[String]) -> AgentCliCommand {
+pub fn caretta_native_command(
+    agent: Agent,
+    prompt: &str,
+    extra_args: &[String],
+) -> AgentCliCommand {
     let mut cmd = native_base_command(agent, prompt);
     cmd.args.extend_from_slice(extra_args);
     cmd
 }
 
-pub fn freqai_native_command_with_prompt_transport(
+pub fn caretta_native_command_with_prompt_transport(
     agent: Agent,
     prompt: &str,
     extra_args: &[String],
@@ -212,9 +216,9 @@ mod tests {
     }
 
     #[test]
-    fn freqai_native_command_appends_overrides_after_base() {
+    fn caretta_native_command_appends_overrides_after_base() {
         let extra = vec!["--model".to_string(), "m".to_string()];
-        let cmd = freqai_native_command(Agent::Gemini, "hi", &extra);
+        let cmd = caretta_native_command(Agent::Gemini, "hi", &extra);
         assert_eq!(cmd.args[0..2], ["-p", "hi"]);
         assert_eq!(cmd.args[2..], ["--model", "m"]);
     }
@@ -222,7 +226,7 @@ mod tests {
     #[test]
     fn oversized_claude_prompt_uses_stdin_transport() {
         let prompt = "x".repeat(PROMPT_STDIN_BYTE_THRESHOLD + 1);
-        let cmd = freqai_native_command_with_prompt_transport(Agent::Claude, &prompt, &[]);
+        let cmd = caretta_native_command_with_prompt_transport(Agent::Claude, &prompt, &[]);
 
         assert_eq!(cmd.command.binary, "claude");
         assert_eq!(cmd.command.args, claude_family_native_stdin_argv());
@@ -234,7 +238,7 @@ mod tests {
     fn oversized_codex_prompt_uses_stdin_transport() {
         let prompt = "x".repeat(PROMPT_STDIN_BYTE_THRESHOLD + 1);
         let extra = vec!["--dangerously-bypass-approvals-and-sandbox".to_string()];
-        let cmd = freqai_native_command_with_prompt_transport(Agent::Codex, &prompt, &extra);
+        let cmd = caretta_native_command_with_prompt_transport(Agent::Codex, &prompt, &extra);
 
         assert_eq!(cmd.command.binary, "codex");
         assert_eq!(
@@ -252,7 +256,7 @@ mod tests {
 
     #[test]
     fn small_prompts_keep_existing_argv_shape() {
-        let cmd = freqai_native_command_with_prompt_transport(Agent::Claude, "small", &[]);
+        let cmd = caretta_native_command_with_prompt_transport(Agent::Claude, "small", &[]);
 
         assert_eq!(cmd.command.args, claude_family_native_argv("small"));
         assert_eq!(cmd.prompt_transport, PromptTransport::Argv);

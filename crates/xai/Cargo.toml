@@ -1,5 +1,5 @@
 [package]
-name = "freq-ai-xai"
+name = "caretta-xai"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

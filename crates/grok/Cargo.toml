@@ -1,5 +1,5 @@
 [package]
-name = "freq-ai-grok"
+name = "caretta-grok"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

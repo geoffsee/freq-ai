@@ -1,4 +1,4 @@
-//! Integration tests for the freq-ai CLI.
+//! Integration tests for the caretta CLI.
 //!
 //! These tests exercise the compiled binary end-to-end to verify that all
 //! agent CLIs, subcommands, workflow presets, and configuration paths are
@@ -23,19 +23,19 @@ use std::os::unix::process::CommandExt;
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Path to the `freq-ai` binary built by `cargo test`.
+/// Path to the `caretta` binary built by `cargo test`.
 fn bin() -> Command {
-    let path = env!("CARGO_BIN_EXE_freq-ai");
+    let path = env!("CARGO_BIN_EXE_caretta");
     let mut command = Command::new(path);
     #[cfg(unix)]
     command.process_group(0);
     command
 }
 
-/// Run `freq-ai` with the given args and assert it exits successfully.
+/// Run `caretta` with the given args and assert it exits successfully.
 /// Returns stdout+stderr combined as a string.
 fn run_ok(args: &[&str]) -> String {
-    let out = bin().args(args).output().expect("failed to launch freq-ai");
+    let out = bin().args(args).output().expect("failed to launch caretta");
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -43,7 +43,7 @@ fn run_ok(args: &[&str]) -> String {
     );
     assert!(
         out.status.success(),
-        "freq-ai {} exited with {:?}\n--- output ---\n{}",
+        "caretta {} exited with {:?}\n--- output ---\n{}",
         args.join(" "),
         out.status.code(),
         combined,
@@ -51,10 +51,10 @@ fn run_ok(args: &[&str]) -> String {
     combined
 }
 
-/// Run `freq-ai` with the given args and assert it exits with a non-zero code.
+/// Run `caretta` with the given args and assert it exits with a non-zero code.
 /// Returns stdout+stderr combined.
 fn run_fail(args: &[&str]) -> String {
-    let out = bin().args(args).output().expect("failed to launch freq-ai");
+    let out = bin().args(args).output().expect("failed to launch caretta");
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -62,16 +62,16 @@ fn run_fail(args: &[&str]) -> String {
     );
     assert!(
         !out.status.success(),
-        "freq-ai {} should have failed but exited 0\n--- output ---\n{}",
+        "caretta {} should have failed but exited 0\n--- output ---\n{}",
         args.join(" "),
         combined,
     );
     combined
 }
 
-/// Run `freq-ai` with the given args and just return the output (no success assertion).
+/// Run `caretta` with the given args and just return the output (no success assertion).
 fn run_raw(args: &[&str]) -> std::process::Output {
-    bin().args(args).output().expect("failed to launch freq-ai")
+    bin().args(args).output().expect("failed to launch caretta")
 }
 
 struct TimedOutput {
@@ -87,14 +87,14 @@ fn run_with_timeout(args: &[&str], timeout: Duration) -> TimedOutput {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    let mut child = command.spawn().expect("failed to launch freq-ai");
+    let mut child = command.spawn().expect("failed to launch caretta");
     let deadline = Instant::now() + timeout;
     let mut timed_out = false;
 
     loop {
         if child
             .try_wait()
-            .expect("failed to poll freq-ai process")
+            .expect("failed to poll caretta process")
             .is_some()
         {
             break;
@@ -111,7 +111,7 @@ fn run_with_timeout(args: &[&str], timeout: Duration) -> TimedOutput {
 
     let output = child
         .wait_with_output()
-        .expect("failed to collect freq-ai output");
+        .expect("failed to collect caretta output");
     TimedOutput { output, timed_out }
 }
 
@@ -164,7 +164,7 @@ fn repo_root() -> std::path::PathBuf {
 fn help_flag_exits_zero_and_shows_usage() {
     let out = run_ok(&["--help"]);
     assert!(
-        out.contains("freq-ai") || out.contains("Usage") || out.contains("usage"),
+        out.contains("caretta") || out.contains("Usage") || out.contains("usage"),
         "expected usage text in --help output"
     );
 }
@@ -173,8 +173,8 @@ fn help_flag_exits_zero_and_shows_usage() {
 fn version_flag_exits_zero() {
     let out = run_ok(&["--version"]);
     assert!(
-        out.contains("freq-ai"),
-        "expected version string to contain 'freq-ai'"
+        out.contains("caretta"),
+        "expected version string to contain 'caretta'"
     );
 }
 
@@ -290,7 +290,7 @@ fn all_agent_names_are_accepted_by_help() {
     for agent in ALL_AGENTS {
         let out = run_ok(&["--agent", agent, "--help"]);
         assert!(
-            out.contains("freq-ai") || out.contains("Usage"),
+            out.contains("caretta") || out.contains("Usage"),
             "--agent {agent} --help produced unexpected output"
         );
     }
@@ -336,7 +336,7 @@ fn dry_run_workflows_exit_cleanly() {
             .args(["--dry-run", cmd])
             .current_dir(env!("CARGO_MANIFEST_DIR"))
             .output()
-            .expect("failed to launch freq-ai");
+            .expect("failed to launch caretta");
         let combined = format!(
             "{}{}",
             String::from_utf8_lossy(&out.stdout),
@@ -383,7 +383,7 @@ fn dry_run_with_each_agent_exits_cleanly() {
             .args(["--agent", agent, "--dry-run", "ideation"])
             .current_dir(env!("CARGO_MANIFEST_DIR"))
             .output()
-            .expect("failed to launch freq-ai");
+            .expect("failed to launch caretta");
         let combined = format!(
             "{}{}",
             String::from_utf8_lossy(&out.stdout),
@@ -433,7 +433,7 @@ fn tracker_matrix_dry_run_json_emits_empty_array() {
         .args(["--dry-run", "tracker-matrix", "7", "--json"])
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
-        .expect("failed to launch freq-ai");
+        .expect("failed to launch caretta");
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -467,7 +467,7 @@ fn issue_dry_run_parses_number_argument() {
         .args(["--dry-run", "issue", "42"])
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
-        .expect("failed to launch freq-ai");
+        .expect("failed to launch caretta");
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -497,7 +497,7 @@ fn loop_dry_run_accepts_number() {
         .args(["--dry-run", "loop", "7"])
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
-        .expect("failed to launch freq-ai");
+        .expect("failed to launch caretta");
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -512,7 +512,7 @@ fn fix_pr_dry_run_accepts_number() {
         .args(["--dry-run", "fix-pr", "15"])
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
-        .expect("failed to launch freq-ai");
+        .expect("failed to launch caretta");
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -553,7 +553,7 @@ fn create_labels_writes_file_and_exits() {
         .args(["--create-labels"])
         .current_dir(dir.path())
         .output()
-        .expect("failed to launch freq-ai");
+        .expect("failed to launch caretta");
     let combined = format!(
         "{}{}",
         String::from_utf8_lossy(&out.stdout),
@@ -588,7 +588,7 @@ fn auto_and_dry_run_can_combine() {
         .args(["--auto", "--dry-run", "ideation"])
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
-        .expect("failed to launch freq-ai");
+        .expect("failed to launch caretta");
     assert!(out.status.success(), "--auto --dry-run ideation failed");
 }
 
@@ -598,7 +598,7 @@ fn agent_auto_dry_run_combine() {
         .args(["--agent", "gemini", "--auto", "--dry-run", "roadmapper"])
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .output()
-        .expect("failed to launch freq-ai");
+        .expect("failed to launch caretta");
     assert!(
         out.status.success(),
         "--agent gemini --auto --dry-run roadmapper failed"
@@ -804,7 +804,7 @@ fn models_plain_lists_bundled_ids() {
 fn models_table_mentions_bundled_catalog() {
     let out = run_ok(&["--agent", "claude", "models"]);
     assert!(
-        out.contains("Bundled models") && out.contains("freq-ai-agent-runtime"),
+        out.contains("Bundled models") && out.contains("caretta-agent-runtime"),
         "expected catalog header and regen hint:\n{out}"
     );
 }
@@ -915,13 +915,13 @@ fn default_preset_covers_all_cli_subcommands() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 13. freq-ai.toml — configuration file parsing
+// 13. caretta.toml — configuration file parsing
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]
 fn dev_toml_in_repo_root_is_valid_toml() {
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    for name in ["freq-ai.toml", "dev.toml"] {
+    for name in ["caretta.toml", "dev.toml"] {
         let path = manifest_dir.join(name);
         if path.exists() {
             let content = std::fs::read_to_string(&path).unwrap();
