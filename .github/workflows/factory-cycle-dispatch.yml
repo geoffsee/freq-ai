@@ -19,6 +19,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  housekeeping:
+    uses: ./.github/workflows/nightly-housekeeping.yml
+    with:
+      context: ${{ inputs.context }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
   ideation:
     runs-on: ubuntu-latest
     steps:
