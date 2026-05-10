@@ -189,6 +189,9 @@ mod tests {
         let wrapper = ClaudeWrapper;
         let mut argv = wrapper.freqai_native_run_argv("freq-ai launch smoke");
         argv.extend(wrapper.launch_auto_mode());
+        // Both launch_model_selection and launch_local_inference are exercised to
+        // cover both code paths; this does not model a realistic invocation (local
+        // inference supersedes model selection in practice).
         let (model_args, model_env) = wrapper.launch_model_selection("smoke-model");
         argv.extend(model_args);
         let (local_args, local_env) =
