@@ -27,6 +27,7 @@ pub mod ui;
 pub use agent::types::{Agent, Config, SkillPaths};
 
 use agent::actions::{ActionContext, lookup_action};
+use agent::auto_merge::run_auto_merge_stack;
 use agent::config_store::{
     clear_bot_private_key_pem, clear_bot_token, clear_local_inference_api_key,
     store_bot_private_key_pem, store_bot_token, store_local_inference_api_key,
@@ -125,6 +126,13 @@ enum Commands {
         /// Pull request number to evaluate
         #[arg(value_name = "PR")]
         pr: u32,
+    },
+    /// Squash-merge approved `agent/issue-*` PRs respecting tracker/stack lineage (`auto_merge` workflow)
+    #[command(name = "auto-merge")]
+    AutoMerge {
+        /// Tracker issue supplying deterministic execution order (`pending_issues_execution_order`)
+        #[arg(long, value_name = "NUMBER")]
+        tracker: Option<u32>,
     },
     /// Run ideation draft
     Ideation,
@@ -295,6 +303,9 @@ where
             Some(Commands::ApprovePr { pr }) => {
                 try_approve_pr(&config, pr);
             }
+            Some(Commands::AutoMerge { tracker }) => {
+                run_auto_merge_stack(&config, tracker);
+            }
             Some(Commands::Ideation) => run_workflow_draft(&config, "ideation"),
             Some(Commands::UxrSynth) => run_workflow_draft(&config, "report_research"),
             Some(Commands::StrategicReview) => run_workflow_draft(&config, "strategic_review"),
@@ -336,7 +347,19 @@ where
                 match resolved {
                     Some(wf) => {
                         let id = wf.id.clone();
-                        run_workflow_draft(&config, &id);
+                        let norm_id = id.replace('-', "_");
+                        if let Some(action) = lookup_action(norm_id.as_str()) {
+                            let mut ctx = ActionContext::new(norm_id.as_str());
+                            match action(&config, &mut ctx) {
+                                Ok(()) => {}
+                                Err(e) => {
+                                    eprintln!("workflow action '{id}' failed: {e}");
+                                    std::process::exit(1);
+                                }
+                            }
+                        } else {
+                            run_workflow_draft(&config, &id);
+                        }
                     }
                     None => {
                         let mut ids: Vec<&str> =
@@ -940,18 +963,31 @@ fn App() -> Element {
             return;
         }
 
-        // Auto merge (special).
-        if workflow_id == "auto_merge" {
+        // Auto merge (lineage-aware; same runner as CLI `freq-ai auto-merge`).
+        if workflow_id == "auto_merge" || workflow_id == "auto-merge" {
+            info!("Running lineage-aware auto-merge pass…");
+            spawn(async move {
+                let cfg_inner = cfg.clone();
+                if let Err(e) =
+                    tokio::task::spawn_blocking(move || run_auto_merge_stack(&cfg_inner, None))
+                        .await
+                {
+                    info!("Auto-merge lineage task failed: {e}");
+                } else {
+                    info!("Auto-merge lineage task finished.");
+                }
+            });
             return;
         }
 
         is_working.set(true);
 
         // Look up a registered action runner, otherwise use the generic YAML runner.
-        if let Some(action) = lookup_action(&workflow_id) {
+        let norm_workflow_id = workflow_id.replace('-', "_");
+        if let Some(action) = lookup_action(norm_workflow_id.as_str()) {
             let action = *action;
             tokio::spawn(async move {
-                let mut ctx = ActionContext::new(&workflow_id);
+                let mut ctx = ActionContext::new(norm_workflow_id.as_str());
                 if let Err(e) = action(&cfg, &mut ctx) {
                     agent::shell::log(&format!("Workflow '{}' failed: {e}", ctx.workflow_id));
                 }

@@ -268,6 +268,11 @@ fn subcommand_help_fix_pr() {
 }
 
 #[test]
+fn subcommand_help_auto_merge() {
+    run_ok(&["auto-merge", "--help"]);
+}
+
+#[test]
 fn subcommand_help_serve() {
     run_ok(&["serve", "--help"]);
 }
@@ -319,6 +324,7 @@ const DRY_RUN_SUBCOMMANDS: &[&str] = &[
     "refresh-agents",
     "refresh-docs",
     "code-review",
+    "auto-merge",
     // security-review requires a tokio runtime for codebase snapshot generation;
     // tested separately below.
 ];
@@ -892,6 +898,7 @@ fn default_preset_covers_all_cli_subcommands() {
         "refresh-agents",
         "refresh-docs",
         "interview",
+        "auto-merge",
     ];
 
     for wf in &expected_workflows {

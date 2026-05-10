@@ -60,3 +60,11 @@ pub fn action_refresh_docs(
     run_refresh_docs(cfg);
     Ok(())
 }
+
+pub fn action_auto_merge(
+    cfg: &Config,
+    _ctx: &mut crate::agent::actions::ActionContext,
+) -> Result<(), String> {
+    crate::agent::auto_merge::run_auto_merge_stack(cfg, None);
+    Ok(())
+}

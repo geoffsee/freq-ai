@@ -1,0 +1,516 @@
+//! Lineage-aware batch merge for `agent/issue-N` stacked pull requests.
+
+use crate::agent::cmd::{cmd_capture, cmd_run, cmd_stdout, cmd_stdout_or_die, has_command};
+use crate::agent::shell::log;
+use crate::agent::tracker::{
+    find_tracker, find_upstream_branch, get_tracker_body, parse_pending,
+    pending_issues_execution_order,
+};
+use crate::agent::types::{BRANCH_PREFIX, Config};
+use std::collections::{HashMap, HashSet, VecDeque};
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct GhPrMergeRow {
+    number: u32,
+    head_ref: String,
+    base_ref: String,
+    is_draft: bool,
+    merge_state_status: Option<String>,
+    review_decision: Option<String>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrStatusRefresh {
+    merge_state_status: Option<String>,
+    review_decision: Option<String>,
+    is_draft: bool,
+}
+
+fn gh_list_merge_candidate_prs() -> Vec<GhPrMergeRow> {
+    let out = cmd_stdout_or_die(
+        "gh",
+        &[
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--limit",
+            "150",
+            "--json",
+            "number,headRefName,baseRefName,isDraft,mergeStateStatus,reviewDecision",
+        ],
+        "failed to list open PRs for auto-merge",
+    );
+    serde_json::from_str(&out).unwrap_or_default()
+}
+
+fn issue_num_from_agent_head(branch: &str) -> Option<u32> {
+    branch
+        .strip_prefix(BRANCH_PREFIX)
+        .and_then(|s| s.parse::<u32>().ok())
+}
+
+/// Open PR rows whose heads follow `agent/issue-N`. Drafts omitted.
+pub(crate) fn agent_issue_pull_rows(rows: &[GhPrMergeRow]) -> HashMap<u32, GhPrMergeRow> {
+    let mut map = HashMap::new();
+    for row in rows {
+        if row.is_draft {
+            continue;
+        }
+        if let Some(n) = issue_num_from_agent_head(&row.head_ref) {
+            map.insert(n, row.clone());
+        }
+    }
+    map
+}
+
+/// Same ordering policy as sprint workers: tracker execution order narrowed to rows that still have PRs.
+pub fn tracker_merge_candidates_order(body: &str, pr_issues: &HashSet<u32>) -> Vec<u32> {
+    pending_issues_execution_order(body)
+        .into_iter()
+        .filter(|n| pr_issues.contains(n))
+        .collect()
+}
+
+pub fn tracker_from_env() -> Option<u32> {
+    std::env::var("FREQ_AI_MERGE_TRACKER")
+        .ok()
+        .and_then(|v| v.parse::<u32>().ok())
+}
+
+fn merge_order_tracker(pr_by_issue: &HashMap<u32, GhPrMergeRow>, tracker_id: u32) -> Vec<u32> {
+    let body = get_tracker_body(tracker_id);
+    let keys: HashSet<u32> = pr_by_issue.keys().copied().collect();
+    tracker_merge_candidates_order(&body, &keys)
+}
+
+pub(crate) fn merge_order_topological(
+    pr_by_issue: &HashMap<u32, GhPrMergeRow>,
+    trunk: &str,
+) -> Vec<u32> {
+    if pr_by_issue.is_empty() {
+        return Vec::new();
+    }
+
+    let head_owner: HashMap<&str, u32> = pr_by_issue
+        .iter()
+        .map(|(&issue, row)| (row.head_ref.as_str(), issue))
+        .collect();
+
+    #[derive(Clone, Copy)]
+    struct IssueNode {
+        parent_issue: Option<u32>,
+        issue: u32,
+    }
+
+    let rows: Vec<u32> = pr_by_issue.keys().copied().collect();
+    let mut nodes = Vec::<IssueNode>::new();
+    for issue in rows.iter() {
+        let row = pr_by_issue.get(issue).expect("consistent map");
+        let parent = if row.base_ref == trunk {
+            None
+        } else if let Some(&p) = head_owner.get(row.base_ref.as_str()) {
+            Some(p)
+        } else {
+            None
+        };
+        nodes.push(IssueNode {
+            parent_issue: parent,
+            issue: *issue,
+        });
+    }
+
+    let children: HashMap<Option<u32>, Vec<u32>> = {
+        let mut m: HashMap<Option<u32>, Vec<u32>> = HashMap::new();
+        for n in &nodes {
+            m.entry(n.parent_issue).or_default().push(n.issue);
+        }
+        for v in m.values_mut() {
+            v.sort_unstable();
+        }
+        m
+    };
+
+    let mut out = Vec::<u32>::new();
+    let mut seen = HashSet::<u32>::new();
+    let mut q: VecDeque<u32> = VecDeque::new();
+    if let Some(roots) = children.get(&None) {
+        for &r in roots {
+            q.push_back(r);
+        }
+    }
+
+    while let Some(issue) = q.pop_front() {
+        if !seen.insert(issue) {
+            continue;
+        }
+        out.push(issue);
+        let key = Some(issue);
+        if let Some(kids) = children.get(&key) {
+            for &k in kids {
+                q.push_back(k);
+            }
+        }
+    }
+
+    let mut orphans: Vec<u32> = nodes
+        .iter()
+        .filter(|n| !seen.contains(&n.issue))
+        .map(|n| n.issue)
+        .collect();
+    orphans.sort_unstable();
+    for o in orphans {
+        if seen.insert(o) {
+            log(&format!(
+                "auto-merge (lineage): issue #{o} stacks on '{}' which is not trunk nor another queued agent branch — appending deterministically behind the main lineage slice",
+                pr_by_issue
+                    .get(&o)
+                    .map(|r| r.base_ref.as_str())
+                    .unwrap_or("?"),
+            ));
+            out.push(o);
+        }
+    }
+
+    out
+}
+
+fn eligible_for_immediate_merge(row: &GhPrMergeRow) -> bool {
+    if row.is_draft {
+        return false;
+    }
+    if matches!(
+        row.merge_state_status.as_deref(),
+        Some(s) if s.eq_ignore_ascii_case("DIRTY")
+    ) {
+        return false;
+    }
+    matches!(
+        row.review_decision.as_deref(),
+        Some(d) if d.trim().eq_ignore_ascii_case("APPROVED")
+    )
+}
+
+fn retarget_pull_base(pr_num: u32, new_base: &str, dry_run: bool) -> bool {
+    if dry_run {
+        log(&format!(
+            "[dry-run] Would retarget PR #{pr_num}: gh pr edit … --base {new_base}",
+        ));
+        return true;
+    }
+    log(&format!(
+        "Retargeting PR #{pr_num} to merge into '{new_base}'…"
+    ));
+    cmd_run(
+        "gh",
+        &["pr", "edit", &pr_num.to_string(), "--base", new_base],
+    )
+}
+
+fn merge_pull_squash(pr_num: u32, dry_run: bool) -> bool {
+    if dry_run {
+        log(&format!("[dry-run] Would squash-merge PR #{pr_num}."));
+        return true;
+    }
+    log(&format!("Squash-merge PR #{pr_num}…"));
+    let (ok, out) = cmd_capture("gh", &["pr", "merge", &pr_num.to_string(), "--squash"]);
+    if !ok {
+        log(&format!("Merge failed for PR #{pr_num}: {out}"));
+    }
+    ok
+}
+
+fn resolve_execution_order(
+    pr_by_issue: &HashMap<u32, GhPrMergeRow>,
+    trunk: &str,
+    hint: Option<u32>,
+) -> Vec<u32> {
+    if let Some(tid) = hint {
+        log(&format!(
+            "auto-merge (lineage): using tracker #{tid} for deterministic execution order"
+        ));
+        return merge_order_tracker(pr_by_issue, tid);
+    }
+    let trackers = find_tracker();
+    if trackers.len() == 1 {
+        let tid = trackers[0].number;
+        log(&format!(
+            "auto-merge (lineage): single open tracker #{tid} detected — deriving order from tracker body"
+        ));
+        return merge_order_tracker(pr_by_issue, tid);
+    }
+    if trackers.len() > 1 {
+        log(
+            "auto-merge (lineage): multiple trackers and no `--tracker` / `FREQ_AI_MERGE_TRACKER`; falling back to stack graph traversal. Specify a tracker to mirror sprint deterministic ordering.",
+        );
+    }
+    merge_order_topological(pr_by_issue, trunk)
+}
+
+/// Walk deterministic tracker order / stack graph, aligning each `--base` with
+/// [`find_upstream_branch`] (same chaining policy as [`crate::agent::issue::work_on_issue`]), then squash-merge when Approved and GitHub marks no explicit conflict state (`DIRTY`).
+pub fn run_auto_merge_stack(cfg: &Config, tracker_override: Option<u32>) {
+    if !cfg.dry_run && !has_command("gh") {
+        log("auto-merge: `gh` CLI not installed — abort.");
+        return;
+    }
+    let trunk = crate::agent::cmd::origin_default_branch();
+    log(&format!("auto-merge (lineage): trunk base '{}'", trunk));
+
+    let gh_rows = if has_command("gh") {
+        if cfg.dry_run {
+            log("[dry-run] Listing open PRs (read-only)");
+        }
+        match cmd_stdout(
+            "gh",
+            &[
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--limit",
+                "150",
+                "--json",
+                "number,headRefName,baseRefName,isDraft,mergeStateStatus,reviewDecision",
+            ],
+        ) {
+            Some(raw) => serde_json::from_str(&raw).unwrap_or_default(),
+            None => Vec::new(),
+        }
+    } else {
+        log("[dry-run] `gh` missing — pretending no open PR rows.");
+        Vec::new()
+    };
+
+    let pr_by_issue = agent_issue_pull_rows(&gh_rows);
+    if pr_by_issue.is_empty() {
+        log("auto-merge (lineage): no open non-draft agent/issue-* pull requests matched.");
+        return;
+    }
+
+    let hint = tracker_override.or_else(tracker_from_env);
+    let order = resolve_execution_order(&pr_by_issue, &trunk, hint);
+
+    let pending_by_issue: HashMap<u32, _> = if let Some(tid) =
+        tracker_override.or_else(tracker_from_env).or_else(|| {
+            let ts = find_tracker();
+            (ts.len() == 1).then(|| ts[0].number)
+        }) {
+        parse_pending(&get_tracker_body(tid))
+            .into_iter()
+            .map(|p| (p.number, p))
+            .collect()
+    } else {
+        HashMap::new()
+    };
+
+    log(&format!(
+        "auto-merge (lineage): sequence (issue #): {}",
+        order
+            .iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>()
+            .join(" → ")
+    ));
+
+    if order.is_empty() {
+        log(
+            "auto-merge (lineage): nothing scheduled after deterministic ordering filtered to open PR rows.",
+        );
+        return;
+    }
+
+    let mut refreshed = gh_rows.clone();
+    let mut by_issue_cursor = agent_issue_pull_rows(&refreshed);
+
+    for issue in order {
+        let Some(mut row_snapshot) = by_issue_cursor.get(&issue).cloned() else {
+            log(&format!(
+                "Issue #{issue} no longer has an open matching PR — likely merged already.",
+            ));
+            continue;
+        };
+
+        let inferred_parent: Vec<u32> = issue_num_from_agent_head(&row_snapshot.base_ref)
+            .into_iter()
+            .collect();
+
+        let blockers: Vec<u32> = pending_by_issue
+            .get(&issue)
+            .map(|p| p.blockers.clone())
+            .unwrap_or_else(|| inferred_parent.clone());
+
+        let expected_base_branch = find_upstream_branch(&blockers);
+
+        let lineage_unknown = !pending_by_issue.contains_key(&issue)
+            && inferred_parent.is_empty()
+            && row_snapshot.base_ref != trunk;
+
+        if lineage_unknown {
+            log(&format!(
+                "Issue #{issue}: PR #{num} stacks on '{}' without tracker blocker metadata nor an agent/issue-* inferred parent — skipping base edits.",
+                row_snapshot.base_ref,
+                num = row_snapshot.number,
+            ));
+        }
+
+        let needs_retarget = row_snapshot.base_ref != expected_base_branch && !lineage_unknown;
+        if needs_retarget
+            && !retarget_pull_base(row_snapshot.number, &expected_base_branch, cfg.dry_run)
+        {
+            log(&format!(
+                "Giving up on PR #{} (#{issue}): unable to align base to '{}'.",
+                row_snapshot.number, expected_base_branch
+            ));
+            continue;
+        }
+
+        if cfg.dry_run && needs_retarget {
+            row_snapshot.base_ref.clone_from(&expected_base_branch);
+        } else {
+            let num_s = row_snapshot.number.to_string();
+            if let Some(b) = cmd_stdout(
+                "gh",
+                &[
+                    "pr",
+                    "view",
+                    &num_s,
+                    "--json",
+                    "baseRefName",
+                    "--jq",
+                    ".baseRefName",
+                ],
+            )
+            .filter(|s| !s.trim().is_empty())
+            {
+                row_snapshot.base_ref = b.trim().to_owned();
+            }
+
+            let out = cmd_stdout(
+                "gh",
+                &[
+                    "pr",
+                    "view",
+                    &num_s,
+                    "--json",
+                    "mergeStateStatus,reviewDecision,isDraft",
+                ],
+            );
+            if let Some(json) = out.filter(|s| !s.trim().is_empty())
+                && let Ok(partial) = serde_json::from_str::<PrStatusRefresh>(&json)
+            {
+                row_snapshot.merge_state_status = partial.merge_state_status;
+                row_snapshot.review_decision = partial.review_decision;
+                row_snapshot.is_draft = partial.is_draft;
+            }
+        }
+
+        if !eligible_for_immediate_merge(&row_snapshot) {
+            log(&format!(
+                "Skipping PR #{} (#{issue}); mergeState={:?} reviewDecision={:?} draft={}",
+                row_snapshot.number,
+                row_snapshot.merge_state_status,
+                row_snapshot.review_decision,
+                row_snapshot.is_draft,
+            ));
+            continue;
+        }
+
+        if !merge_pull_squash(row_snapshot.number, cfg.dry_run) {
+            continue;
+        }
+
+        if !cfg.dry_run {
+            refreshed = gh_list_merge_candidate_prs();
+            by_issue_cursor = agent_issue_pull_rows(&refreshed);
+        }
+    }
+
+    log("auto-merge (lineage): pass complete.");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn branch_for_issue(n: u32) -> String {
+        format!("{BRANCH_PREFIX}{n}")
+    }
+
+    fn fixture_row(number: u32, issue_head: u32, base_ref: impl Into<String>) -> GhPrMergeRow {
+        GhPrMergeRow {
+            number,
+            head_ref: branch_for_issue(issue_head),
+            base_ref: base_ref.into(),
+            is_draft: false,
+            merge_state_status: None,
+            review_decision: None,
+        }
+    }
+
+    #[test]
+    fn topo_roots_before_dependents() {
+        let trunk = "main";
+        let mut m = HashMap::new();
+        m.insert(10, fixture_row(1000, 10, trunk));
+        m.insert(11, fixture_row(1001, 11, branch_for_issue(10)));
+        assert_eq!(merge_order_topological(&m, trunk), vec![10, 11]);
+    }
+
+    #[test]
+    fn topo_siblings_sorted_lowest_issue_first_among_roots() {
+        let trunk = "main";
+        let mut m = HashMap::new();
+        m.insert(30, fixture_row(1, 30, trunk));
+        m.insert(20, fixture_row(2, 20, trunk));
+        assert_eq!(merge_order_topological(&m, trunk), vec![20, 30]);
+    }
+
+    #[test]
+    fn agent_issue_pull_skips_drafts_and_foreign_heads() {
+        let trunk = "main".to_owned();
+        let rows = vec![
+            GhPrMergeRow {
+                is_draft: true,
+                ..fixture_row(1, 5, trunk.clone())
+            },
+            GhPrMergeRow {
+                head_ref: "contrib/other".into(),
+                ..fixture_row(2, 999, trunk.clone())
+            },
+            GhPrMergeRow {
+                ..fixture_row(3, 77, trunk.clone())
+            },
+        ];
+        let m = agent_issue_pull_rows(&rows);
+        assert_eq!(m.len(), 1);
+        assert!(m.contains_key(&77));
+        let rows2 = vec![GhPrMergeRow {
+            is_draft: false,
+            ..fixture_row(1, 5, trunk.clone())
+        }];
+        let m2 = agent_issue_pull_rows(&rows2);
+        assert!(m2.contains_key(&5));
+    }
+
+    #[test]
+    fn tracker_order_subtracts_issues_without_pulls() {
+        let body = "## Sprint\n- [ ] #20 a\n- [ ] #99 b blocked by #20\n";
+
+        assert_eq!(
+            pending_issues_execution_order(body),
+            vec![20, 99],
+            "fixture tracker body should unblock #99 after #20"
+        );
+
+        let mut hs = HashSet::new();
+        hs.insert(99);
+        assert_eq!(
+            tracker_merge_candidates_order(body, &hs),
+            vec![99],
+            "only issues with pulls remain in deterministic slice"
+        );
+    }
+}

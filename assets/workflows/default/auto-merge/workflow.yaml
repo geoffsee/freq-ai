@@ -1,6 +1,6 @@
 name: Auto Merge
 id: auto_merge
-description: Automatically merge approved PRs
+description: Squash-merge approved agent/issue-* pulls in deterministic tracker order (respects lineage stacks)
 pattern: one_shot
 context: none
 

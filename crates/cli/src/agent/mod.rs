@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod adapter_dispatch;
 pub mod assets;
+pub mod auto_merge;
 pub mod bot;
 pub mod chat;
 pub mod cli;
