@@ -100,23 +100,33 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
 
     let branch = format!("{BRANCH_PREFIX}{issue_num}");
     if let Some(pr_num) = open_pr_number_for_head_branch(&branch) {
-        if pr_review_decision(pr_num)
-            .as_deref()
-            .is_some_and(|d| d.eq_ignore_ascii_case("APPROVED"))
-        {
-            log(&format!(
-                "Open PR #{pr_num} for branch '{branch}' is already approved — skipping implementation run for issue #{issue_num}."
-            ));
-            return;
-        }
-        let threads = fetch_unresolved_review_threads(pr_num, DEFAULT_REVIEW_BOT_LOGIN);
-        if !threads.is_empty() {
-            log(&format!(
-                "Open PR #{pr_num} has {} unresolved bot-authored review thread(s) — running fix-comments flow on that branch instead of a full implementation pass.",
-                threads.len()
-            ));
-            run_pr_review_fix(cfg, pr_num);
-            return;
+        let decision = pr_review_decision(pr_num).unwrap_or_default();
+        let thread_count = fetch_unresolved_review_threads(pr_num, DEFAULT_REVIEW_BOT_LOGIN).len();
+        match pr_open_action(&decision, thread_count) {
+            PrOpenAction::SkipApproved => {
+                log(&format!(
+                    "Open PR #{pr_num} for branch '{branch}' is already approved — skipping implementation run for issue #{issue_num}."
+                ));
+                return;
+            }
+            PrOpenAction::FixComments => {
+                log(&format!(
+                    "Open PR #{pr_num} has {thread_count} unresolved review thread(s) — running fix-comments flow on that branch instead of a full implementation pass."
+                ));
+                run_pr_review_fix(cfg, pr_num);
+                return;
+            }
+            PrOpenAction::SkipDeferToReview => {
+                let decision_label = if decision.is_empty() {
+                    "none"
+                } else {
+                    decision.as_str()
+                };
+                log(&format!(
+                    "Open PR #{pr_num} for branch '{branch}' (review decision: {decision_label}) has no unresolved threads — skipping redundant implementation pass for issue #{issue_num}; deferring to code-review and fix-review-comments follow-up."
+                ));
+                return;
+            }
         }
     }
 
@@ -403,4 +413,78 @@ pub fn run_loop(cfg: &Config, tracker_num: u32) {
 pub fn run_single_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &[u32]) {
     preflight(cfg);
     work_on_issue(cfg, tracker_num, issue_num, blockers);
+}
+
+/// Action to take when an open PR already exists for an issue's working branch.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum PrOpenAction {
+    /// PR is approved; nothing to do.
+    SkipApproved,
+    /// Bot-authored review threads are unresolved; run the fix-comments flow.
+    FixComments,
+    /// PR is open but neither approved nor blocked on bot threads; skip the
+    /// implementation pass and let the downstream code-review /
+    /// fix-review-comments jobs drive the next iteration.
+    SkipDeferToReview,
+}
+
+/// Decide what `work_on_issue` should do when a PR for the issue's branch is
+/// already open. Pure: takes the GitHub review decision string and the count
+/// of unresolved bot-authored review threads.
+pub(crate) fn pr_open_action(decision: &str, unresolved_thread_count: usize) -> PrOpenAction {
+    if decision.eq_ignore_ascii_case("APPROVED") {
+        return PrOpenAction::SkipApproved;
+    }
+    if unresolved_thread_count > 0 {
+        return PrOpenAction::FixComments;
+    }
+    PrOpenAction::SkipDeferToReview
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PrOpenAction, pr_open_action};
+
+    #[test]
+    fn approved_skips_regardless_of_threads() {
+        assert_eq!(pr_open_action("APPROVED", 0), PrOpenAction::SkipApproved);
+        assert_eq!(pr_open_action("APPROVED", 3), PrOpenAction::SkipApproved);
+        assert_eq!(pr_open_action("approved", 0), PrOpenAction::SkipApproved);
+    }
+
+    #[test]
+    fn unresolved_bot_threads_trigger_fix_comments() {
+        assert_eq!(
+            pr_open_action("CHANGES_REQUESTED", 1),
+            PrOpenAction::FixComments
+        );
+        assert_eq!(
+            pr_open_action("REVIEW_REQUIRED", 5),
+            PrOpenAction::FixComments
+        );
+        assert_eq!(pr_open_action("", 2), PrOpenAction::FixComments);
+    }
+
+    #[test]
+    fn changes_requested_with_no_threads_defers_to_review() {
+        assert_eq!(
+            pr_open_action("CHANGES_REQUESTED", 0),
+            PrOpenAction::SkipDeferToReview
+        );
+    }
+
+    #[test]
+    fn review_required_with_no_threads_defers_to_review() {
+        assert_eq!(
+            pr_open_action("REVIEW_REQUIRED", 0),
+            PrOpenAction::SkipDeferToReview
+        );
+    }
+
+    #[test]
+    fn empty_decision_with_no_threads_defers_to_review() {
+        // `pr_review_decision` returns `None` for PRs with no review yet;
+        // `work_on_issue` collapses that to an empty string before calling.
+        assert_eq!(pr_open_action("", 0), PrOpenAction::SkipDeferToReview);
+    }
 }
