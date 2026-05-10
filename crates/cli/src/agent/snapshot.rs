@@ -31,12 +31,7 @@ pub fn generate_codebase_snapshot(root: &str) -> String {
     }
 }
 
-/// Best-effort extraction of a human-readable reason from a thread-panic payload.
-///
-/// `JoinHandle::join` returns `Box<dyn Any + Send>`; the standard library only
-/// guarantees the payload is downcastable to `&'static str` or `String` when
-/// the panic originated from `panic!` with a string-like message. Anything else
-/// is reported generically so callers still get a useful log line.
+/// Best-effort string extraction from a `JoinHandle` panic payload (`&'static str` → `String` → generic fallback).
 #[cfg(not(target_arch = "wasm32"))]
 fn describe_panic_payload(payload: &(dyn std::any::Any + Send)) -> String {
     if let Some(s) = payload.downcast_ref::<&'static str>() {
