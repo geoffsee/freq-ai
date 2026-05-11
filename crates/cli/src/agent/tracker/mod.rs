@@ -539,9 +539,7 @@ reference — avoid re-reading files that are already included below.
 - Implement the changes described above.
 - Validate your changes using the test/build/format commands documented in AGENTS.md.
 - Keep idle memory under 10MB — no unnecessary allocations.
-- After implementing, update ISSUES.md: set the status of #{issue_num} to ✅ Done in the Task Dependency Hierarchy table.
-- Update STATUS.md if this issue changes the status of any tracked feature (e.g., from 🟡 to ✅).
-- CRITICAL: Always keep ISSUES.md and STATUS.md in sync with your changes.
+- Do NOT update shared tracker/status files such as ISSUES.md or STATUS.md from an issue implementation branch; serialized planning, retrospective, and housekeeping workflows own those edits.
 - Do NOT commit changes — the calling script handles commits.{tracker_instruction}"#
     )
 }
