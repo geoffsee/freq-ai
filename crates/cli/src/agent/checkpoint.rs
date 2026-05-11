@@ -48,7 +48,13 @@ pub fn checkpoint_path(root: &str, run_id: &str) -> PathBuf {
 pub fn load_checkpoint(root: &str, run_id: &str) -> Option<RunCheckpoint> {
     let path = checkpoint_path(root, run_id);
     let content = fs::read_to_string(path).ok()?;
-    serde_json::from_str(&content).ok()
+    match serde_json::from_str(&content) {
+        Ok(cp) => Some(cp),
+        Err(e) => {
+            eprintln!("Warning: checkpoint file malformed, ignoring: {e}");
+            None
+        }
+    }
 }
 
 /// Serialise `checkpoint` to `.caretta/run-<id>.json`, creating the directory if needed.
@@ -58,7 +64,9 @@ pub fn save_checkpoint(root: &str, checkpoint: &RunCheckpoint) -> Result<(), Str
     let path = checkpoint_path(root, &checkpoint.run_id);
     let json = serde_json::to_string_pretty(checkpoint)
         .map_err(|e| format!("failed to serialise checkpoint: {e}"))?;
-    fs::write(path, json).map_err(|e| format!("failed to write checkpoint: {e}"))
+    let tmp = path.with_extension("json.tmp");
+    fs::write(&tmp, &json).map_err(|e| format!("failed to write checkpoint: {e}"))?;
+    fs::rename(&tmp, &path).map_err(|e| format!("failed to rename checkpoint: {e}"))
 }
 
 /// Format Unix seconds as a human-readable ISO 8601 UTC string without external crates.
@@ -107,7 +115,7 @@ fn days_to_ymd(mut days: u64) -> (u64, u8, u8) {
 }
 
 fn is_leap(year: u64) -> bool {
-    (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 #[cfg(test)]

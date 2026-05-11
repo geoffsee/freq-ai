@@ -370,17 +370,28 @@ pub fn run_loop(cfg: &Config, tracker_num: u32, resume: Option<&str>, pause_afte
     // Establish run ID and initial checkpoint state.
     let (run_id, mut checkpoint) = match resume {
         Some(id) => {
+            if id.chars().any(|c| !c.is_ascii_alphanumeric() && c != '-') {
+                die("--resume run-id must contain only alphanumerics and hyphens");
+            }
             let cp = load_checkpoint(&cfg.root, id).unwrap_or_else(|| {
                 die(&format!(
                     "No checkpoint found for run-id '{id}' in {}/.caretta/",
                     cfg.root
                 ))
             });
+            if cp.tracker != tracker_num {
+                die(&format!(
+                    "Checkpoint '{id}' belongs to tracker #{}, not #{tracker_num}",
+                    cp.tracker
+                ));
+            }
             log(&format!(
                 "Resuming run '{}' from after phase '{}'",
                 id,
                 cp.last_completed.as_deref().unwrap_or("none")
             ));
+            let mut cp = cp;
+            cp.status = CheckpointStatus::Running;
             (id.to_string(), cp)
         }
         None => {
@@ -408,6 +419,9 @@ pub fn run_loop(cfg: &Config, tracker_num: u32, resume: Option<&str>, pause_afte
         save_checkpoint(&cfg.root, &checkpoint)
             .unwrap_or_else(|e| log(&format!("Warning: could not write checkpoint: {e}")));
     }
+
+    let mut completed_set: std::collections::HashSet<String> =
+        checkpoint.completed_phases.iter().cloned().collect();
 
     let mut cycle = 0u64;
     loop {
@@ -446,7 +460,7 @@ pub fn run_loop(cfg: &Config, tracker_num: u32, resume: Option<&str>, pause_afte
 
             // When resuming, skip phases already completed in the previous run.
             let phase_key = issue_num.to_string();
-            if checkpoint.completed_phases.contains(&phase_key) {
+            if resume.is_some() && completed_set.contains(&phase_key) {
                 log(&format!(
                     "Skipping issue #{issue_num} (already completed in run '{run_id}')."
                 ));
@@ -463,17 +477,15 @@ pub fn run_loop(cfg: &Config, tracker_num: u32, resume: Option<&str>, pause_afte
 
             // Record phase completion and persist checkpoint.
             checkpoint.completed_phases.push(phase_key.clone());
+            completed_set.insert(phase_key.clone());
             checkpoint.last_completed = Some(phase_key.clone());
+            if pause_after.is_some_and(|p| p == phase_key.as_str()) {
+                checkpoint.status = CheckpointStatus::Paused;
+            }
             if let Err(e) = save_checkpoint(&cfg.root, &checkpoint) {
                 log(&format!("Warning: could not write checkpoint: {e}"));
             }
-
-            // Honour --pause-after: halt and print checkpoint path for human review.
-            if pause_after.is_some_and(|p| p == phase_key.as_str()) {
-                checkpoint.status = CheckpointStatus::Paused;
-                if let Err(e) = save_checkpoint(&cfg.root, &checkpoint) {
-                    log(&format!("Warning: could not write checkpoint: {e}"));
-                }
+            if checkpoint.status == CheckpointStatus::Paused {
                 log(&format!(
                     "Paused after phase '{phase_key}'. Checkpoint: {}",
                     cp_path.display()
@@ -490,10 +502,12 @@ pub fn run_loop(cfg: &Config, tracker_num: u32, resume: Option<&str>, pause_afte
         std::thread::sleep(std::time::Duration::from_secs(30));
     }
 
-    checkpoint.status = CheckpointStatus::Complete;
-    if !cfg.dry_run {
-        save_checkpoint(&cfg.root, &checkpoint)
-            .unwrap_or_else(|e| log(&format!("Warning: could not write checkpoint: {e}")));
+    if !stop_requested() {
+        checkpoint.status = CheckpointStatus::Complete;
+        if !cfg.dry_run {
+            save_checkpoint(&cfg.root, &checkpoint)
+                .unwrap_or_else(|e| log(&format!("Warning: could not write checkpoint: {e}")));
+        }
     }
 }
 
