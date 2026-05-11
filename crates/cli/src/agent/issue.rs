@@ -178,6 +178,8 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
                         started_at: review_started_at,
                         finished_at: review_finished_at,
                         duration_ms: review_duration_ms,
+                        preset_name: resolved_preset_name,
+                        preset_version: resolved_preset_version,
                     },
                     &db_path,
                 );
@@ -271,8 +273,8 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
             started_at: run_started_at,
             finished_at: run_finished_at,
             duration_ms: run_duration_ms,
-            preset_name: resolved_preset_name,
-            preset_version: resolved_preset_version,
+            preset_name: resolved_preset_name.clone(),
+            preset_version: resolved_preset_version.clone(),
         },
         &db_path,
     );
@@ -308,8 +310,13 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
                 let fix_duration_ms = fix_wall_clock.elapsed().as_millis() as u64;
                 let fix_finished_at = iso8601_now();
                 let fix_captured = drain_run_capture();
-                let (fix_tool_calls, fix_input_tokens, fix_output_tokens, fix_run_status, fix_event_model) =
-                    extract_run_data(&fix_captured);
+                let (
+                    fix_tool_calls,
+                    fix_input_tokens,
+                    fix_output_tokens,
+                    fix_run_status,
+                    fix_event_model,
+                ) = extract_run_data(&fix_captured);
                 let fix_final_status = if fix_run_status != "unknown" {
                     fix_run_status
                 } else if fix_ok {
@@ -332,6 +339,8 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
                         started_at: fix_started_at,
                         finished_at: fix_finished_at,
                         duration_ms: fix_duration_ms,
+                        preset_name: resolved_preset_name,
+                        preset_version: resolved_preset_version,
                     },
                     &db_path,
                 );
