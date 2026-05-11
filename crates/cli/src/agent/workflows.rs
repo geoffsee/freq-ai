@@ -86,6 +86,8 @@ fn record_workflow_run(
             duration_ms,
             path_constraints: cfg.path_constraints.clone(),
             policy_violations,
+            preset_name: None,
+            preset_version: None,
         },
         &db_path,
     );

@@ -70,6 +70,22 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
         String::new()
     };
 
+    let (resolved_preset_name, resolved_preset_version) = {
+        use crate::agent::workflow::resolve_preset;
+        match resolve_preset(&cfg.root, &cfg.workflow_preset) {
+            Ok((name, ver)) => (Some(name), Some(ver)),
+            Err(e) if e.contains(crate::agent::workflow::VERSION_MISMATCH_TAG) => {
+                die(&format!("Preset version constraint not satisfied: {e}"));
+            }
+            Err(e) => {
+                log(&format!("WARNING: preset resolution failed: {e}"));
+                let (name, _) = crate::agent::workflow::parse_preset_ref(&cfg.workflow_preset)
+                    .unwrap_or_else(|_| (cfg.workflow_preset.clone(), None));
+                (Some(name), None)
+            }
+        }
+    };
+
     if cfg.dry_run {
         let codebase =
             if !cfg.bootstrap_snapshot || env::var("DISABLE_TOAK").is_ok_and(|v| v == "1") {
@@ -109,6 +125,8 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
             duration_ms: 0,
             path_constraints: cfg.path_constraints.clone(),
             policy_violations: vec![],
+            preset_name: resolved_preset_name.clone(),
+            preset_version: resolved_preset_version.clone(),
         };
         log(&format!(
             "[dry-run] Prompt ({prompt_tokens} tokens). Would work on #{issue_num}, then open PR.\n\n---\n{}",
@@ -169,6 +187,8 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
                         duration_ms: review_duration_ms,
                         path_constraints: cfg.path_constraints.clone(),
                         policy_violations: review_violations,
+                        preset_name: resolved_preset_name.clone(),
+                        preset_version: resolved_preset_version.clone(),
                     },
                     &db_path,
                 );
@@ -283,6 +303,8 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
             duration_ms: run_duration_ms,
             path_constraints: cfg.path_constraints.clone(),
             policy_violations,
+            preset_name: resolved_preset_name.clone(),
+            preset_version: resolved_preset_version.clone(),
         },
         &db_path,
     );
@@ -351,6 +373,8 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
                         duration_ms: fix_duration_ms,
                         path_constraints: cfg.path_constraints.clone(),
                         policy_violations: fix_violations,
+                        preset_name: resolved_preset_name.clone(),
+                        preset_version: resolved_preset_version.clone(),
                     },
                     &db_path,
                 );

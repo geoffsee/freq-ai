@@ -22,7 +22,7 @@ use serde_json::Value;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub const CURRENT_SCHEMA_VERSION: i64 = 2;
+pub const CURRENT_SCHEMA_VERSION: i64 = 3;
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -58,6 +58,10 @@ pub struct AgentRunRecord {
     pub path_constraints: PathConstraints,
     /// Policy violations detected in this run (path accesses outside constraints).
     pub policy_violations: Vec<PolicyViolation>,
+    /// Resolved workflow preset name (e.g. `"default"`, `"xp"`).
+    pub preset_name: Option<String>,
+    /// Resolved semver version of the workflow preset (e.g. `"0.1.0"`).
+    pub preset_version: Option<String>,
 }
 
 // ── Path resolution ───────────────────────────────────────────────────────────
@@ -98,9 +102,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         .unwrap_or(0);
 
     if version < 1 {
-        // Fresh installs get all columns up front; the v2 ALTER TABLE below is
-        // only for existing v1 databases that already have this table without
-        // the path-constraint columns.
+        // Fresh installs: create complete table with all columns, jump straight to v3.
         conn.execute_batch(&format!(
             "BEGIN;
              CREATE TABLE IF NOT EXISTS agent_runs (
@@ -117,6 +119,8 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
                  started_at        TEXT    NOT NULL,
                  finished_at       TEXT    NOT NULL,
                  duration_ms       INTEGER,
+                 preset_name       TEXT,
+                 preset_version    TEXT,
                  path_constraints  TEXT    NOT NULL DEFAULT '{{}}',
                  policy_violations TEXT    NOT NULL DEFAULT '[]'
              );
@@ -127,17 +131,28 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     }
 
     if version >= 1 && version < 2 {
-        // Upgrade existing v1 databases: add path-constraint audit columns.
-        // Wrapped in a single transaction so a crash between the DDL and the
-        // schema_version update cannot leave the database in a state where the
-        // columns exist but the version row still reads 1 (which would cause the
-        // next run to fail with "duplicate column name").
+        // Upgrade v1 databases: add both preset and path-constraint columns in one step.
+        conn.execute_batch(
+            "BEGIN;
+             ALTER TABLE agent_runs ADD COLUMN preset_name TEXT;
+             ALTER TABLE agent_runs ADD COLUMN preset_version TEXT;
+             ALTER TABLE agent_runs ADD COLUMN path_constraints TEXT NOT NULL DEFAULT '{}';
+             ALTER TABLE agent_runs ADD COLUMN policy_violations TEXT NOT NULL DEFAULT '[]';
+             DELETE FROM schema_version;
+             INSERT INTO schema_version (version) VALUES (3);
+             COMMIT;",
+        )?;
+    }
+
+    if version >= 2 && version < 3 {
+        // Upgrade v2 databases (from #74/issue-70: have preset columns but no
+        // path-constraint columns): add the path-constraint audit columns.
         conn.execute_batch(
             "BEGIN;
              ALTER TABLE agent_runs ADD COLUMN path_constraints TEXT NOT NULL DEFAULT '{}';
              ALTER TABLE agent_runs ADD COLUMN policy_violations TEXT NOT NULL DEFAULT '[]';
              DELETE FROM schema_version;
-             INSERT INTO schema_version (version) VALUES (2);
+             INSERT INTO schema_version (version) VALUES (3);
              COMMIT;",
         )?;
     }
@@ -174,8 +189,9 @@ pub fn append_run(record: &AgentRunRecord, db_path: &Path) {
             issue_number, tracker_number,
             tool_calls, input_tokens, output_tokens,
             status, started_at, finished_at, duration_ms,
-            path_constraints, policy_violations
-        ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+            path_constraints, policy_violations,
+            preset_name, preset_version
+        ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
         params![
             record.agent_id,
             record.model,
@@ -191,6 +207,8 @@ pub fn append_run(record: &AgentRunRecord, db_path: &Path) {
             record.duration_ms as i64,
             path_constraints_json,
             policy_violations_json,
+            record.preset_name,
+            record.preset_version,
         ],
     ) {
         tracing::warn!("event_log: failed to insert run record: {e}");
@@ -215,6 +233,8 @@ pub fn preview_entry(record: &AgentRunRecord) -> String {
         "duration_ms":       record.duration_ms,
         "path_constraints":  record.path_constraints,
         "policy_violations": record.policy_violations,
+        "preset_name":       record.preset_name,
+        "preset_version":    record.preset_version,
     });
     serde_json::to_string_pretty(&entry).unwrap_or_else(|_| "{}".to_string())
 }
@@ -343,8 +363,9 @@ fn is_leap_year(year: u64) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        AgentRunRecord, PolicyViolation, ToolCallRecord, append_run, extract_run_data,
-        is_leap_year, iso8601_now, preview_entry, resolve_db_path, unix_secs_to_utc,
+        AgentRunRecord, CURRENT_SCHEMA_VERSION, PolicyViolation, ToolCallRecord, append_run,
+        extract_run_data, is_leap_year, iso8601_now, preview_entry, resolve_db_path,
+        unix_secs_to_utc,
     };
     use crate::agent::types::{AgentEvent, AssistantMessage, ClaudeEvent, ContentBlock};
     use std::path::PathBuf;
@@ -460,6 +481,8 @@ mod tests {
                 deny_paths: vec![],
             },
             policy_violations: vec![],
+            preset_name: Some("default".to_string()),
+            preset_version: Some("0.1.0".to_string()),
         };
 
         let preview = preview_entry(&record);
@@ -470,6 +493,8 @@ mod tests {
         assert_eq!(parsed["status"], "dry-run");
         assert!(parsed["path_constraints"]["allow_paths"].is_array());
         assert!(parsed["policy_violations"].is_array());
+        assert_eq!(parsed["preset_name"], "default");
+        assert_eq!(parsed["preset_version"], "0.1.0");
     }
 
     #[test]
@@ -492,6 +517,8 @@ mod tests {
             duration_ms: 1000,
             path_constraints: cli_common::PathConstraints::default(),
             policy_violations: vec![],
+            preset_name: Some("default".to_string()),
+            preset_version: Some("0.1.0".to_string()),
         };
 
         append_run(&record, &db_path);
@@ -537,6 +564,8 @@ mod tests {
                 path: "vendor/foo.rs".to_string(),
                 reason: "path is outside allow_paths: [src/]".to_string(),
             }],
+            preset_name: None,
+            preset_version: None,
         };
 
         append_run(&record, &db_path);
@@ -596,6 +625,8 @@ mod tests {
             duration_ms: 0,
             path_constraints: cli_common::PathConstraints::default(),
             policy_violations: vec![],
+            preset_name: None,
+            preset_version: None,
         };
         append_run(&record, &db_path);
 
@@ -603,14 +634,14 @@ mod tests {
         let version: i64 = conn
             .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
             .expect("version");
-        assert_eq!(version, 2);
+        assert_eq!(version, CURRENT_SCHEMA_VERSION);
         let _: String = conn
             .query_row(
                 "SELECT path_constraints FROM agent_runs LIMIT 1",
                 [],
                 |r| r.get(0),
             )
-            .expect("path_constraints column should exist after v1->v2 migration");
+            .expect("path_constraints column should exist after migration");
     }
 
     #[test]
@@ -634,6 +665,8 @@ mod tests {
             duration_ms: 0,
             path_constraints: cli_common::PathConstraints::default(),
             policy_violations: vec![],
+            preset_name: None,
+            preset_version: None,
         };
 
         append_run(&record, &db_path);
@@ -646,8 +679,55 @@ mod tests {
         assert_eq!(count, 2, "each append_run should add exactly one row");
 
         let ver: i64 = conn
+            .query_row("SELECT version FROM schema_version LIMIT 1", [], |row| {
+                row.get(0)
+            })
+            .expect("schema_version should exist");
+        assert_eq!(
+            ver, CURRENT_SCHEMA_VERSION,
+            "schema_version should be current"
+        );
+        let row_count: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .expect("schema_version count");
-        assert_eq!(ver, 1, "schema_version should have exactly one row");
+        assert_eq!(row_count, 1, "schema_version should have exactly one row");
+    }
+
+    #[test]
+    fn preset_columns_are_persisted_and_readable() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db_path = dir.path().join("preset_test.db");
+
+        let record = AgentRunRecord {
+            agent_id: "claude".to_string(),
+            model: "test-model".to_string(),
+            workflow_phase: "issue".to_string(),
+            issue_number: None,
+            tracker_number: None,
+            tool_calls: vec![],
+            input_tokens: None,
+            output_tokens: None,
+            status: "completed".to_string(),
+            started_at: "2026-01-01T00:00:00Z".to_string(),
+            finished_at: "2026-01-01T00:00:01Z".to_string(),
+            duration_ms: 0,
+            path_constraints: cli_common::PathConstraints::default(),
+            policy_violations: vec![],
+            preset_name: Some("xp".to_string()),
+            preset_version: Some("0.1.0".to_string()),
+        };
+
+        append_run(&record, &db_path);
+
+        let conn = rusqlite::Connection::open(&db_path).expect("open db");
+        let (pname, pver): (Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT preset_name, preset_version FROM agent_runs LIMIT 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("read preset columns");
+        assert_eq!(pname.as_deref(), Some("xp"));
+        assert_eq!(pver.as_deref(), Some("0.1.0"));
     }
 }
