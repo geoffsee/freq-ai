@@ -92,6 +92,8 @@ pub struct WorkflowEntry {
 #[derive(Debug, Deserialize)]
 pub struct PresetManifest {
     #[serde(default)]
+    pub name: String,
+    #[serde(default)]
     pub version: String,
 }
 
@@ -283,6 +285,15 @@ pub fn load_template(root: &str, preset: &str, workflow_dir: &str, filename: &st
 /// Falls back to `DEFAULT_PRESET_VERSION` and logs a deprecation warning when
 /// no manifest is found or the version field is absent.
 pub fn load_preset_manifest(root: &str, preset_name: &str) -> PresetManifest {
+    if preset_name.contains('/') || preset_name.contains('\\') || preset_name.contains('.') {
+        log(&format!(
+            "WARNING: unsafe preset name '{preset_name}', defaulting version"
+        ));
+        return PresetManifest {
+            name: String::new(),
+            version: DEFAULT_PRESET_VERSION.to_string(),
+        };
+    }
     for base in [
         local_workflows_dir(root),
         bundled_workflows_dir(root),
@@ -308,6 +319,7 @@ pub fn load_preset_manifest(root: &str, preset_name: &str) -> PresetManifest {
         "DEPRECATION: preset '{preset_name}' has no preset.yaml; defaulting to version {DEFAULT_PRESET_VERSION}"
     ));
     PresetManifest {
+        name: String::new(),
         version: DEFAULT_PRESET_VERSION.to_string(),
     }
 }
@@ -317,7 +329,13 @@ pub fn load_preset_manifest(root: &str, preset_name: &str) -> PresetManifest {
 /// Returns `Err` if the name contains path-traversal characters (`/`, `\`, `.`).
 pub fn parse_preset_ref(preset_ref: &str) -> Result<(String, Option<String>), String> {
     let (raw_name, req) = match preset_ref.split_once('@') {
-        Some((n, r)) => (n.trim(), Some(r.trim().to_string())),
+        Some((n, r)) => {
+            let req = r.trim();
+            if req.is_empty() {
+                return Err("Version requirement after '@' must not be empty".to_string());
+            }
+            (n.trim(), Some(req.to_string()))
+        }
         None => (preset_ref.trim(), None),
     };
     if raw_name.is_empty() {
