@@ -68,7 +68,7 @@ pub fn verify_asset_hashes() -> anyhow::Result<()> {
         let actual_hash = format!("{:x}", Sha256::digest(data.as_ref()));
         if actual_hash != *expected_hash {
             anyhow::bail!(
-                "asset integrity check failed\n  asset:    {path}\n  expected: {expected_hash}\n  actual:   {actual_hash}\nasset manifest mismatch — rebuild required"
+                "asset integrity check failed\n  asset:    {path}\n  expected: {expected_hash}\n  actual:   {actual_hash}\nbinary may be corrupted or tampered — obtain a fresh binary from the official release"
             );
         }
     }

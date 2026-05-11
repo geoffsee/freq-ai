@@ -98,7 +98,7 @@ fn generate_asset_manifest() {
 }
 
 fn collect_hashes(dir: &Path, prefix: &str, entries: &mut Vec<(String, String)>) -> io::Result<()> {
-    for entry in walkdir::WalkDir::new(dir).into_iter() {
+    for entry in walkdir::WalkDir::new(dir).follow_links(false).into_iter() {
         let entry = entry?;
         if !entry.file_type().is_file() {
             continue;

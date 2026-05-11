@@ -36,7 +36,7 @@ grok = { package = "caretta-grok", path = "../grok" }
 junie = { package = "caretta-junie", path = "../junie" }
 xai = { package = "caretta-xai", path = "../xai" }
 agent-runtime = { package = "caretta-agent-runtime", path = "../agent-runtime" }
-sha2 = { version = "0.10", optional = true }
+sha2 = { workspace = true, optional = true }
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
@@ -52,14 +52,11 @@ serde_yaml = "0.9"
 indexmap = { version = "2", features = ["serde"] }
 tempfile = "3"
 
-# sha2 is declared separately in [dependencies] (optional, bundle-runtime feature),
-# [dev-dependencies] (for inline tests), and [build-dependencies] (for build.rs).
-# Keep versions in sync when upgrading.
 [dev-dependencies]
-sha2 = "0.10"  # needed for asset hash tests without --features bundle-runtime
+sha2 = { workspace = true }
 
 [build-dependencies]
-sha2 = "0.10"
+sha2 = { workspace = true }
 walkdir = "2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
