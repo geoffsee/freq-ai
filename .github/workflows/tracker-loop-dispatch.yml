@@ -72,7 +72,9 @@ jobs:
           CARETTA_MODEL: ${{ inputs.model }}
           GH_TOKEN: ${{ github.token }}
 
-  code-review:
+  # Lists open PRs whose head is agent/issue-N for pending tracker children (or every agent/issue-* PR when the pending list is empty).
+  # Requires caretta >= version with `caretta code-review <PR>` for matrix review jobs.
+  code-review-plan:
     needs: [tracker-matrix-plan, tracker-issue]
     if: >-
       !failure() && !cancelled() &&
@@ -80,7 +82,49 @@ jobs:
        needs.tracker-issue.result == 'success')
     runs-on: ubuntu-latest
     outputs:
-      prs: ${{ steps.open-prs.outputs.prs }}
+      prs: ${{ steps.resolve-prs.outputs.prs }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tracker-scoped open PRs
+        id: resolve-prs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUES_JSON: ${{ needs.tracker-matrix-plan.outputs.issues }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$(jq 'length' <<< "$ISSUES_JSON")" -eq 0 ]]; then
+            prs_json="$(gh pr list --state open --limit 50 --json number,headRefName \
+              --jq '[.[] | select(.headRefName | test("^agent/issue-[0-9]+$")) | .number]')"
+          else
+            mapfile -t nums < <(jq -r '.[]' <<< "$ISSUES_JSON")
+            found=()
+            for n in "${nums[@]}"; do
+              num="$(gh pr list --head "agent/issue-${n}" --state open --json number -q '.[0].number // empty')"
+              if [[ -n "$num" ]]; then
+                found+=("$num")
+              fi
+            done
+            if [[ ${#found[@]} -eq 0 ]]; then
+              prs_json='[]'
+            else
+              prs_json="$(printf '%s\n' "${found[@]}" | jq -R -s 'split("\n") | map(select(length>0)) | unique | map(tonumber)')"
+            fi
+          fi
+          echo "prs=$prs_json" >> "$GITHUB_OUTPUT"
+
+  code-review:
+    needs: [code-review-plan]
+    if: >-
+      needs.code-review-plan.result == 'success' &&
+      needs.code-review-plan.outputs.prs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pr: ${{ fromJson(needs.code-review-plan.outputs.prs) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -88,6 +132,7 @@ jobs:
         uses: geoffsee/caretta-action@v0.0.6
         with:
           task: code-review
+          args: ${{ matrix.pr }}
           agent: claude
         env:
           DEV_BOT_TOKEN: ${{ secrets.DEV_BOT_TOKEN }}
@@ -99,26 +144,17 @@ jobs:
           CARETTA_MODEL: ${{ inputs.model }}
           GH_TOKEN: ${{ github.token }}
 
-      - name: List open PRs for follow-up
-        id: open-prs
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-
-          prs="$(gh pr list --state open --limit 50 --json number --jq '[.[].number]')"
-          echo "prs=$prs" >> "$GITHUB_OUTPUT"
-
   fix-review-comments:
-    needs: code-review
-    if: ${{ needs.code-review.result == 'success' && needs.code-review.outputs.prs != '[]' }}
+    needs: [code-review-plan, code-review]
+    if: >-
+      needs.code-review-plan.result == 'success' &&
+      needs.code-review-plan.outputs.prs != '[]' &&
+      needs.code-review.result == 'success'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        pr: ${{ fromJson(needs.code-review.outputs.prs) }}
+        pr: ${{ fromJson(needs.code-review-plan.outputs.prs) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -138,10 +174,11 @@ jobs:
   # Runs after review follow-up so fixes land before the queue step. Requires a caretta build with
   # `caretta auto-merge --automerge-queue`.
   prepare-automerge:
-    needs: [code-review, fix-review-comments]
+    needs: [code-review-plan, code-review, fix-review-comments]
     if: >-
       always() && !cancelled() &&
-      needs.code-review.result == 'success' &&
+      needs.code-review-plan.result == 'success' &&
+      (needs.code-review.result == 'success' || needs.code-review.result == 'skipped') &&
       (needs.fix-review-comments.result == 'success' ||
        needs.fix-review-comments.result == 'skipped')
     runs-on: ubuntu-latest

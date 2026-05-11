@@ -153,8 +153,12 @@ enum Commands {
     Housekeeping,
     /// Run user interview
     Interview,
-    /// Run code review
-    CodeReview,
+    /// Run code review on every open PR, or a single PR when a number is given
+    CodeReview {
+        /// Pull request number (omit to review all open PRs)
+        #[arg(value_name = "PR")]
+        pr: Option<u32>,
+    },
     /// Run security code review
     SecurityReview,
     /// Refresh agent files
@@ -324,7 +328,7 @@ where
             Some(Commands::Retrospective) => run_workflow_draft(&config, "retrospective"),
             Some(Commands::Housekeeping) => run_workflow_draft(&config, "housekeeping"),
             Some(Commands::Interview) => run_interview_draft(&config),
-            Some(Commands::CodeReview) => run_code_review(&config),
+            Some(Commands::CodeReview { pr }) => run_code_review(&config, pr),
             Some(Commands::SecurityReview) => run_security_code_review(&config),
             Some(Commands::RefreshAgents) => run_refresh_agents(&config),
             Some(Commands::RefreshDocs) => run_refresh_docs(&config),

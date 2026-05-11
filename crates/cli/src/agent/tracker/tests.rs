@@ -1441,6 +1441,74 @@ fn parse_review_threads_filters_resolved_and_human_authors() {
     assert_eq!(threads[0].body, "Item 5 is incorrect.");
 }
 
+/// Same fixture as [`parse_review_threads_filters_resolved_and_human_authors`]:
+/// the all-authors parser must retain human inline review threads so the issue
+/// runner and `fix-pr` can address requested changes.
+#[test]
+fn parse_all_unresolved_review_threads_includes_human_authors_without_marker() {
+    let json = r#"{
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [
+                                {
+                                    "id": "PRT_kw1",
+                                    "isResolved": false,
+                                    "comments": {
+                                        "nodes": [
+                                            {
+                                                "author": {"login": "llm-overlord"},
+                                                "path": "test-review-fixture.md",
+                                                "line": 14,
+                                                "originalLine": 14,
+                                                "body": "Item 5 is incorrect."
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "id": "PRT_kw2",
+                                    "isResolved": true,
+                                    "comments": {
+                                        "nodes": [
+                                            {
+                                                "author": {"login": "llm-overlord"},
+                                                "path": "test-review-fixture.md",
+                                                "line": 16,
+                                                "body": "already resolved"
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    "id": "PRT_kw3",
+                                    "isResolved": false,
+                                    "comments": {
+                                        "nodes": [
+                                            {
+                                                "author": {"login": "geoffsee"},
+                                                "path": "src/foo.rs",
+                                                "line": 42,
+                                                "body": "human comment"
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }"#;
+    let threads = parse_all_unresolved_review_threads(json);
+    assert_eq!(threads.len(), 2);
+    assert_eq!(threads[0].id, "PRT_kw1");
+    assert_eq!(threads[1].id, "PRT_kw3");
+    assert_eq!(threads[1].author, "geoffsee");
+    assert_eq!(threads[1].body, "human comment");
+}
+
 /// GitHub apps surface as `<name>[bot]` in the GraphQL response (e.g.
 /// `dependabot[bot]`). The parser must accept any author whose login
 /// ends with `[bot]` so the bot-only filter doesn't depend on the

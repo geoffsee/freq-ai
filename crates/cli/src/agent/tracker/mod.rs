@@ -781,19 +781,9 @@ fn has_human_fix_marker(body: &str) -> bool {
     body.to_lowercase().contains(HUMAN_FIX_MARKER)
 }
 
-/// Fetch all unresolved bot-authored review threads on a PR via the GitHub
-/// GraphQL API.
-///
-/// Uses `gh api graphql` so we inherit whatever credentials are in the
-/// parent process's environment.
-/// Filters out resolved threads. A thread is kept when any of these hold:
-/// the author login matches `bot_login`; the author login ends with
-/// `[bot]` (REST-style App suffix); the GraphQL `author.__typename` is
-/// `Bot` (covers GitHub Apps whose login is returned without the `[bot]`
-/// suffix, e.g. App-installation tokens); or the first comment's body
-/// contains [`HUMAN_FIX_MARKER`] (a human opt-in so the agent can act on
-/// specific human-authored review comments without blanket-trusting them).
-pub fn fetch_unresolved_review_threads(pr_num: u32, bot_login: &str) -> Vec<ReviewThread> {
+/// Raw JSON from GitHub's `reviewThreads` GraphQL query for `pr_num`, or
+/// `None` when the repo or request cannot be resolved.
+fn pull_request_review_threads_json(pr_num: u32) -> Option<String> {
     let owner_repo = match cmd_stdout(
         "gh",
         &[
@@ -808,7 +798,7 @@ pub fn fetch_unresolved_review_threads(pr_num: u32, bot_login: &str) -> Vec<Revi
         Some(s) if !s.is_empty() => s,
         _ => {
             log("WARNING: could not resolve owner/repo via `gh repo view`");
-            return Vec::new();
+            return None;
         }
     };
     let (owner, repo) = match owner_repo.split_once('/') {
@@ -817,7 +807,7 @@ pub fn fetch_unresolved_review_threads(pr_num: u32, bot_login: &str) -> Vec<Revi
             log(&format!(
                 "WARNING: unexpected repo identifier '{owner_repo}'"
             ));
-            return Vec::new();
+            return None;
         }
     };
 
@@ -830,7 +820,7 @@ pub fn fetch_unresolved_review_threads(pr_num: u32, bot_login: &str) -> Vec<Revi
     let number_arg = format!("number={pr_num_s}");
     let query_arg = format!("query={query}");
 
-    let out = match cmd_stdout(
+    match cmd_stdout(
         "gh",
         &[
             "api",
@@ -845,16 +835,44 @@ pub fn fetch_unresolved_review_threads(pr_num: u32, bot_login: &str) -> Vec<Revi
             &query_arg,
         ],
     ) {
-        Some(s) => s,
+        Some(s) => Some(s),
         None => {
             log(&format!(
                 "WARNING: failed to fetch review threads for PR #{pr_num}"
             ));
-            return Vec::new();
+            None
         }
-    };
+    }
+}
 
-    parse_review_threads(&out, bot_login)
+/// Fetch all unresolved bot-authored review threads on a PR via the GitHub
+/// GraphQL API.
+///
+/// Uses `gh api graphql` so we inherit whatever credentials are in the
+/// parent process's environment.
+/// Filters out resolved threads. A thread is kept when any of these hold:
+/// the author login matches `bot_login`; the author login ends with
+/// `[bot]` (REST-style App suffix); the GraphQL `author.__typename` is
+/// `Bot` (covers GitHub Apps whose login is returned without the `[bot]`
+/// suffix, e.g. App-installation tokens); or the first comment's body
+/// contains [`HUMAN_FIX_MARKER`] (a human opt-in so the agent can act on
+/// specific human-authored review comments without blanket-trusting them).
+pub fn fetch_unresolved_review_threads(pr_num: u32, bot_login: &str) -> Vec<ReviewThread> {
+    pull_request_review_threads_json(pr_num)
+        .map(|out| parse_review_threads(&out, bot_login))
+        .unwrap_or_default()
+}
+
+/// Every unresolved inline review thread on a PR (any author). Used only when
+/// [`crate::agent::issue::work_on_issue`] re-enters an open PR so requested changes are not
+/// missed when the review did not come from the configured bot login.
+///
+/// Resolved threads and comments without a file path are still omitted (see
+/// [`parse_all_unresolved_review_threads`]).
+pub fn fetch_all_unresolved_review_threads(pr_num: u32) -> Vec<ReviewThread> {
+    pull_request_review_threads_json(pr_num)
+        .map(|out| parse_all_unresolved_review_threads(&out))
+        .unwrap_or_default()
 }
 
 /// GraphQL mutation that marks one review thread as resolved on a pull
@@ -981,6 +999,81 @@ fn parse_review_threads(json: &str, bot_login: &str) -> Vec<ReviewThread> {
         }
         // `line` can be null on outdated threads — fall back to originalLine
         // so we still anchor the finding somewhere meaningful in the prompt.
+        let line = c
+            .get("line")
+            .and_then(serde_json::Value::as_u64)
+            .or_else(|| c.get("originalLine").and_then(serde_json::Value::as_u64))
+            .unwrap_or(0) as u32;
+        out.push(ReviewThread {
+            id,
+            path,
+            line,
+            body,
+            author,
+        });
+    }
+    out
+}
+
+/// Parse the same `reviewThreads` JSON as [`parse_review_threads`], but keep
+/// every unresolved thread with a file path (human reviewers included).
+fn parse_all_unresolved_review_threads(json: &str) -> Vec<ReviewThread> {
+    let v: serde_json::Value = match serde_json::from_str(json) {
+        Ok(v) => v,
+        Err(e) => {
+            log(&format!("WARNING: review-threads JSON parse failed: {e}"));
+            return Vec::new();
+        }
+    };
+    let nodes = v
+        .pointer("/data/repository/pullRequest/reviewThreads/nodes")
+        .and_then(|n| n.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    let mut out = Vec::new();
+    for thread in nodes {
+        let resolved = thread
+            .get("isResolved")
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false);
+        if resolved {
+            continue;
+        }
+        let id = thread
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if id.is_empty() {
+            continue;
+        }
+        let comments = thread
+            .pointer("/comments/nodes")
+            .and_then(|n| n.as_array())
+            .cloned()
+            .unwrap_or_default();
+        let Some(c) = comments.first() else {
+            continue;
+        };
+        let author = c
+            .pointer("/author/login")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let body = c
+            .get("body")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        let path = c
+            .get("path")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        if path.is_empty() {
+            continue;
+        }
         let line = c
             .get("line")
             .and_then(serde_json::Value::as_u64)
