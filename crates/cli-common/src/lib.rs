@@ -620,6 +620,22 @@ pub struct ScanTargets {
 /// flagged as policy violations and recorded in the event log. `deny_paths` is
 /// always applied regardless of `allow_paths`.
 ///
+/// # Audit limitations
+/// - **Bash** commands are not inspected — shell commands embed paths as
+///   free-form text that cannot be parsed without a full shell parser.
+///   System-prompt guidance discourages shell-level file access, but it is
+///   not audited post-hoc. This is a known gap; configure `deny_paths` and
+///   prompt guidance to mitigate.
+/// - **Glob** only audits the `path` (search root); the `pattern` argument
+///   (e.g. `vendor/**/*.rs`) is not checked.
+/// - **Grep** without a `path` argument is treated as a whole-workspace
+///   access (`"."`) and will trigger an allow-list violation when
+///   `allow_paths` is non-empty.
+/// - **Non-Claude agents** (e.g. Codex): the system-prompt fragment that
+///   instructs the agent to respect path constraints is only injected for
+///   the Claude adapter. Non-Claude agents still have violations recorded
+///   post-hoc, but receive no in-prompt guidance.
+///
 /// # Relationship to the workflow scoping layer
 /// The workflow scoping layer controls *which workflow prompt* the agent
 /// receives; path constraints control *which files* the agent may touch during
@@ -634,7 +650,7 @@ pub struct ScanTargets {
 /// deny_paths  = ["vendor/", "secrets/"]
 /// ```
 /// In a workflow YAML, add an optional `path_constraints` key to override
-/// or supplement the project-level constraints for a specific workflow.
+/// the project-level constraints for a specific workflow.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct PathConstraints {

@@ -109,25 +109,56 @@ fn check_tool_call(
 }
 
 /// Extract the file-path argument from a tool call, if the tool operates on a
-/// specific path. Returns `None` for tools (e.g. `Bash`) whose arguments are
-/// too complex to parse reliably.
+/// specific path. Returns `None` for tools whose path arguments cannot be
+/// reliably extracted.
+///
+/// # Limitations
+/// - **Bash**: skipped entirely — shell commands embed paths as free-form text
+///   that cannot be parsed without a full shell parser. Configure `deny_paths`
+///   and system-prompt guidance to discourage shell-level access.
+/// - **Glob**: only the `path` (search root) is inspected; the `pattern` arg
+///   (e.g. `"vendor/**/*.rs"`) is not checked. Glob auditing is best-effort.
+/// - **Grep**: when called without a `path` arg, the whole workspace is the
+///   scope; this is represented as `"."` and checked against constraints.
 fn extract_path_arg(tool_name: &str, args: &Value) -> Option<String> {
     match tool_name {
         "Read" | "Write" | "Edit" => args
             .get("file_path")
             .and_then(Value::as_str)
             .map(str::to_string),
-        "Glob" | "Grep" => args.get("path").and_then(Value::as_str).map(str::to_string),
+        "Glob" => args.get("path").and_then(Value::as_str).map(str::to_string),
+        "Grep" => Some(
+            args.get("path")
+                .and_then(Value::as_str)
+                .unwrap_or(".")
+                .to_string(),
+        ),
         _ => None,
     }
 }
 
-/// Strip a leading `./` and trailing `/` so that prefix matching is consistent
-/// regardless of whether the agent emits `src/`, `./src`, or `src`.
+/// Collapse `..` and `.` components so that prefix matching cannot be defeated
+/// by path traversal strings like `src/../vendor/secret.rs`.
+///
+/// Normalization rules:
+/// - Leading `./` is stripped.
+/// - `.` components are dropped.
+/// - `..` pops the preceding directory segment (like a real filesystem would).
+/// - Trailing `/` is stripped.
 fn normalize_path(path: &str) -> String {
-    path.trim_start_matches("./")
-        .trim_end_matches('/')
-        .to_string()
+    use std::path::{Component, Path};
+    let without_dot_prefix = path.trim_start_matches("./");
+    let mut parts: Vec<&str> = Vec::new();
+    for c in Path::new(without_dot_prefix).components() {
+        match c {
+            Component::ParentDir => {
+                parts.pop();
+            }
+            Component::Normal(s) => parts.push(s.to_str().unwrap_or("")),
+            _ => {}
+        }
+    }
+    parts.join("/")
 }
 
 /// Return `true` if `path` begins with `prefix` (prefix-match semantics).
@@ -272,5 +303,58 @@ mod tests {
         let grep_inside = tc("Grep", "path", "src/");
         assert!(check_tool_call(&glob_outside, &c).is_some());
         assert!(check_tool_call(&grep_inside, &c).is_none());
+    }
+
+    #[test]
+    fn path_traversal_is_caught() {
+        let c = PathConstraints {
+            allow_paths: vec!["src/".to_string()],
+            deny_paths: vec![],
+        };
+        // src/../vendor/secret.rs normalizes to vendor/secret.rs — not in allow_paths.
+        let v = check_tool_call(&tc("Read", "file_path", "src/../vendor/secret.rs"), &c)
+            .expect("traversal should produce a violation");
+        assert!(v.reason.contains("allow_paths"));
+
+        // src/../../etc/passwd normalizes to etc/passwd — also not in allow_paths.
+        let v2 = check_tool_call(&tc("Read", "file_path", "src/../../etc/passwd"), &c)
+            .expect("double traversal should produce a violation");
+        assert!(v2.reason.contains("allow_paths"));
+    }
+
+    #[test]
+    fn traversal_cannot_bypass_deny_paths() {
+        let c = PathConstraints {
+            allow_paths: vec![],
+            deny_paths: vec!["vendor/".to_string()],
+        };
+        // src/../vendor/lib.rs normalizes to vendor/lib.rs — matches deny_paths.
+        let v = check_tool_call(&tc("Write", "file_path", "src/../vendor/lib.rs"), &c)
+            .expect("traversal into deny_paths should produce a violation");
+        assert!(v.reason.contains("deny_paths"));
+    }
+
+    #[test]
+    fn grep_without_path_is_whole_workspace() {
+        let c = PathConstraints {
+            allow_paths: vec!["src/".to_string()],
+            deny_paths: vec![],
+        };
+        // Grep with no path arg defaults to "." (whole workspace), which is
+        // outside the allow_paths prefix → violation.
+        let record = ToolCallRecord {
+            name: "Grep".to_string(),
+            args: serde_json::json!({"pattern": "secret"}),
+        };
+        assert!(check_tool_call(&record, &c).is_some());
+    }
+
+    #[test]
+    fn grep_with_explicit_path_inside_allow() {
+        let c = PathConstraints {
+            allow_paths: vec!["src/".to_string()],
+            deny_paths: vec![],
+        };
+        assert!(check_tool_call(&tc("Grep", "path", "src/"), &c).is_none());
     }
 }

@@ -208,8 +208,11 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     let effective_model = event_model.unwrap_or_else(|| cfg.model.clone());
 
     // Check path constraints and log any violations.
+    #[cfg(not(target_arch = "wasm32"))]
     let policy_violations =
         crate::agent::path_constraint::check_run(&tool_calls, &cfg.path_constraints);
+    #[cfg(target_arch = "wasm32")]
+    let policy_violations: Vec<crate::agent::event_log::PolicyViolation> = vec![];
     if !policy_violations.is_empty() {
         log(&format!(
             "Path-constraint policy: {} violation(s) detected for issue #{issue_num}",

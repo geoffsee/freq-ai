@@ -97,32 +97,41 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         .unwrap_or(0);
 
     if version < 1 {
+        // Fresh installs get all columns up front; the v2 ALTER TABLE below is
+        // only for existing v1 databases that already have this table without
+        // the path-constraint columns.
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS agent_runs (
-                id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                agent_id        TEXT    NOT NULL,
-                model           TEXT    NOT NULL,
-                workflow_phase  TEXT    NOT NULL,
-                issue_number    INTEGER,
-                tracker_number  INTEGER,
-                tool_calls      TEXT    NOT NULL DEFAULT '[]',
-                input_tokens    INTEGER,
-                output_tokens   INTEGER,
-                status          TEXT    NOT NULL,
-                started_at      TEXT    NOT NULL,
-                finished_at     TEXT    NOT NULL,
-                duration_ms     INTEGER
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_id          TEXT    NOT NULL,
+                model             TEXT    NOT NULL,
+                workflow_phase    TEXT    NOT NULL,
+                issue_number      INTEGER,
+                tracker_number    INTEGER,
+                tool_calls        TEXT    NOT NULL DEFAULT '[]',
+                input_tokens      INTEGER,
+                output_tokens     INTEGER,
+                status            TEXT    NOT NULL,
+                started_at        TEXT    NOT NULL,
+                finished_at       TEXT    NOT NULL,
+                duration_ms       INTEGER,
+                path_constraints  TEXT    NOT NULL DEFAULT '{}',
+                policy_violations TEXT    NOT NULL DEFAULT '[]'
             );",
         )?;
     }
 
-    if version < 2 {
-        // Add path-constraint audit columns (schema v2).
-        // ALTER TABLE ADD COLUMN is safe to run on a table that already exists.
+    if version == 1 {
+        // Upgrade existing v1 databases: add path-constraint audit columns.
         conn.execute_batch(
             "ALTER TABLE agent_runs ADD COLUMN path_constraints TEXT NOT NULL DEFAULT '{}';
              ALTER TABLE agent_runs ADD COLUMN policy_violations TEXT NOT NULL DEFAULT '[]';",
         )?;
+    }
+
+    // Always update schema_version at the end so future migration blocks only
+    // need to describe the migration itself, not manage the version write.
+    if version < CURRENT_SCHEMA_VERSION {
         conn.execute("DELETE FROM schema_version", [])?;
         conn.execute(
             "INSERT INTO schema_version (version) VALUES (?1)",
