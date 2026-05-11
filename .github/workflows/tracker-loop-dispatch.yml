@@ -110,9 +110,12 @@ jobs:
             if [[ ${#found[@]} -eq 0 ]]; then
               prs_json='[]'
             else
-              prs_json="$(printf '%s\n' "${found[@]}" | jq -R -s 'split("\n") | map(select(length>0)) | unique | map(tonumber)')"
+              prs_json="$(printf '%s\n' "${found[@]}" | jq -c -R -s 'split("\n") | map(select(length>0)) | unique | map(tonumber)')"
             fi
           fi
+          [[ -z "$prs_json" ]] && prs_json='[]'
+          # GITHUB_OUTPUT is line-oriented: pretty-printed JSON would break parsing (e.g. "Invalid format ' 77,'").
+          prs_json="$(printf '%s' "$prs_json" | jq -c .)"
           echo "prs=$prs_json" >> "$GITHUB_OUTPUT"
 
   code-review:
