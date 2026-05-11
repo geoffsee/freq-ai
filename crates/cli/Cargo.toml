@@ -56,7 +56,7 @@ tempfile = "3"
 # [dev-dependencies] (for inline tests), and [build-dependencies] (for build.rs).
 # Keep versions in sync when upgrading.
 [dev-dependencies]
-sha2 = "0.10"
+sha2 = "0.10"  # needed for asset hash tests without --features bundle-runtime
 
 [build-dependencies]
 sha2 = "0.10"

@@ -109,8 +109,7 @@ pub fn verify_asset_hashes() -> anyhow::Result<()> {
 pub fn materialize_assets() -> PathBuf {
     #[cfg(feature = "bundle-runtime")]
     if let Err(e) = verify_asset_hashes() {
-        eprintln!("fatal: {e}");
-        std::process::exit(1);
+        panic!("fatal: {e}");
     }
 
     let dir = assets_dir();
