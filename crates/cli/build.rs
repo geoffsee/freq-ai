@@ -67,8 +67,8 @@ fn generate_asset_manifest() {
     let manifest_dir = Path::new(&manifest_dir_str);
 
     // Re-run when files are added to, removed from, or edited in these dirs.
-    println!("cargo::rerun-if-changed=assets/skills");
-    println!("cargo::rerun-if-changed=assets/workflows");
+    println!("cargo::rerun-if-changed={}", manifest_dir.join("assets/skills").display());
+    println!("cargo::rerun-if-changed={}", manifest_dir.join("assets/workflows").display());
 
     let mut entries: Vec<(String, String)> = Vec::new();
 

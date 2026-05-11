@@ -114,10 +114,7 @@ pub fn verify_asset_hashes() -> anyhow::Result<()> {
 /// Returns the app-data root (e.g. `~/.local/share/caretta`).
 pub fn materialize_assets() -> PathBuf {
     #[cfg(feature = "bundle-runtime")]
-    if let Err(e) = verify_asset_hashes() {
-        eprintln!("fatal: {e}");
-        std::process::exit(1);
-    }
+    verify_asset_hashes().unwrap_or_else(|e| panic!("fatal: {e}"));
 
     let dir = assets_dir();
 
