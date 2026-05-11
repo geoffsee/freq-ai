@@ -43,7 +43,7 @@ fn check_hash(path: &str, expected: &str, data: &[u8]) -> anyhow::Result<()> {
     let actual = format!("{:x}", Sha256::digest(data));
     anyhow::ensure!(
         actual == expected,
-        "asset integrity check failed — the on-disk materialized file differs from the version embedded at build time.\n  asset:    {path}\n  expected: {expected}\n  actual:   {actual}\nThe local file may have been modified or corrupted; re-run the binary to refresh it, or obtain a fresh binary from the official release."
+        "asset integrity check failed\n  asset:    {path}\n  expected: {expected}\n  actual:   {actual}\nbinary may be corrupted or tampered — obtain a fresh binary from the official release"
     );
     Ok(())
 }
@@ -115,7 +115,8 @@ pub fn verify_asset_hashes() -> anyhow::Result<()> {
 pub fn materialize_assets() -> PathBuf {
     #[cfg(feature = "bundle-runtime")]
     if let Err(e) = verify_asset_hashes() {
-        panic!("fatal: {e}");
+        eprintln!("fatal: {e}");
+        std::process::exit(1);
     }
 
     let dir = assets_dir();

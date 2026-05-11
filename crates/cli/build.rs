@@ -105,8 +105,11 @@ fn collect_hashes(dir: &Path, prefix: &str, entries: &mut Vec<(String, String)>)
             .path()
             .strip_prefix(dir)
             .expect("strip assets prefix")
-            .to_string_lossy()
-            // Normalise to forward slashes on Windows.
+            .to_str()
+            .ok_or_else(|| io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("non-UTF-8 asset path: {:?}", entry.path()),
+            ))?
             .replace('\\', "/");
         let manifest_key = format!("{prefix}/{rel}");
         let hash = sha256_file(entry.path())?;
