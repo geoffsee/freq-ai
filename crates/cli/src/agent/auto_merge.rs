@@ -13,7 +13,9 @@ use std::collections::{HashMap, HashSet, VecDeque};
 #[serde(rename_all = "camelCase")]
 pub(crate) struct GhPrMergeRow {
     number: u32,
+    #[serde(rename = "headRefName")]
     head_ref: String,
+    #[serde(rename = "baseRefName")]
     base_ref: String,
     is_draft: bool,
     merge_state_status: Option<String>,
@@ -536,6 +538,30 @@ mod tests {
             merge_state_status: None,
             review_decision: None,
         }
+    }
+
+    #[test]
+    fn gh_pr_list_json_fields_deserialize_into_merge_rows() {
+        let raw = r#"[
+            {
+                "number": 77,
+                "headRefName": "agent/issue-70",
+                "baseRefName": "master",
+                "isDraft": false,
+                "mergeStateStatus": "BEHIND",
+                "reviewDecision": "APPROVED"
+            }
+        ]"#;
+
+        let rows: Vec<GhPrMergeRow> =
+            serde_json::from_str(raw).expect("gh pr list --json output should parse");
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].head_ref, "agent/issue-70");
+        assert_eq!(rows[0].base_ref, "master");
+
+        let matches = agent_issue_pull_rows(&rows);
+        assert!(matches.contains_key(&70));
     }
 
     #[test]
