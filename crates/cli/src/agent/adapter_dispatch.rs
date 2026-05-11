@@ -194,25 +194,15 @@ pub fn check_capabilities(
 
 /// Print a table of all adapters and their declared capabilities to stdout.
 pub fn run_list_adapters() {
-    let adapters: &[(Agent, &str)] = &[
-        (Agent::Claude, "claude"),
-        (Agent::Cursor, "cursor"),
-        (Agent::Cline, "cline"),
-        (Agent::Codex, "codex"),
-        (Agent::Copilot, "copilot"),
-        (Agent::Gemini, "gemini"),
-        (Agent::Grok, "grok"),
-        (Agent::Junie, "junie"),
-        (Agent::Xai, "xai"),
-    ];
-
+    use clap::ValueEnum;
     println!(
         "{:<10}  {:<9}  {:<7}  {:<9}  {}",
         "ADAPTER", "TOOL_USE", "VISION", "STREAMING", "CONTEXT_WINDOW"
     );
     println!("{}", "-".repeat(58));
-    for (agent, name) in adapters {
-        let caps = adapter_capabilities(*agent);
+    for &agent in Agent::value_variants() {
+        let name = agent.to_string();
+        let caps = adapter_capabilities(agent);
         let ctx = caps
             .context_window
             .map(|w| format!("{w:>11}"))

@@ -16,7 +16,10 @@ use agent_common::WorkflowCapabilityRequirements;
 /// All fields default to `false`/`None` (no requirement). When a workflow needs
 /// a specific capability it declares it here so caretta can emit a clear
 /// pre-run error rather than a silent runtime failure.
-#[derive(Debug, Default, Deserialize)]
+///
+/// Mirror of `agent_common::WorkflowCapabilityRequirements`; keep fields in sync.
+/// The `From` impl below is a direct field copy — update both structs together.
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq)]
 pub struct WorkflowCapabilityRequirementsConfig {
     #[serde(default)]
     pub tool_use: bool,
@@ -29,17 +32,19 @@ pub struct WorkflowCapabilityRequirementsConfig {
 }
 
 impl WorkflowCapabilityRequirementsConfig {
-    pub fn to_requirements(&self) -> WorkflowCapabilityRequirements {
-        WorkflowCapabilityRequirements {
-            tool_use: self.tool_use,
-            vision: self.vision,
-            streaming: self.streaming,
-            min_context_window: self.min_context_window,
-        }
-    }
-
     pub fn is_empty(&self) -> bool {
-        !self.tool_use && !self.vision && !self.streaming && self.min_context_window.is_none()
+        *self == Self::default()
+    }
+}
+
+impl From<WorkflowCapabilityRequirementsConfig> for WorkflowCapabilityRequirements {
+    fn from(c: WorkflowCapabilityRequirementsConfig) -> Self {
+        WorkflowCapabilityRequirements {
+            tool_use: c.tool_use,
+            vision: c.vision,
+            streaming: c.streaming,
+            min_context_window: c.min_context_window,
+        }
     }
 }
 

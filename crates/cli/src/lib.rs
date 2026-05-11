@@ -359,6 +359,7 @@ where
                     .or_else(|| workflows.get(normalized.as_str()));
                 match resolved {
                     Some(wf) => {
+                        agent::workflows::check_workflow_capabilities(&config, wf);
                         let id = wf.id.clone();
                         let norm_id = id.replace('-', "_");
                         if let Some(action) = lookup_action(norm_id.as_str()) {

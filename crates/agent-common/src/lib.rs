@@ -1,7 +1,9 @@
 /// Declared capabilities of an adapter CLI, returned by [`AgentCliAdapter::capabilities`].
 ///
-/// Fields follow a conservative-default policy: unknown adapters are assumed to lack
-/// optional capabilities. Override per adapter to surface accurate values.
+/// All fields default to the most conservative value (absent / false / None).
+/// A new adapter that forgets to override `capabilities()` will advertise no
+/// capabilities, causing pre-run checks to fail loudly rather than pass silently.
+/// Override per adapter to surface accurate values.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AdapterCapabilities {
     /// Whether the underlying model exposes tool/function-call support.
@@ -17,9 +19,9 @@ pub struct AdapterCapabilities {
 impl Default for AdapterCapabilities {
     fn default() -> Self {
         Self {
-            tool_use: true,
+            tool_use: false,
             vision: false,
-            streaming: true,
+            streaming: false,
             context_window: None,
         }
     }
@@ -43,20 +45,24 @@ impl WorkflowCapabilityRequirements {
     /// Returns `Ok(())` when `caps` satisfies every declared requirement, or
     /// an `Err` message listing the missing capabilities.
     pub fn check(&self, caps: &AdapterCapabilities, adapter_name: &str) -> Result<(), String> {
-        let mut missing = Vec::new();
+        let mut missing: Vec<String> = Vec::new();
         if self.tool_use && !caps.tool_use {
-            missing.push("tool_use");
+            missing.push("tool_use".to_string());
         }
         if self.vision && !caps.vision {
-            missing.push("vision");
+            missing.push("vision".to_string());
         }
         if self.streaming && !caps.streaming {
-            missing.push("streaming");
+            missing.push("streaming".to_string());
         }
         if let Some(min) = self.min_context_window
             && caps.context_window.is_none_or(|w| w < min)
         {
-            missing.push("context_window");
+            let actual = caps
+                .context_window
+                .map(|w| w.to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            missing.push(format!("context_window (need {min}, got {actual})"));
         }
         if missing.is_empty() {
             Ok(())
@@ -105,8 +111,8 @@ pub trait AgentCliAdapter {
     ///
     /// Caretta uses the returned value for `--list-adapters` output and for
     /// pre-run capability checks when a workflow declares requirements.
-    /// The default is conservative: tool_use=true, vision=false, streaming=true,
-    /// context_window=None.  Override per adapter to surface accurate values.
+    /// The default is fully conservative: all capabilities absent. Override
+    /// per adapter to surface accurate values.
     fn capabilities(&self) -> AdapterCapabilities {
         AdapterCapabilities::default()
     }
@@ -251,9 +257,9 @@ mod tests {
     #[test]
     fn default_capabilities_are_conservative() {
         let caps = super::AdapterCapabilities::default();
-        assert!(caps.tool_use);
+        assert!(!caps.tool_use);
         assert!(!caps.vision);
-        assert!(caps.streaming);
+        assert!(!caps.streaming);
         assert!(caps.context_window.is_none());
     }
 
