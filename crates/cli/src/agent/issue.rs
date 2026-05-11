@@ -281,7 +281,41 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
                     "Tests failed for #{issue_num} — invoking agent to fix..."
                 ));
                 let fix_prompt = build_test_fix_prompt(issue_num, &out);
-                run_agent(cfg, &fix_prompt);
+                let fix_started_at = iso8601_now();
+                let fix_wall_clock = Instant::now();
+                start_run_capture();
+                let fix_ok = run_agent(cfg, &fix_prompt);
+                let fix_duration_ms = fix_wall_clock.elapsed().as_millis() as u64;
+                let fix_finished_at = iso8601_now();
+                let fix_captured = drain_run_capture();
+                let (fix_tool_calls, fix_input_tokens, fix_output_tokens, fix_run_status, fix_event_model) =
+                    extract_run_data(&fix_captured);
+                let fix_final_status = if fix_run_status != "unknown" {
+                    fix_run_status
+                } else if fix_ok {
+                    "completed".to_string()
+                } else {
+                    "failed".to_string()
+                };
+                let fix_effective_model = fix_event_model.unwrap_or_else(|| cfg.model.clone());
+                let fix_db_path = resolve_db_path(cfg.event_log_path.as_deref());
+                append_run(
+                    &AgentRunRecord {
+                        agent_id: cfg.agent.to_string(),
+                        model: fix_effective_model,
+                        workflow_phase: "test-fix".to_string(),
+                        issue_number: Some(issue_num),
+                        tracker_number: (tracker_num != 0).then_some(tracker_num),
+                        tool_calls: fix_tool_calls,
+                        input_tokens: fix_input_tokens,
+                        output_tokens: fix_output_tokens,
+                        status: fix_final_status,
+                        started_at: fix_started_at,
+                        finished_at: fix_finished_at,
+                        duration_ms: fix_duration_ms,
+                    },
+                    &fix_db_path,
+                );
                 if let Some((fmt_program, fmt_args)) = cfg.test.format_command.split_first() {
                     let fmt_arg_refs: Vec<&str> = fmt_args.iter().map(String::as_str).collect();
                     cmd_run(fmt_program, &fmt_arg_refs);

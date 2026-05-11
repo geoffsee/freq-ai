@@ -61,7 +61,7 @@ pub fn resolve_db_path(configured: Option<&str>) -> PathBuf {
     if let Ok(p) = std::env::var("CARETTA_EVENT_LOG")
         && !p.trim().is_empty()
     {
-        return PathBuf::from(p.trim().to_string());
+        return PathBuf::from(p.trim());
     }
     dirs::data_local_dir()
         .unwrap_or_else(|| PathBuf::from("."))

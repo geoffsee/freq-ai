@@ -1,6 +1,9 @@
-use crate::agent::types::{AgentEvent, ClaudeEvent, EVENT_SENDER};
+use crate::agent::types::{AgentEvent, AssistantMessage, ClaudeEvent, ContentBlock, EVENT_SENDER};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
+
+/// Matches `MAX_TOOL_ARGS_BYTES` in `event_log`; caps buffer growth from large Edit/Write inputs.
+const CAPTURE_MAX_TOOL_INPUT_BYTES: usize = 512;
 
 static STOP_REQUESTED: AtomicBool = AtomicBool::new(false);
 static ACTIVE_CHILD_PID: OnceLock<Mutex<Option<u32>>> = OnceLock::new();
@@ -68,14 +71,48 @@ pub fn request_stop() {
 pub fn emit_event(ev: AgentEvent) {
     if let Ok(mut capture) = run_event_capture_slot().lock()
         && let Some(events) = capture.as_mut()
-        && matches!(
-            &ev,
-            AgentEvent::Claude(ClaudeEvent::System { .. })
-                | AgentEvent::Claude(ClaudeEvent::Assistant { .. })
-                | AgentEvent::Claude(ClaudeEvent::Result { .. })
-        )
     {
-        events.push(ev.clone());
+        match &ev {
+            AgentEvent::Claude(ClaudeEvent::System { .. })
+            | AgentEvent::Claude(ClaudeEvent::Result { .. }) => {
+                events.push(ev.clone());
+            }
+            AgentEvent::Claude(ClaudeEvent::Assistant { message }) => {
+                // Truncate large ToolUse inputs before buffering to bound
+                // per-run memory growth (large Edit/Write inputs can be tens of KB).
+                let content = message
+                    .content
+                    .iter()
+                    .map(|block| {
+                        if let ContentBlock::ToolUse { id, name, input } = block {
+                            let s = input.to_string();
+                            if s.len() > CAPTURE_MAX_TOOL_INPUT_BYTES {
+                                let mut end = CAPTURE_MAX_TOOL_INPUT_BYTES;
+                                while !s.is_char_boundary(end) {
+                                    end -= 1;
+                                }
+                                ContentBlock::ToolUse {
+                                    id: id.clone(),
+                                    name: name.clone(),
+                                    input: serde_json::Value::String(format!(
+                                        "{}…[truncated]",
+                                        &s[..end]
+                                    )),
+                                }
+                            } else {
+                                block.clone()
+                            }
+                        } else {
+                            block.clone()
+                        }
+                    })
+                    .collect();
+                events.push(AgentEvent::Claude(ClaudeEvent::Assistant {
+                    message: AssistantMessage { content },
+                }));
+            }
+            _ => {}
+        }
     }
     if let Some(tx) = EVENT_SENDER.get() {
         let _ = tx.send(ev);
