@@ -1,18 +1,18 @@
-/// Append-only SQLite event log for agent runs.
-///
-/// Each invocation of the agent (via `work_on_issue`, `run_pr_review_fix`, etc.)
-/// appends one row capturing the agent identifier, model, workflow phase, tool
-/// calls, token counts, status, and wall-clock timestamps.
-///
-/// # Location resolution (highest priority first)
-/// 1. `CARETTA_EVENT_LOG` environment variable
-/// 2. `event_log_path` field in `caretta.toml`
-/// 3. `~/.local/share/caretta/event_log.db` (platform data-local dir)
-///
-/// # Schema versioning
-/// A `schema_version` table tracks the integer schema version. `migrate()` runs
-/// forward migrations so that future schema additions only need a new `if version < N`
-/// block — existing data is never destructively altered.
+//! Append-only SQLite event log for agent runs.
+//!
+//! Each invocation of the agent (via `work_on_issue`, `run_pr_review_fix`, etc.)
+//! appends one row capturing the agent identifier, model, workflow phase, tool
+//! calls, token counts, status, and wall-clock timestamps.
+//!
+//! # Location resolution (highest priority first)
+//! 1. `CARETTA_EVENT_LOG` environment variable
+//! 2. `event_log_path` field in `caretta.toml`
+//! 3. `~/.local/share/caretta/event_log.db` (platform data-local dir)
+//!
+//! # Schema versioning
+//! A `schema_version` table tracks the integer schema version. `migrate()` runs
+//! forward migrations so that future schema additions only need a new `if version < N`
+//! block — existing data is never destructively altered.
 use crate::agent::types::{AgentEvent, ClaudeEvent, ContentBlock};
 use cli_common::latest_event_model;
 use rusqlite::{Connection, params};
@@ -25,7 +25,7 @@ pub const CURRENT_SCHEMA_VERSION: i64 = 1;
 
 /// Maximum byte length stored for a single tool-call `args` field.
 /// Inputs exceeding this limit are replaced with a truncated string to bound
-/// DB growth and avoid persisting sensitive content (API keys, file contents).
+/// DB row size against large content such as file bodies passed to tool calls.
 const MAX_TOOL_ARGS_BYTES: usize = 512;
 
 // ── Public types ─────────────────────────────────────────────────────────────
@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn resolve_db_path_uses_env_var() {
-        let _guard = ENV_MUTEX.lock().unwrap();
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         unsafe { std::env::set_var("CARETTA_EVENT_LOG", "/tmp/test_event_log.db") };
         let path = resolve_db_path(None);
         unsafe { std::env::remove_var("CARETTA_EVENT_LOG") };
@@ -337,7 +337,7 @@ mod tests {
 
     #[test]
     fn resolve_db_path_prefers_configured_over_env() {
-        let _guard = ENV_MUTEX.lock().unwrap();
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         unsafe { std::env::set_var("CARETTA_EVENT_LOG", "/tmp/env_log.db") };
         let path = resolve_db_path(Some("/tmp/config_log.db"));
         unsafe { std::env::remove_var("CARETTA_EVENT_LOG") };
