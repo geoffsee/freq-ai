@@ -61,6 +61,12 @@ pub fn build_system_prompt_fragment(constraints: &PathConstraints) -> Option<Str
         );
     }
     lines.push(
+        "Always use the dedicated file tools (Read, Write, Edit, Glob, Grep) for \
+         file access — do not use Bash or shell commands to read or write files, \
+         as those cannot be audited for path-constraint compliance."
+            .to_string(),
+    );
+    lines.push(
         "Accessing a path outside these constraints is a policy violation that will be \
          recorded in the audit log."
             .to_string(),
