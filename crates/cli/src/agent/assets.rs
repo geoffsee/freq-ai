@@ -36,14 +36,14 @@ pub fn assets_dir() -> PathBuf {
 }
 
 /// Compare `data` against `expected` (a hex SHA-256 string). Returns an error
-/// on mismatch so callers can surface a clear diagnostic. Not gated on any
-/// feature so it can be unit-tested unconditionally.
+/// on mismatch so callers can surface a clear diagnostic.
+#[cfg(any(feature = "bundle-runtime", test))]
 fn check_hash(path: &str, expected: &str, data: &[u8]) -> anyhow::Result<()> {
     use sha2::{Digest, Sha256};
     let actual = format!("{:x}", Sha256::digest(data));
     anyhow::ensure!(
         actual == expected,
-        "asset integrity check failed\n  asset:    {path}\n  expected: {expected}\n  actual:   {actual}\nbinary may be corrupted or tampered — obtain a fresh binary from the official release"
+        "asset integrity check failed — the on-disk materialized file differs from the version embedded at build time.\n  asset:    {path}\n  expected: {expected}\n  actual:   {actual}\nThe local file may have been modified or corrupted; re-run the binary to refresh it, or obtain a fresh binary from the official release."
     );
     Ok(())
 }
