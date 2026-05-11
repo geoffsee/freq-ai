@@ -74,7 +74,7 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
         use crate::agent::workflow::resolve_preset;
         match resolve_preset(&cfg.root, &cfg.workflow_preset) {
             Ok((name, ver)) => (Some(name), Some(ver)),
-            Err(e) if e.contains("version mismatch") => {
+            Err(e) if e.contains(crate::agent::workflow::VERSION_MISMATCH_TAG) => {
                 die(&format!("Preset version constraint not satisfied: {e}"));
             }
             Err(e) => {

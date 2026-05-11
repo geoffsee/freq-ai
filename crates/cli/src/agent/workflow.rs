@@ -9,6 +9,10 @@ use crate::agent::tracker::list_open_prs;
 use crate::agent::types::Config;
 
 pub const DEFAULT_PRESET_VERSION: &str = "0.1.0";
+/// Sentinel prefix embedded in version-mismatch errors from `resolve_preset`.
+/// Used by callers to distinguish hard version violations from other failures
+/// without matching on free-form English text.
+pub const VERSION_MISMATCH_TAG: &str = "version mismatch:";
 
 // ── YAML config types ────────────────────────────────────────────────────
 
@@ -172,6 +176,9 @@ fn preset_dir_roots(root: &str) -> Vec<PathBuf> {
     ]
 }
 
+/// Returns preset directories in low-to-high priority order: materialized, bundled, local.
+/// Callers that use last-insert-wins (e.g. `HashMap::insert`) iterate forwards.
+/// Callers that use first-match-wins iterate `.rev()` so local still wins.
 fn preset_dirs(root: &str, preset: &str) -> Vec<PathBuf> {
     vec![
         materialized_workflows_dir().join(preset),
@@ -297,12 +304,8 @@ pub fn load_preset_manifest(root: &str, preset_name: &str) -> PresetManifest {
             version: DEFAULT_PRESET_VERSION.to_string(),
         };
     }
-    for base in [
-        local_workflows_dir(root),
-        bundled_workflows_dir(root),
-        materialized_workflows_dir(),
-    ] {
-        let path = base.join(preset_name).join("preset.yaml");
+    for dir in preset_dirs(root, preset_name).into_iter().rev() {
+        let path = dir.join("preset.yaml");
         if let Ok(content) = std::fs::read_to_string(&path) {
             match serde_yaml::from_str::<PresetManifest>(&content) {
                 Ok(m) if !m.version.trim().is_empty() => return m,
@@ -316,7 +319,10 @@ pub fn load_preset_manifest(root: &str, preset_name: &str) -> PresetManifest {
                     };
                 }
                 Err(e) => {
-                    log(&format!("WARNING: failed to parse {}: {e}", path.display()));
+                    log(&format!(
+                        "ERROR: failed to parse {} (corrupt preset.yaml — falling back to next directory): {e}",
+                        path.display()
+                    ));
                 }
             }
         }
@@ -376,7 +382,7 @@ pub fn resolve_preset(root: &str, preset_ref: &str) -> Result<(String, String), 
             .map_err(|e| format!("Invalid version requirement '{req_str}': {e}"))?;
         if !req.matches(&found) {
             return Err(format!(
-                "Preset '{name}' version mismatch: required {req_str}, found {found}"
+                "Preset '{name}' {VERSION_MISMATCH_TAG} required {req_str}, found {found}"
             ));
         }
     }

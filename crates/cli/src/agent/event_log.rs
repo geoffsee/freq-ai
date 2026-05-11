@@ -88,7 +88,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         })
         .unwrap_or(0);
 
-    if version < CURRENT_SCHEMA_VERSION {
+    if version < 1 {
         conn.execute_batch(
             "BEGIN;
             CREATE TABLE IF NOT EXISTS agent_runs (
