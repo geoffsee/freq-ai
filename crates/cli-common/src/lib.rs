@@ -634,7 +634,9 @@ pub struct ScanTargets {
 /// - **Non-Claude agents** (e.g. Codex): the system-prompt fragment that
 ///   instructs the agent to respect path constraints is only injected for
 ///   the Claude adapter. Non-Claude agents still have violations recorded
-///   post-hoc, but receive no in-prompt guidance.
+///   post-hoc, but receive no in-prompt guidance. Caretta emits a
+///   `tracing::warn!` at run time when this combination is detected so
+///   that operators are not silently surprised.
 ///
 /// # Relationship to the workflow scoping layer
 /// The workflow scoping layer controls *which workflow prompt* the agent

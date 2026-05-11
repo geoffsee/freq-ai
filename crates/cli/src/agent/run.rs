@@ -620,6 +620,14 @@ fn appended_system_prompt_for_agent(agent: Agent) -> Option<&'static str> {
 /// active path-constraint guidance appended after the base caretta guidance.
 #[cfg(not(target_arch = "wasm32"))]
 fn build_appended_system_prompt(cfg: &Config) -> Option<String> {
+    if !cfg.path_constraints.is_unconstrained() && cfg.agent != Agent::Claude {
+        tracing::warn!(
+            agent = %cfg.agent,
+            "path_constraints are configured but this agent does not support \
+             system-prompt append; constraints will be audited post-hoc only \
+             — the agent receives no in-prompt guidance to respect them"
+        );
+    }
     let base = appended_system_prompt_for_agent(cfg.agent)?;
     match crate::agent::path_constraint::build_system_prompt_fragment(&cfg.path_constraints) {
         Some(fragment) => Some(format!("{base}\n{fragment}\n")),
