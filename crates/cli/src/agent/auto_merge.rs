@@ -23,14 +23,6 @@ pub(crate) struct GhPrMergeRow {
     review_decision: Option<String>,
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PrStatusRefresh {
-    merge_state_status: Option<String>,
-    review_decision: Option<String>,
-    is_draft: bool,
-}
-
 fn parse_gh_pr_merge_rows(raw: &str) -> Vec<GhPrMergeRow> {
     match serde_json::from_str(raw) {
         Ok(rows) => rows,
@@ -41,6 +33,14 @@ fn parse_gh_pr_merge_rows(raw: &str) -> Vec<GhPrMergeRow> {
             Vec::new()
         }
     }
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PrStatusRefresh {
+    merge_state_status: Option<String>,
+    review_decision: Option<String>,
+    is_draft: bool,
 }
 
 fn gh_list_merge_candidate_prs() -> Vec<GhPrMergeRow> {
@@ -265,84 +265,6 @@ fn pr_update_branch(pr_num: u32, dry_run: bool) -> bool {
     ok
 }
 
-fn retarget_pull_base(pr_num: u32, new_base: &str, dry_run: bool) -> bool {
-    if dry_run {
-        log(&format!(
-            "[dry-run] Would retarget PR #{pr_num}: gh pr edit … --base {new_base}",
-        ));
-        return true;
-    }
-    log(&format!(
-        "Retargeting PR #{pr_num} to merge into '{new_base}'…"
-    ));
-    cmd_run(
-        "gh",
-        &["pr", "edit", &pr_num.to_string(), "--base", new_base],
-    )
-}
-
-fn merge_pull_squash(pr_num: u32, dry_run: bool) -> bool {
-    if dry_run {
-        log(&format!("[dry-run] Would squash-merge PR #{pr_num}."));
-        return true;
-    }
-    log(&format!("Squash-merge PR #{pr_num}…"));
-    let (ok, out) = cmd_capture("gh", &["pr", "merge", &pr_num.to_string(), "--squash"]);
-    if !ok {
-        log(&format!("Merge failed for PR #{pr_num}: {out}"));
-    }
-    ok
-}
-
-fn resolve_execution_order(
-    pr_by_issue: &HashMap<u32, GhPrMergeRow>,
-    trunk: &str,
-    hint: Option<u32>,
-) -> Vec<u32> {
-    if let Some(tid) = hint {
-        log(&format!(
-            "auto-merge (lineage): using tracker #{tid} for deterministic execution order"
-        ));
-        return merge_order_tracker(pr_by_issue, tid);
-    }
-    let trackers = find_tracker();
-    if trackers.len() == 1 {
-        let tid = trackers[0].number;
-        log(&format!(
-            "auto-merge (lineage): single open tracker #{tid} detected — deriving order from tracker body"
-        ));
-        return merge_order_tracker(pr_by_issue, tid);
-    }
-    if trackers.len() > 1 {
-        log(
-            "auto-merge (lineage): multiple trackers and no `--tracker` / `CARETTA_MERGE_TRACKER`; falling back to stack graph traversal. Specify a tracker to mirror sprint deterministic ordering.",
-        );
-    }
-    merge_order_topological(pr_by_issue, trunk)
-}
-
-/// Walk deterministic tracker order / stack graph, aligning each `--base` with
-/// [`find_upstream_branch`] (same chaining policy as [`crate::agent::issue::work_on_issue`]), then squash-merge when Approved and GitHub marks no explicit conflict state (`DIRTY`).
-pub fn run_auto_merge_stack(cfg: &Config, tracker_override: Option<u32>) {
-    run_lineage_pass(
-        cfg,
-        tracker_override,
-        MergePassMode::SquashMergeWhenEligible,
-    );
-}
-
-/// Like [`run_auto_merge_stack`], but for each **approved** PR: merge the
-/// latest base into the head branch (`gh pr update-branch`), then enable
-/// squash auto-merge. Use in CI when merges should wait on branch protection /
-/// checks rather than an immediate `gh pr merge`.
-pub fn run_automerge_queue(cfg: &Config, tracker_override: Option<u32>) {
-    run_lineage_pass(
-        cfg,
-        tracker_override,
-        MergePassMode::UpdateBranchThenAutomergeQueue,
-    );
-}
-
 fn build_conflict_resolution_comment_body(
     issue: u32,
     row: &GhPrMergeRow,
@@ -424,6 +346,84 @@ fn post_conflict_resolution_marker(
         ));
     }
     ok
+}
+
+fn retarget_pull_base(pr_num: u32, new_base: &str, dry_run: bool) -> bool {
+    if dry_run {
+        log(&format!(
+            "[dry-run] Would retarget PR #{pr_num}: gh pr edit … --base {new_base}",
+        ));
+        return true;
+    }
+    log(&format!(
+        "Retargeting PR #{pr_num} to merge into '{new_base}'…"
+    ));
+    cmd_run(
+        "gh",
+        &["pr", "edit", &pr_num.to_string(), "--base", new_base],
+    )
+}
+
+fn merge_pull_squash(pr_num: u32, dry_run: bool) -> bool {
+    if dry_run {
+        log(&format!("[dry-run] Would squash-merge PR #{pr_num}."));
+        return true;
+    }
+    log(&format!("Squash-merge PR #{pr_num}…"));
+    let (ok, out) = cmd_capture("gh", &["pr", "merge", &pr_num.to_string(), "--squash"]);
+    if !ok {
+        log(&format!("Merge failed for PR #{pr_num}: {out}"));
+    }
+    ok
+}
+
+fn resolve_execution_order(
+    pr_by_issue: &HashMap<u32, GhPrMergeRow>,
+    trunk: &str,
+    hint: Option<u32>,
+) -> Vec<u32> {
+    if let Some(tid) = hint {
+        log(&format!(
+            "auto-merge (lineage): using tracker #{tid} for deterministic execution order"
+        ));
+        return merge_order_tracker(pr_by_issue, tid);
+    }
+    let trackers = find_tracker();
+    if trackers.len() == 1 {
+        let tid = trackers[0].number;
+        log(&format!(
+            "auto-merge (lineage): single open tracker #{tid} detected — deriving order from tracker body"
+        ));
+        return merge_order_tracker(pr_by_issue, tid);
+    }
+    if trackers.len() > 1 {
+        log(
+            "auto-merge (lineage): multiple trackers and no `--tracker` / `CARETTA_MERGE_TRACKER`; falling back to stack graph traversal. Specify a tracker to mirror sprint deterministic ordering.",
+        );
+    }
+    merge_order_topological(pr_by_issue, trunk)
+}
+
+/// Walk deterministic tracker order / stack graph, aligning each `--base` with
+/// [`find_upstream_branch`] (same chaining policy as [`crate::agent::issue::work_on_issue`]), then squash-merge when Approved and GitHub marks no explicit conflict state (`DIRTY`).
+pub fn run_auto_merge_stack(cfg: &Config, tracker_override: Option<u32>) {
+    run_lineage_pass(
+        cfg,
+        tracker_override,
+        MergePassMode::SquashMergeWhenEligible,
+    );
+}
+
+/// Like [`run_auto_merge_stack`], but for each **approved** PR: merge the
+/// latest base into the head branch (`gh pr update-branch`), then enable
+/// squash auto-merge. Use in CI when merges should wait on branch protection /
+/// checks rather than an immediate `gh pr merge`.
+pub fn run_automerge_queue(cfg: &Config, tracker_override: Option<u32>) {
+    run_lineage_pass(
+        cfg,
+        tracker_override,
+        MergePassMode::UpdateBranchThenAutomergeQueue,
+    );
 }
 
 /// Align all open non-draft `agent/issue-*` PR bases, update each branch from
@@ -705,6 +705,62 @@ mod tests {
     }
 
     #[test]
+    fn gh_pr_list_json_fields_deserialize_into_merge_rows() {
+        let raw = r#"[
+            {
+                "number": 77,
+                "headRefName": "agent/issue-70",
+                "baseRefName": "master",
+                "isDraft": false,
+                "mergeStateStatus": "BEHIND",
+                "reviewDecision": "APPROVED"
+            }
+        ]"#;
+
+        let rows = parse_gh_pr_merge_rows(raw);
+
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].head_ref, "agent/issue-70");
+        assert_eq!(rows[0].base_ref, "master");
+
+        let matches = agent_issue_pull_rows(&rows);
+        assert!(matches.contains_key(&70));
+    }
+
+    #[test]
+    fn sync_order_appends_open_prs_missing_from_tracker_slice() {
+        let trunk = "main";
+        let mut m = HashMap::new();
+        m.insert(10, fixture_row(1000, 10, trunk));
+        m.insert(11, fixture_row(1001, 11, branch_for_issue(10)));
+
+        let order = append_missing_topological_order(vec![10], &m, trunk);
+
+        assert_eq!(order, vec![10, 11]);
+    }
+
+    #[test]
+    fn conflict_resolution_comment_has_caretta_marker_and_context() {
+        let mut row = fixture_row(77, 70, "master");
+        row.merge_state_status = Some("DIRTY".to_string());
+
+        let body = build_conflict_resolution_comment_body(
+            70,
+            &row,
+            "master",
+            "GitHub reports `mergeStateStatus=DIRTY`.",
+        );
+
+        assert!(body.contains(CONFLICT_RESOLUTION_MARKER));
+        assert!(body.contains("@caretta fix"));
+        assert!(body.contains("Issue: #70"));
+        assert!(body.contains("PR: #77"));
+        assert!(body.contains("Head branch: `agent/issue-70`"));
+        assert!(body.contains("Expected base: `master`"));
+        assert!(body.contains("mergeStateStatus=DIRTY"));
+    }
+
+    #[test]
     fn topo_roots_before_dependents() {
         let trunk = "main";
         let mut m = HashMap::new();
@@ -766,61 +822,5 @@ mod tests {
             vec![99],
             "only issues with pulls remain in deterministic slice"
         );
-    }
-
-    #[test]
-    fn gh_pr_list_json_fields_deserialize_into_merge_rows() {
-        let raw = r#"[
-            {
-                "number": 77,
-                "headRefName": "agent/issue-70",
-                "baseRefName": "master",
-                "isDraft": false,
-                "mergeStateStatus": "BEHIND",
-                "reviewDecision": "APPROVED"
-            }
-        ]"#;
-
-        let rows = parse_gh_pr_merge_rows(raw);
-
-        assert_eq!(rows.len(), 1);
-        assert_eq!(rows[0].head_ref, "agent/issue-70");
-        assert_eq!(rows[0].base_ref, "master");
-
-        let matches = agent_issue_pull_rows(&rows);
-        assert!(matches.contains_key(&70));
-    }
-
-    #[test]
-    fn sync_order_appends_open_prs_missing_from_tracker_slice() {
-        let trunk = "main";
-        let mut m = HashMap::new();
-        m.insert(10, fixture_row(1000, 10, trunk));
-        m.insert(11, fixture_row(1001, 11, branch_for_issue(10)));
-
-        let order = append_missing_topological_order(vec![10], &m, trunk);
-
-        assert_eq!(order, vec![10, 11]);
-    }
-
-    #[test]
-    fn conflict_resolution_comment_has_caretta_marker_and_context() {
-        let mut row = fixture_row(77, 70, "master");
-        row.merge_state_status = Some("DIRTY".to_string());
-
-        let body = build_conflict_resolution_comment_body(
-            70,
-            &row,
-            "master",
-            "GitHub reports `mergeStateStatus=DIRTY`.",
-        );
-
-        assert!(body.contains(CONFLICT_RESOLUTION_MARKER));
-        assert!(body.contains("@caretta fix"));
-        assert!(body.contains("Issue: #70"));
-        assert!(body.contains("PR: #77"));
-        assert!(body.contains("Head branch: `agent/issue-70`"));
-        assert!(body.contains("Expected base: `master`"));
-        assert!(body.contains("mergeStateStatus=DIRTY"));
     }
 }

@@ -993,10 +993,7 @@ fn parse_review_threads(json: &str, bot_login: &str) -> Vec<ReviewThread> {
             .and_then(serde_json::Value::as_str)
             .unwrap_or("")
             .to_string();
-        let is_bot = author == bot_login
-            || author == LEGACY_REVIEW_BOT_LOGIN
-            || author.ends_with("[bot]")
-            || typename == "Bot";
+        let is_bot = author == bot_login || author.ends_with("[bot]") || typename == "Bot";
         if !is_bot && !has_human_fix_marker(&body) {
             continue;
         }
@@ -1221,10 +1218,7 @@ fn parse_pr_thread_counts(json: &str, bot_login: &str) -> std::collections::Hash
                 .pointer("/comments/nodes/0/body")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("");
-            let is_bot = author == bot_login
-                || author == LEGACY_REVIEW_BOT_LOGIN
-                || author.ends_with("[bot]")
-                || typename == "Bot";
+            let is_bot = author == bot_login || author.ends_with("[bot]") || typename == "Bot";
             if is_bot || has_human_fix_marker(body) {
                 count += 1;
             }

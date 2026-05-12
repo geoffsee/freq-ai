@@ -29,27 +29,41 @@ pub use agent::types::{Agent, Config, SkillPaths};
 
 use agent::actions::{ActionContext, lookup_action};
 use agent::auto_merge::{run_auto_merge_stack, run_automerge_queue, run_branch_sync};
+#[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
 use agent::config_store::{
     clear_bot_private_key_pem, clear_bot_token, clear_local_inference_api_key,
     store_bot_private_key_pem, store_bot_token, store_local_inference_api_key,
 };
 use agent::conflicts::run_pr_conflict_fix;
+#[cfg(any(feature = "desktop", target_arch = "wasm32"))]
+use agent::shell::{clear_stop_request, record_agent_response, request_stop};
+#[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
 use agent::shell::{
-    clear_stop_request, list_all_files, parse_args, preflight, record_agent_response, request_stop,
-    reset_chat_history, run_chat_send, run_code_review, run_interview_draft, run_interview_respond,
-    run_loop, run_pr_review_fix, run_refresh_agents, run_refresh_docs, run_security_code_review,
-    run_single_issue, run_tracker_matrix, run_workflow_draft, try_approve_pr,
+    list_all_files, preflight, reset_chat_history, run_chat_send, run_interview_respond,
 };
+use agent::shell::{
+    parse_args, run_code_review, run_interview_draft, run_loop, run_pr_review_fix,
+    run_refresh_agents, run_refresh_docs, run_security_code_review, run_single_issue,
+    run_tracker_matrix, run_workflow_draft, try_approve_pr,
+};
+#[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
 use agent::tracker::{
-    DEFAULT_REVIEW_BOT_LOGIN, PendingIssue, PrSummary, TrackerInfo, current_branch_pr,
-    enable_auto_merge, fetch_unresolved_thread_counts, find_tracker, get_tracker_body,
-    is_auto_merge_enabled, list_open_prs, open_pr_map_from, parse_pending,
+    DEFAULT_REVIEW_BOT_LOGIN, current_branch_pr, enable_auto_merge, fetch_unresolved_thread_counts,
+    is_auto_merge_enabled, list_open_prs, open_pr_map_from,
 };
+#[cfg(any(feature = "desktop", target_arch = "wasm32"))]
+use agent::tracker::{PendingIssue, PrSummary, TrackerInfo};
+use agent::tracker::{find_tracker, get_tracker_body, parse_pending};
+#[cfg(any(feature = "desktop", target_arch = "wasm32"))]
 use agent::types::{
-    AgentEvent, BotAuthMode, ChangedFile, ClaudeEvent, ContentBlock, EVENT_SENDER, FileChangeKind,
-    InterviewTurn, Workflow, save_dev_config,
+    AgentEvent, ChangedFile, ClaudeEvent, ContentBlock, EVENT_SENDER, FileChangeKind,
+    InterviewTurn, Workflow,
 };
-use agent::workflow::{list_presets, load_sidebar_entries, load_workflows};
+#[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
+use agent::types::{BotAuthMode, save_dev_config};
+#[cfg(all(feature = "desktop", not(target_arch = "wasm32")))]
+use agent::workflow::load_sidebar_entries;
+use agent::workflow::{list_presets, load_workflows};
 use clap::{Parser, Subcommand};
 #[cfg(any(feature = "desktop", target_arch = "wasm32"))]
 use custom_themes::Theme;
@@ -59,6 +73,7 @@ use dioxus::prelude::*;
 use std::collections::HashMap;
 #[cfg(any(feature = "desktop", target_arch = "wasm32"))]
 use tokio::sync::mpsc;
+#[cfg(any(feature = "desktop", target_arch = "wasm32"))]
 use tracing::info;
 #[cfg(any(feature = "desktop", target_arch = "wasm32"))]
 use ui::components::BASE_CSS;

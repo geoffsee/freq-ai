@@ -10,9 +10,9 @@ use crate::agent::review::run_issue_pr_review_resume;
 use crate::agent::run::run_agent;
 use crate::agent::snapshot::generate_codebase_snapshot;
 use crate::agent::tracker::{
-    ReviewThread, build_prompt, build_test_fix_prompt, fetch_all_unresolved_review_threads,
-    fetch_issue, find_upstream_branch, get_tracker_body, open_pr_number_for_head_branch,
-    parse_pending, pending_issues_execution_order, pr_review_decision,
+    build_prompt, build_test_fix_prompt, fetch_all_unresolved_review_threads, fetch_issue,
+    find_upstream_branch, get_tracker_body, open_pr_number_for_head_branch, parse_pending,
+    pending_issues_execution_order, pr_review_decision,
 };
 use crate::agent::types::{BRANCH_PREFIX, Config, MAX_COMMIT_ATTEMPTS, MAX_PUSH_ATTEMPTS};
 use crate::timed;
@@ -142,8 +142,7 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     let branch = format!("{BRANCH_PREFIX}{issue_num}");
     if let Some(pr_num) = open_pr_number_for_head_branch(&branch) {
         let decision = pr_review_decision(pr_num).unwrap_or_default();
-        let threads: Vec<ReviewThread> = fetch_all_unresolved_review_threads(pr_num);
-        let thread_count = threads.len();
+        let thread_count = fetch_all_unresolved_review_threads(pr_num).len();
         match pr_open_action(&decision, thread_count) {
             PrOpenAction::SkipApproved => {
                 log(&format!(
@@ -155,45 +154,7 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
                 log(&format!(
                     "Open PR #{pr_num} has {thread_count} unresolved inline review thread(s) — pseudo-resuming fix-comments on that branch (skipping a full implementation pass)."
                 ));
-                let review_started_at = iso8601_now();
-                let review_wall_clock = Instant::now();
-                start_run_capture();
-                run_issue_pr_review_resume(cfg, pr_num, threads);
-                let review_duration_ms = review_wall_clock.elapsed().as_millis() as u64;
-                let review_finished_at = iso8601_now();
-                let captured = drain_run_capture();
-                let (tool_calls, input_tokens, output_tokens, review_status, event_model) =
-                    extract_run_data(&captured);
-                let effective_model = event_model.unwrap_or_else(|| cfg.model.clone());
-                let db_path = resolve_db_path(cfg.event_log_path.as_deref());
-                #[cfg(not(target_arch = "wasm32"))]
-                let review_violations =
-                    crate::agent::path_constraint::check_run(&tool_calls, &cfg.path_constraints);
-                #[cfg(target_arch = "wasm32")]
-                let review_violations: Vec<
-                    crate::agent::event_log::PolicyViolation,
-                > = vec![];
-                append_run(
-                    &AgentRunRecord {
-                        agent_id: cfg.agent.to_string(),
-                        model: effective_model,
-                        workflow_phase: "review-fix".to_string(),
-                        issue_number: Some(issue_num),
-                        tracker_number: (tracker_num != 0).then_some(tracker_num),
-                        tool_calls,
-                        input_tokens,
-                        output_tokens,
-                        status: review_status,
-                        started_at: review_started_at,
-                        finished_at: review_finished_at,
-                        duration_ms: review_duration_ms,
-                        path_constraints: cfg.path_constraints.clone(),
-                        policy_violations: review_violations,
-                        preset_name: resolved_preset_name.clone(),
-                        preset_version: resolved_preset_version.clone(),
-                    },
-                    &db_path,
-                );
+                run_issue_pr_review_resume(cfg, pr_num);
                 return;
             }
             PrOpenAction::SkipDeferToReview => {

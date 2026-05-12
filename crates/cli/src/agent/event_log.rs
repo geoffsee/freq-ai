@@ -130,7 +130,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         ))?;
     }
 
-    if version >= 1 && version < 2 {
+    if (1..2).contains(&version) {
         // Upgrade v1 databases: add both preset and path-constraint columns in one step.
         conn.execute_batch(
             "BEGIN;
@@ -144,7 +144,7 @@ fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
 
-    if version >= 2 && version < 3 {
+    if (2..3).contains(&version) {
         // Upgrade v2 databases (from #74/issue-70: have preset columns but no
         // path-constraint columns): add the path-constraint audit columns.
         conn.execute_batch(
