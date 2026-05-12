@@ -111,7 +111,11 @@ pub fn run_workflow_draft(cfg: &Config, workflow_id: &str) {
     log(&phase_cfg.log_start);
 
     let mut effective_cfg_storage: Option<Config> = None;
-    let cfg = apply_workflow_path_constraints(cfg, &mut effective_cfg_storage, wf.path_constraints.as_ref());
+    let cfg = apply_workflow_path_constraints(
+        cfg,
+        &mut effective_cfg_storage,
+        wf.path_constraints.as_ref(),
+    );
 
     let mut vars = gather_context_as_json(cfg, &wf.context);
     inject_common_vars(cfg, &mut vars);
@@ -208,7 +212,11 @@ pub fn run_workflow_finalize(cfg: &Config, workflow_id: &str, feedback: &str) {
     log(&phase_cfg.log_start);
 
     let mut effective_cfg_storage: Option<Config> = None;
-    let cfg = apply_workflow_path_constraints(cfg, &mut effective_cfg_storage, wf.path_constraints.as_ref());
+    let cfg = apply_workflow_path_constraints(
+        cfg,
+        &mut effective_cfg_storage,
+        wf.path_constraints.as_ref(),
+    );
 
     let mut vars = gather_context_as_json(cfg, &wf.context);
     inject_common_vars(cfg, &mut vars);
