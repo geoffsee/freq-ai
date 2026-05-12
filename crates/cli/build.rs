@@ -5,9 +5,9 @@ use std::path::Path;
 use std::process::Command;
 
 fn main() {
-    generate_asset_manifest();
-    let dist = Path::new("dist");
     let out_dir = std::env::var("OUT_DIR").unwrap();
+    generate_asset_manifest(&out_dir);
+    let dist = Path::new("dist");
 
     // Tell server.rs where to find the web assets folder. When the real
     // dist/ exists (local dev build), use it. Otherwise create an empty
@@ -61,8 +61,7 @@ fn main() {
 /// Walk `assets/skills/` and `assets/workflows/`, compute a SHA-256 hash for
 /// every file, and write the results as a static Rust array to OUT_DIR so
 /// `assets.rs` can include it for integrity verification.
-fn generate_asset_manifest() {
-    let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR");
+fn generate_asset_manifest(out_dir: &str) {
     let manifest_dir_str = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR");
     let manifest_dir = Path::new(&manifest_dir_str);
 

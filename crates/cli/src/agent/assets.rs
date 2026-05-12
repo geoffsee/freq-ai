@@ -1,7 +1,7 @@
 use rust_embed::RustEmbed;
 use std::path::PathBuf;
 
-mod manifest {
+pub(super) mod manifest {
     include!(concat!(env!("OUT_DIR"), "/asset_manifest_generated.rs"));
 }
 
@@ -43,7 +43,7 @@ fn check_hash(path: &str, expected: &str, data: &[u8]) -> anyhow::Result<()> {
     let actual = format!("{:x}", Sha256::digest(data));
     anyhow::ensure!(
         actual == expected,
-        "asset integrity check failed\n  asset:    {path}\n  expected: {expected}\n  actual:   {actual}\nbinary may be corrupted or tampered — obtain a fresh binary from the official release"
+        "asset integrity check failed\n  asset:    {path}\n  expected: {expected}\n  actual:   {actual}\nbinary may be corrupted or unexpectedly modified — obtain a fresh binary from the official release"
     );
     Ok(())
 }
