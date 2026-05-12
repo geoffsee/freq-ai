@@ -52,10 +52,7 @@ serde_yaml = "0.9"
 indexmap = { version = "2", features = ["serde"] }
 tempfile = "3"
 
-# sha2 must be an unconditional dev-dependency because `check_hash` is
-# compiled under `cfg(test)` regardless of whether `bundle-runtime` is active.
-# The optional `[dependencies]` entry only unlocks sha2 for non-test code when
-# bundle-runtime is enabled; `cargo test` without that feature still needs it.
+# also a dev-dep so cfg(test) can call check_hash without --features bundle-runtime
 [dev-dependencies]
 sha2 = { workspace = true }
 

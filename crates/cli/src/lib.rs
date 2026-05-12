@@ -267,8 +267,10 @@ where
         // dispatch, so every code path — including direct asset reads that
         // bypass materialize_assets — is covered by the integrity check.
         #[cfg(feature = "bundle-runtime")]
-        agent::assets::verify_asset_hashes()
-            .unwrap_or_else(|e| panic!("caretta: asset integrity: {e}"));
+        agent::assets::verify_asset_hashes().unwrap_or_else(|e| {
+            eprintln!("error: {e}");
+            std::process::exit(1);
+        });
 
         let cli = Cli::parse();
 
