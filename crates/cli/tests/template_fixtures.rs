@@ -90,9 +90,8 @@ fn yaml_to_json(value: &serde_yaml::Value) -> serde_json::Value {
     }
 }
 
-/// Render `expected` and `actual` side-by-side as a unified line diff so
-/// fixture failures point at the offending substring rather than dumping
-/// both blobs raw. Used only for `expect_contains` misses.
+/// Format a fixture failure message showing the full rendered output so the
+/// offending needle can be located. Used only for `expect_contains` misses.
 fn render_missing_substring_excerpt(template_path: &Path, missing: &str, output: &str) -> String {
     let preview = if output.len() > 4000 {
         format!(
@@ -116,7 +115,10 @@ fn load_workflow_fragments(workflow_yaml: &Path) -> HashMap<String, String> {
     };
     match serde_yaml::from_str::<WorkflowConfig>(&content) {
         Ok(wf) => wf.fragments,
-        Err(_) => HashMap::new(),
+        Err(e) => {
+            eprintln!("WARNING: failed to parse {}: {e}", workflow_yaml.display());
+            HashMap::new()
+        }
     }
 }
 
