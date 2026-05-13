@@ -1,0 +1,21 @@
+# Fixture for default/report-research/finalize.md
+vars:
+  project_name: TestProject
+  crate_tree: |
+    crates/cli
+  recent_commits: |
+    abc1234 first commit
+  open_issues: "[]"
+  open_prs: "[]"
+  status: STATUS body
+  issues_md: ISSUES body
+  user_personas_skill_path: /skills/user-personas/SKILL.md
+  ideation: ""
+  feedback: |
+    Shift emphasis to risk assessment.
+expect_contains:
+  - project analyst for the TestProject project
+  - Human Feedback
+  - Shift emphasis to risk assessment
+  - Publishing the Synthesis as a GitHub Issue
+required_var: project_name

@@ -1,0 +1,15 @@
+# Fixture for default/sprint-planning/finalize.md
+vars:
+  project_name: TestProject
+  open_issues: "[]"
+  open_prs: "[]"
+  status: STATUS body
+  issues_md: ISSUES body
+  feedback: |
+    Drop item 3.
+expect_contains:
+  - sprint planning assistant for the TestProject project
+  - Human Feedback on the Draft
+  - Drop item 3
+  - Task Dependency Hierarchy
+required_var: project_name

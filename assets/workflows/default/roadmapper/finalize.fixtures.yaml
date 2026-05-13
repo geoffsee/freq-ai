@@ -1,0 +1,20 @@
+# Fixture for default/roadmapper/finalize.md
+vars:
+  project_name: TestProject
+  crate_tree: |
+    crates/cli
+  recent_commits: |
+    abc1234 first commit
+  open_issues: "[]"
+  open_prs: "[]"
+  status: STATUS body
+  issues_md: ISSUES body
+  strategic_review: ""
+  feedback: |
+    Bring milestone 2 forward.
+expect_contains:
+  - Roadmapper for the TestProject project
+  - Human Feedback
+  - Bring milestone 2 forward
+  - Final Roadmap Execution
+required_var: project_name

@@ -1,0 +1,20 @@
+# Fixture for default/housekeeping/draft.md
+vars:
+  project_name: TestProject
+  issue_tracking_skill_path: /skills/issue-tracking/SKILL.md
+  open_issues: "[]"
+  open_prs: "[]"
+  local_branches: |
+    master
+    agent/issue-42
+  tracker_bodies: |
+    ### Tracker #100 — Foundational baseline
+    body content
+  status: STATUS placeholder
+  issues_md: ISSUES placeholder
+expect_contains:
+  - housekeeping agent for the TestProject project
+  - Sweep Categories
+  - /skills/issue-tracking/SKILL.md
+  - agent/issue-42
+required_var: project_name

@@ -1,0 +1,19 @@
+# Fixture for default/retrospective/finalize.md
+vars:
+  project_name: TestProject
+  recent_commits: |
+    abc1234 first commit
+  closed_issues: "[]"
+  merged_prs: "[]"
+  open_issues: "[]"
+  open_prs: "[]"
+  status: STATUS body
+  issues_md: ISSUES body
+  feedback: |
+    Add a note on test-coverage trend.
+expect_contains:
+  - retrospective facilitator for the TestProject project
+  - Human Feedback on the Draft
+  - Add a note on test-coverage trend
+  - exactly one
+required_var: project_name

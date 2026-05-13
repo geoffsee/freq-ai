@@ -1,0 +1,20 @@
+# Fixture for default/strategic-review/finalize.md
+vars:
+  project_name: TestProject
+  crate_tree: |
+    crates/cli
+  recent_commits: |
+    abc1234 first commit
+  open_issues: "[]"
+  open_prs: "[]"
+  status: STATUS body
+  issues_md: ISSUES body
+  report_synthesis: ""
+  feedback: |
+    Tighten risk wording in section 3.
+expect_contains:
+  - strategic review board for the TestProject project
+  - Human Feedback
+  - Tighten risk wording in section 3
+  - Unified Assessment
+required_var: project_name

@@ -1,0 +1,12 @@
+# Fixture for default/sprint-planning/draft.md
+vars:
+  project_name: TestProject
+  open_issues: "[]"
+  open_prs: "[]"
+  status: STATUS body
+  issues_md: ISSUES body
+expect_contains:
+  - sprint planning assistant for the TestProject project
+  - Task Dependency Hierarchy
+  - control-plane
+required_var: project_name

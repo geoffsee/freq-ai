@@ -1,0 +1,20 @@
+# Fixture for default/ideation/draft.md
+# See crates/cli/tests/template_fixtures.rs for the harness contract.
+vars:
+  project_name: TestProject
+  crate_tree: |
+    crates/cli
+    crates/agent-common
+  recent_commits: |
+    abc1234 first commit
+  open_issues: "[]"
+  open_prs: "[]"
+  status: STATUS placeholder body
+  issues_md: ISSUES placeholder body
+expect_contains:
+  - ideation partner for the TestProject project
+  - Capability ideas
+  - Provocations
+  - STATUS placeholder body
+  - ISSUES placeholder body
+required_var: project_name

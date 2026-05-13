@@ -274,8 +274,29 @@ pub fn render_prompt(
     vars: &serde_json::Value,
     fragments: &HashMap<String, String>,
 ) -> Result<String, String> {
+    render_prompt_inner(template, vars, fragments, false)
+}
+
+/// Strict-mode variant of [`render_prompt`]. Any reference to a variable that
+/// is not present in `vars` causes a render error instead of substituting an
+/// empty string. Used by the template fixture test harness to catch templates
+/// that drift from their declared required variables.
+pub fn render_prompt_strict(
+    template: &str,
+    vars: &serde_json::Value,
+    fragments: &HashMap<String, String>,
+) -> Result<String, String> {
+    render_prompt_inner(template, vars, fragments, true)
+}
+
+fn render_prompt_inner(
+    template: &str,
+    vars: &serde_json::Value,
+    fragments: &HashMap<String, String>,
+    strict: bool,
+) -> Result<String, String> {
     let mut hbs = handlebars::Handlebars::new();
-    hbs.set_strict_mode(false); // missing vars render as empty string
+    hbs.set_strict_mode(strict);
 
     for (name, body) in fragments {
         hbs.register_partial(name, body)

@@ -1,0 +1,18 @@
+# Fixture for default/housekeeping/finalize.md
+vars:
+  project_name: TestProject
+  issue_tracking_skill_path: /skills/issue-tracking/SKILL.md
+  open_issues: "[]"
+  open_prs: "[]"
+  local_branches: master
+  tracker_bodies: ""
+  status: STATUS placeholder
+  issues_md: ISSUES placeholder
+  feedback: |
+    All clear, go ahead.
+expect_contains:
+  - housekeeping agent for the TestProject project
+  - Human Feedback
+  - All clear, go ahead
+  - Audit Trail
+required_var: project_name

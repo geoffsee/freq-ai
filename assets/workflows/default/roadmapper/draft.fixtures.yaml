@@ -1,0 +1,20 @@
+# Fixture for default/roadmapper/draft.md
+# Uses the `roadmap_phases` partial defined in workflow.yaml `fragments`.
+vars:
+  project_name: TestProject
+  crate_tree: |
+    crates/cli
+  recent_commits: |
+    abc1234 first commit
+  open_issues: "[]"
+  open_prs: "[]"
+  status: STATUS body
+  issues_md: ISSUES body
+  strategic_review: ""
+expect_contains:
+  - Roadmapper for the TestProject project
+  - Phase 1
+  - Phase 2
+  - Phase 3
+  - Roadmap Output
+required_var: project_name

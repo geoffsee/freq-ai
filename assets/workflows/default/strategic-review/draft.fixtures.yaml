@@ -1,0 +1,20 @@
+# Fixture for default/strategic-review/draft.md
+# Uses the `strategic_perspectives` partial defined in workflow.yaml `fragments`.
+vars:
+  project_name: TestProject
+  crate_tree: |
+    crates/cli
+  recent_commits: |
+    abc1234 first commit
+  open_issues: "[]"
+  open_prs: "[]"
+  status: STATUS body
+  issues_md: ISSUES body
+  report_synthesis: ""
+expect_contains:
+  - strategic review board for the TestProject project
+  - Product Stakeholder
+  - Business Analyst
+  - Lead Engineer
+  - UX / DX Researcher
+required_var: project_name
