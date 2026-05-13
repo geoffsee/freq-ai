@@ -53,7 +53,9 @@ impl Drop for RunTracer {
         if !self.finished {
             log("subprocess_trace: RunTracer dropped without calling finish — trace lost");
             #[cfg(debug_assertions)]
-            panic!("RunTracer dropped without calling finish");
+            if !std::thread::panicking() {
+                panic!("RunTracer dropped without calling finish");
+            }
         }
     }
 }
@@ -97,7 +99,7 @@ impl RunTracer {
     ///
     /// Marks the tracer as finished so that `Drop` does not warn when the
     /// caller inspects the record directly without going through `finish`.
-    pub fn into_record(&mut self, exit_code: Option<i32>) -> RunRecord {
+    pub fn build_record(&mut self, exit_code: Option<i32>) -> RunRecord {
         self.finished = true;
         let duration_ms = u64::try_from(self.started_instant.elapsed().as_millis()).unwrap_or(0);
         RunRecord {
@@ -116,7 +118,7 @@ impl RunTracer {
     /// I/O failures are logged but do not propagate — tracing must never
     /// influence the agent run outcome.
     pub fn finish(mut self, exit_code: Option<i32>) {
-        let record = self.into_record(exit_code);
+        let record = self.build_record(exit_code);
         append_record(&self.log_dir, &record);
     }
 }
@@ -298,6 +300,18 @@ mod tests {
     }
 
     #[test]
+    fn endpoint_for_config_ignores_blank_base_url_when_advanced() {
+        let tmp = TempDir::new().expect("tempdir");
+        let mut cfg = base_config(tmp.path(), Agent::Claude);
+        cfg.local_inference.advanced = true;
+        cfg.local_inference.base_url = "   ".to_string(); // whitespace only
+        assert_eq!(
+            endpoint_for_config(&cfg),
+            Some("https://api.anthropic.com".to_string()),
+        );
+    }
+
+    #[test]
     fn endpoint_for_config_returns_none_for_agents_without_default() {
         let tmp = TempDir::new().expect("tempdir");
         assert_eq!(endpoint_for_config(&base_config(tmp.path(), Agent::Cline)), None);
@@ -355,11 +369,11 @@ mod tests {
     }
 
     #[test]
-    fn into_record_serializes_with_all_schema_fields() {
+    fn build_record_serializes_with_all_schema_fields() {
         let tmp = TempDir::new().expect("tempdir");
         let mut cfg = base_config(tmp.path(), Agent::Claude);
         cfg.model = "claude-3-5-sonnet".to_string();
-        let record = RunTracer::from_config(&cfg, "p").into_record(Some(42));
+        let record = RunTracer::from_config(&cfg, "p").build_record(Some(42));
 
         // Field renames would silently break downstream consumers; assert keys.
         let value = serde_json::to_value(&record).expect("RunRecord must serialize to JSON object");
