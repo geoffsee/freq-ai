@@ -1,4 +1,4 @@
-use agent_common::{AgentCliAdapter, claude_family_native_argv};
+use agent_common::{AgentCliAdapter, Capability, CapabilityManifest, claude_family_native_argv};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct JunieWrapper;
@@ -6,6 +6,18 @@ pub struct JunieWrapper;
 impl AgentCliAdapter for JunieWrapper {
     fn binary(&self) -> &'static str {
         "junie"
+    }
+
+    fn capabilities(&self) -> CapabilityManifest {
+        CapabilityManifest::new()
+            .with(Capability::Help)
+            .with(Capability::Version)
+            .with(Capability::Model)
+            .with(Capability::Prompt)
+            .with(Capability::Resume)
+            .with(Capability::Project)
+            .with(Capability::OutputFormat)
+            .with(Capability::Yolo)
     }
 
     fn help_args(&self) -> Vec<String> {

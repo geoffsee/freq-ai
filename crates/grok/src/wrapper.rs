@@ -1,4 +1,4 @@
-use agent_common::AgentCliAdapter;
+use agent_common::{AgentCliAdapter, Capability, CapabilityManifest};
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct GrokWrapper;
@@ -6,6 +6,15 @@ pub struct GrokWrapper;
 impl AgentCliAdapter for GrokWrapper {
     fn binary(&self) -> &'static str {
         "grok"
+    }
+
+    fn capabilities(&self) -> CapabilityManifest {
+        CapabilityManifest::new()
+            .with(Capability::Help)
+            .with(Capability::Version)
+            .with(Capability::Model)
+            .with(Capability::Prompt)
+            .with(Capability::Project)
     }
 
     fn help_args(&self) -> Vec<String> {
@@ -49,7 +58,7 @@ impl AgentCliAdapter for GrokWrapper {
 #[cfg(test)]
 mod tests {
     use super::GrokWrapper;
-    use agent_common::AgentCliAdapter;
+    use agent_common::{AgentCliAdapter, AgentInvocation, Capability};
 
     #[test]
     fn builds_model_prompt_and_project_args() {
@@ -88,5 +97,51 @@ mod tests {
     fn version_uses_flag() {
         let wrapper = GrokWrapper;
         assert_eq!(wrapper.version_args(), vec!["--version".to_string()]);
+    }
+
+    #[test]
+    fn grok_capabilities_omit_resume_output_format_and_yolo() {
+        let manifest = GrokWrapper.capabilities();
+        for cap in [
+            Capability::Help,
+            Capability::Version,
+            Capability::Model,
+            Capability::Prompt,
+            Capability::Project,
+        ] {
+            assert!(
+                manifest.supports(cap),
+                "expected GrokWrapper to declare {cap}"
+            );
+        }
+        for cap in [
+            Capability::Resume,
+            Capability::OutputFormat,
+            Capability::Yolo,
+        ] {
+            assert!(
+                !manifest.supports(cap),
+                "GrokWrapper unexpectedly declares unsupported capability {cap}"
+            );
+        }
+    }
+
+    #[test]
+    fn grok_resume_invocation_returns_structured_error() {
+        let err = GrokWrapper
+            .command_for(AgentInvocation::Resume(Some("session-9".to_string())))
+            .expect_err("resume is not declared in GrokWrapper's manifest");
+        assert_eq!(err.binary, "grok");
+        assert_eq!(err.capability, Capability::Resume);
+        assert!(err.to_string().contains("resume"));
+    }
+
+    #[test]
+    fn grok_yolo_invocation_returns_structured_error() {
+        let err = GrokWrapper
+            .command_for(AgentInvocation::Yolo)
+            .expect_err("yolo is not declared in GrokWrapper's manifest");
+        assert_eq!(err.capability, Capability::Yolo);
+        assert!(err.to_string().contains("yolo"));
     }
 }

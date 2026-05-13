@@ -1,4 +1,4 @@
-use agent_common::{AgentCliAdapter, claude_family_native_argv};
+use agent_common::{AgentCliAdapter, Capability, CapabilityManifest, claude_family_native_argv};
 
 fn local_inference_api_key(api_key: &str) -> String {
     let trimmed = api_key.trim();
@@ -41,6 +41,16 @@ pub struct CursorWrapper;
 impl AgentCliAdapter for ClaudeWrapper {
     fn binary(&self) -> &'static str {
         "claude"
+    }
+
+    fn capabilities(&self) -> CapabilityManifest {
+        CapabilityManifest::new()
+            .with(Capability::Help)
+            .with(Capability::Version)
+            .with(Capability::Model)
+            .with(Capability::Prompt)
+            .with(Capability::Resume)
+            .with(Capability::OutputFormat)
     }
 
     fn help_args(&self) -> Vec<String> {
@@ -95,6 +105,16 @@ impl AgentCliAdapter for CursorWrapper {
         "cursor"
     }
 
+    fn capabilities(&self) -> CapabilityManifest {
+        CapabilityManifest::new()
+            .with(Capability::Help)
+            .with(Capability::Version)
+            .with(Capability::Model)
+            .with(Capability::Prompt)
+            .with(Capability::Resume)
+            .with(Capability::OutputFormat)
+    }
+
     fn help_args(&self) -> Vec<String> {
         vec!["--help".to_string()]
     }
@@ -138,6 +158,7 @@ mod tests {
     use super::{ClaudeWrapper, CursorWrapper};
     use agent_common::AgentCliAdapter;
     use agent_common::claude_family_native_argv;
+    use agent_common::{AgentInvocation, Capability};
 
     #[test]
     fn builds_model_and_native_argv() {
@@ -184,5 +205,44 @@ mod tests {
                 "abc123".to_string(),
             ])
         );
+    }
+
+    #[test]
+    fn claude_capabilities_declare_supported_invocations() {
+        let manifest = ClaudeWrapper.capabilities();
+        for cap in [
+            Capability::Help,
+            Capability::Version,
+            Capability::Model,
+            Capability::Prompt,
+            Capability::Resume,
+            Capability::OutputFormat,
+        ] {
+            assert!(
+                manifest.supports(cap),
+                "expected ClaudeWrapper to declare {cap}"
+            );
+        }
+        assert!(!manifest.supports(Capability::Project));
+        assert!(!manifest.supports(Capability::Yolo));
+    }
+
+    #[test]
+    fn claude_unsupported_invocation_returns_structured_error() {
+        let err = ClaudeWrapper
+            .command_for(AgentInvocation::Project("/tmp".to_string()))
+            .expect_err("project is not declared in ClaudeWrapper's manifest");
+        assert_eq!(err.binary, "claude");
+        assert_eq!(err.capability, Capability::Project);
+        let rendered = err.to_string();
+        assert!(rendered.contains("claude"));
+        assert!(rendered.contains("project"));
+    }
+
+    #[test]
+    fn cursor_capabilities_match_claude_minus_yolo() {
+        let claude_manifest = ClaudeWrapper.capabilities();
+        let cursor_manifest = CursorWrapper.capabilities();
+        assert_eq!(claude_manifest, cursor_manifest);
     }
 }

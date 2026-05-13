@@ -1,4 +1,4 @@
-use agent_common::AgentCliAdapter;
+use agent_common::{AgentCliAdapter, Capability, CapabilityManifest};
 
 /// Stable argv shapes for integration tests; pairs with the `caretta-dummy-agent` binary.
 #[derive(Debug, Clone, Copy, Default)]
@@ -7,6 +7,18 @@ pub struct DummyAgentWrapper;
 impl AgentCliAdapter for DummyAgentWrapper {
     fn binary(&self) -> &'static str {
         "caretta-dummy-agent"
+    }
+
+    fn capabilities(&self) -> CapabilityManifest {
+        CapabilityManifest::new()
+            .with(Capability::Help)
+            .with(Capability::Version)
+            .with(Capability::Model)
+            .with(Capability::Prompt)
+            .with(Capability::Resume)
+            .with(Capability::Project)
+            .with(Capability::OutputFormat)
+            .with(Capability::Yolo)
     }
 
     fn help_args(&self) -> Vec<String> {

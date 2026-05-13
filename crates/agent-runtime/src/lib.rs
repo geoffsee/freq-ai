@@ -1,4 +1,4 @@
-use agent_common::{AgentCliAdapter, AgentCliCommand, AgentInvocation};
+use agent_common::{AgentCliAdapter, AgentCliCommand, AgentInvocation, UnsupportedCapabilityError};
 use cli_common::Agent;
 #[cfg(feature = "bundle-runtime")]
 use flate2::read::GzDecoder;
@@ -154,9 +154,9 @@ impl AgentRuntime {
         &self,
         adapter: &impl AgentCliAdapter,
         invocation: AgentInvocation,
-    ) -> Option<Command> {
+    ) -> Result<Command, UnsupportedCapabilityError> {
         let cli_command = adapter.command_for(invocation)?;
-        Some(self.command_for_cli_command(&cli_command))
+        Ok(self.command_for_cli_command(&cli_command))
     }
 
     pub fn command_for_cli_command(&self, command: &AgentCliCommand) -> Command {

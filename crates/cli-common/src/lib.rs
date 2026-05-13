@@ -934,7 +934,10 @@ pub trait AgentCli {
 }
 
 pub use agent_common::AgentCliAdapter as ProviderCliWrapper;
-pub use agent_common::{AgentCliAdapter, AgentCliCommand, AgentInvocation};
+pub use agent_common::{
+    AgentCliAdapter, AgentCliCommand, AgentInvocation, Capability, CapabilityManifest,
+    UnsupportedCapabilityError,
+};
 
 #[cfg(test)]
 mod agent_binary_tests {
