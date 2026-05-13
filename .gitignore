@@ -1,4 +1,5 @@
 /.output.txt
+/.caretta/
 target
 dist/*
 !dist/.gitkeep

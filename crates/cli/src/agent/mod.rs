@@ -18,6 +18,7 @@ pub mod review;
 pub mod run;
 pub mod shell;
 pub mod snapshot;
+pub mod subprocess_trace;
 pub mod tracker;
 pub mod types;
 pub mod workflow;

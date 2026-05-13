@@ -3,11 +3,12 @@ use crate::agent::adapter_dispatch::PromptTransport;
 use crate::agent::cmd::{count_tokens, log};
 use crate::agent::launch::{auto_mode_overrides, merged_agent_env, model_selection_overrides};
 use crate::agent::process::{emit_event, set_active_child_pid, stop_requested};
+use crate::agent::subprocess_trace::RunTracer;
 use crate::agent::types::{Agent, AgentEvent, AssistantMessage, ClaudeEvent, Config, ContentBlock};
 use agent_runtime::AgentRuntime;
 use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 use std::time::Instant;
 use tempfile::NamedTempFile;
 
@@ -70,10 +71,11 @@ fn run_claude_native_with_env_for_prompt(
     prompt: &str,
 ) -> bool {
     run_claude_native_with_env_for_prompt_and_stdin(
-        binary, args, extra_env, cwd, prompt, None, None,
+        binary, args, extra_env, cwd, prompt, None, None, None,
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_claude_native_with_env_for_prompt_and_stdin(
     binary: &str,
     args: &[String],
@@ -82,12 +84,14 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
     prompt: &str,
     stdin_prompt: Option<&str>,
     append_system_prompt: Option<&str>,
+    tracer: Option<RunTracer>,
 ) -> bool {
     let started_at = Instant::now();
     let (launch_args, _system_prompt_file) =
         match args_with_append_system_prompt_file(args, append_system_prompt) {
             Ok(prepared) => prepared,
             Err(err) => {
+                finish_tracer(tracer, None);
                 return handle_agent_launch_failure(
                     format!("Failed to prepare system prompt file for {binary}: {err}"),
                     started_at,
@@ -113,11 +117,15 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
     let _prompt_file =
         match attach_prompt_stdin(&mut cmd, stdin_prompt, binary, &program, started_at, prompt) {
             Ok(prompt_file) => prompt_file,
-            Err(ok) => return ok,
+            Err(ok) => {
+                finish_tracer(tracer, None);
+                return ok;
+            }
         };
     let mut child = match cmd.stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn() {
         Ok(child) => child,
         Err(err) => {
+            finish_tracer(tracer, None);
             return handle_agent_spawn_error(binary, &program, err, started_at, prompt);
         }
     };
@@ -148,7 +156,12 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
             log(&format!("claude: {trimmed}"));
         }
     }
-    let ok = child.wait().map(|s| s.success()).unwrap_or(false);
+    let wait_result = child.wait();
+    let ok = wait_result
+        .as_ref()
+        .map(ExitStatus::success)
+        .unwrap_or(false);
+    finish_tracer(tracer, exit_code_from_wait(wait_result.as_ref().ok()));
     set_active_child_pid(None);
     if !saw_result {
         emit_event(estimated_result_event(
@@ -159,6 +172,16 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
         ));
     }
     ok
+}
+
+fn finish_tracer(tracer: Option<RunTracer>, exit_code: Option<i32>) {
+    if let Some(tracer) = tracer {
+        tracer.finish(exit_code);
+    }
+}
+
+fn exit_code_from_wait(status: Option<&ExitStatus>) -> Option<i32> {
+    status.and_then(ExitStatus::code)
 }
 
 pub fn u64_to_u32(value: Option<u64>) -> Option<u32> {
@@ -479,7 +502,7 @@ fn run_codex_native_with_env_for_prompt(
     cwd: Option<&Path>,
     prompt: &str,
 ) -> bool {
-    run_codex_native_with_env_for_prompt_and_stdin(binary, args, extra_env, cwd, prompt, None)
+    run_codex_native_with_env_for_prompt_and_stdin(binary, args, extra_env, cwd, prompt, None, None)
 }
 
 fn run_codex_native_with_env_for_prompt_and_stdin(
@@ -489,6 +512,7 @@ fn run_codex_native_with_env_for_prompt_and_stdin(
     cwd: Option<&Path>,
     prompt: &str,
     stdin_prompt: Option<&str>,
+    tracer: Option<RunTracer>,
 ) -> bool {
     let mut cmd = native_command(binary, args);
 
@@ -503,11 +527,15 @@ fn run_codex_native_with_env_for_prompt_and_stdin(
     let _prompt_file =
         match attach_prompt_stdin(&mut cmd, stdin_prompt, binary, &program, started_at, prompt) {
             Ok(prompt_file) => prompt_file,
-            Err(ok) => return ok,
+            Err(ok) => {
+                finish_tracer(tracer, None);
+                return ok;
+            }
         };
     let mut child = match cmd.stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn() {
         Ok(child) => child,
         Err(err) => {
+            finish_tracer(tracer, None);
             return handle_agent_spawn_error(binary, &program, err, started_at, prompt);
         }
     };
@@ -541,7 +569,12 @@ fn run_codex_native_with_env_for_prompt_and_stdin(
             log(&format!("codex: {trimmed}"));
         }
     }
-    let ok = child.wait().map(|s| s.success()).unwrap_or(false);
+    let wait_result = child.wait();
+    let ok = wait_result
+        .as_ref()
+        .map(ExitStatus::success)
+        .unwrap_or(false);
+    finish_tracer(tracer, exit_code_from_wait(wait_result.as_ref().ok()));
     set_active_child_pid(None);
     if !saw_result {
         emit_event(estimated_result_event(
@@ -591,6 +624,7 @@ fn run_agent_with_env_with_cwd(
     );
     let stdin_prompt = (cmd.prompt_transport == PromptTransport::Stdin).then_some(prompt);
     let append_system_prompt = appended_system_prompt_for_agent(cfg.agent);
+    let tracer = Some(RunTracer::from_config(cfg, prompt));
     match cfg.agent {
         Agent::Codex => run_codex_native_with_env_for_prompt_and_stdin(
             &cmd.command.binary,
@@ -599,6 +633,7 @@ fn run_agent_with_env_with_cwd(
             cwd,
             prompt,
             stdin_prompt,
+            tracer,
         ),
         _ => run_claude_native_with_env_for_prompt_and_stdin(
             &cmd.command.binary,
@@ -608,6 +643,7 @@ fn run_agent_with_env_with_cwd(
             prompt,
             stdin_prompt,
             append_system_prompt,
+            tracer,
         ),
     }
 }
