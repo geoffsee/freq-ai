@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use crate::agent::assets::assets_dir;
-use crate::agent::cmd::die;
 use crate::agent::shell::{cmd_stdout, log};
 use crate::agent::tracker::list_open_prs;
 use crate::agent::types::Config;
@@ -13,7 +12,6 @@ use crate::agent::types::Config;
 // ── YAML config types ────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct WorkflowConfig {
     pub name: String,
     pub id: String,
@@ -40,7 +38,6 @@ pub struct WorkflowConfig {
 
 /// Fetch the body of a GitHub issue by its label and inject it as a template variable.
 #[derive(Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct ExtraContextFetch {
     /// Template variable name to inject (e.g. "report_synthesis").
     pub name: String,
@@ -58,7 +55,6 @@ pub enum ExecutionPattern {
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct UiConfig {
     #[serde(default = "default_category")]
     pub category: String,
@@ -125,7 +121,6 @@ pub fn load_sidebar_entries(root: &str, preset: &str) -> Vec<WorkflowEntry> {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
 pub struct PhaseConfig {
     pub template: String,
     #[serde(default)]
@@ -215,10 +210,6 @@ pub fn list_presets(root: &str) -> Vec<String> {
 
 /// Scan bundled and project-local workflow directories for the selected preset.
 /// Project-local workflows override bundled workflows with the same `id`.
-///
-/// Each `workflow.yaml` is validated against [`WorkflowConfig`]; misconfigured
-/// files abort startup with a field-named error rather than silently falling
-/// back to defaults.
 pub fn load_workflows(root: &str, preset: &str) -> HashMap<String, WorkflowConfig> {
     let mut map = HashMap::new();
     for base in preset_dirs(root, preset) {
@@ -242,8 +233,8 @@ pub fn load_workflows(root: &str, preset: &str) -> HashMap<String, WorkflowConfi
                     map.insert(wf.id.clone(), wf);
                 }
                 Err(e) => {
-                    die(&format!(
-                        "Invalid workflow config {}: {e}",
+                    log(&format!(
+                        "WARNING: Invalid workflow config {}: {e}",
                         yaml_path.display()
                     ));
                 }
@@ -253,12 +244,10 @@ pub fn load_workflows(root: &str, preset: &str) -> HashMap<String, WorkflowConfi
     map
 }
 
-/// Parse and validate a single `workflow.yaml` string against
-/// [`WorkflowConfig`]'s schema.
+/// Parse a single `workflow.yaml` string into [`WorkflowConfig`].
 ///
-/// Unknown fields are rejected (no silent defaults), and the returned error is
-/// rewritten to highlight the offending field name and, when possible, a
-/// suggested correction (`did you mean \`visible\`?`).
+/// Errors are rewritten to highlight the offending field name and, when
+/// possible, suggest a correction (`did you mean \`visible\`?`).
 pub fn parse_workflow_yaml(content: &str) -> Result<WorkflowConfig, String> {
     serde_yaml::from_str::<WorkflowConfig>(content).map_err(|e| format_yaml_error(&e))
 }
@@ -310,7 +299,13 @@ fn format_yaml_error(err: &serde_yaml::Error) -> String {
 
     // Fall back to the raw serde_yaml message, which still names fields when
     // the error is a type mismatch on a specific value.
-    format!("{msg}{location}")
+    // serde_yaml 0.9.x already embeds "at line N column M" in many messages;
+    // only append the separately-extracted location when it isn't there yet.
+    if !location.is_empty() && !msg.contains("at line ") {
+        format!("{msg}{location}")
+    } else {
+        msg
+    }
 }
 
 /// Pull the offending field name, dotted path, and list of allowed fields out
