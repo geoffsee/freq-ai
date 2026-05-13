@@ -21,3 +21,6 @@ Recent commits use short imperative subjects like `add support for xAI agent` an
 
 ## Security & Configuration Tips
 Development assumes `gh auth login` has been completed and at least one supported agent CLI is available on `PATH`. Keep secrets out of committed config; prefer environment variables and the OS keyring-backed paths already used by the app.
+Autonomous sprint/tracker issue work must not be scoped to require changes under `.github/`,
+especially `.github/workflows/**`; route those items to manual control-plane follow-up instead of
+executable sprint/tracker issues.

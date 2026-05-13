@@ -31,6 +31,9 @@ Read AGENTS.md and {{issue_tracking_skill_path}} for project conventions and iss
 Incorporate feedback and produce the FINAL CI governance hardening plan.
 
 1. Convert approved findings into actionable GitHub issues with acceptance criteria.
+   Exclude findings whose remediation requires changes under `.github/`, especially
+   `.github/workflows/**`, from any tracker or child issue. Record those findings only
+   as manual control-plane follow-up without `tracker` or `sprint` labels.
 2. Create or update a tracker issue labeled `tracker,security` titled
    "CI Governance Hardening" that captures:
    - prioritized remediation backlog

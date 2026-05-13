@@ -232,6 +232,7 @@ Produce a DRAFT sprint plan for the next development cycle:
    issues list below is supplementary context (in-flight work, leftover items, PRs).
 1. **Analyse** — Review the strategic-review recommendations, open issues, open PRs, and completed work. Identify what is ready, what is blocked, and what has open review work.
 2. **Prioritise** — Rank work items by impact and urgency. Consider dependencies.
+2a. **Control-plane boundary** — Exclude any work item that requires changes under `.github/`, especially `.github/workflows/**`. Do not include those items in a sprint plan, tracker checklist, or child issue; list them separately as manual control-plane follow-up.
 3. **Dependencies** — Identify dependencies between work items. Assign each item a Layer number (0 = no dependencies, 1 = depends on layer-0 items, etc.). Items in the same layer can run in parallel.
 4. **Group** — Organise items into a coherent sprint with clear goals.
 5. **Estimate** — Provide rough sizing (S/M/L) for each item.
@@ -292,6 +293,9 @@ Incorporate the feedback above and produce the FINAL sprint plan:
    followed by `gh issue view <number>`. Pick from those recommendations; treat the open
    issues list above as supplementary context for in-flight work.
 1. Adjust priorities, grouping, and scope based on the feedback.
+1a. Exclude any work item that requires changes under `.github/`, especially `.github/workflows/**`.
+   Do not create `sprint`, `tracker`, or child issues for those items. Record them only as manual
+   control-plane follow-up outside the executable sprint scope.
 2. Create GitHub issues for each work item using `gh issue create --title "..." --body "..."`.
    Do NOT include `Tracked by #<tracker>` yet — the tracker doesn't exist until step 3.
    The back-reference will be added by `gh issue edit` in step 4.
@@ -1652,6 +1656,10 @@ gh issue list --label security --search "<finding title>" --state open
 If a matching open issue already exists, skip creating it and note "Already tracked: #<N>" in the summary.
 
 ### Actionable Findings (Critical / High / Medium)
+
+Do not create tracker or child issues for findings whose remediation requires changes under `.github/`,
+especially `.github/workflows/**`. Record those findings as manual control-plane follow-up without a
+`tracker` or `sprint` label.
 
 For each actionable finding (Critical, High, or Medium severity), create a GitHub issue with a severity label:
 ```

@@ -704,6 +704,8 @@ fn issue_tracking_skill_defines_tracker_contract() {
 
     assert!(skill.contains("## Issue Creation Contract"));
     assert!(skill.contains("## Tracker Contract"));
+    assert!(skill.contains("## Immutable Control-Plane Boundary"));
+    assert!(skill.contains("Do not create `tracker` or `sprint` issues"));
     assert!(skill.contains("Do not use `tracker` for retrospective reports"));
     assert!(skill.contains("parser-compatible rows"));
 }
@@ -741,6 +743,39 @@ fn software_factory_prompts_reference_issue_tracking_skill() {
 }
 
 #[test]
+fn executable_tracker_prompts_exclude_github_control_plane_work() {
+    let root = repo_root();
+    let prompt_paths = [
+        "assets/workflows/default/sprint-planning/draft.md",
+        "assets/workflows/default/sprint-planning/finalize.md",
+        "assets/workflows/deep-research/sprint-planning/draft.md",
+        "assets/workflows/deep-research/sprint-planning/finalize.md",
+        "assets/workflows/pm/sprint-planning/draft.md",
+        "assets/workflows/pm/sprint-planning/finalize.md",
+        "assets/workflows/xp/sprint-planning/draft.md",
+        "assets/workflows/xp/sprint-planning/finalize.md",
+        "assets/workflows/software-factory/backlog-curation/draft.md",
+        "assets/workflows/software-factory/backlog-curation/finalize.md",
+        "assets/workflows/software-factory/ci-governance/draft.md",
+        "assets/workflows/software-factory/ci-governance/finalize.md",
+        "assets/workflows/software-factory/autonomous-sprint/draft.md",
+        "assets/workflows/software-factory/autonomous-sprint/finalize.md",
+    ];
+
+    for path in prompt_paths {
+        let content = std::fs::read_to_string(root.join(path)).unwrap();
+        assert!(
+            content.contains(".github/workflows/**"),
+            "{path} must name the immutable workflow boundary"
+        );
+        assert!(
+            content.contains("control-plane"),
+            "{path} must route .github work to manual control-plane follow-up"
+        );
+    }
+}
+
+#[test]
 fn housekeeping_audit_issue_is_not_tracker_labeled() {
     let template_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("assets/workflows/default/housekeeping/finalize.md");
@@ -766,6 +801,30 @@ fn release_tag_publisher_dispatches_release_workflow_for_published_tag() {
     assert!(publisher_workflow.contains("gh workflow run release.yml"));
     assert!(publisher_workflow.contains("--ref master"));
     assert!(publisher_workflow.contains("-f tag=\"${{ steps.tag.outputs.next_tag }}\""));
+}
+
+#[test]
+fn autopilot_dispatches_factory_cycle_when_no_sprint_exists() {
+    let root = repo_root();
+    let autopilot_workflow =
+        std::fs::read_to_string(root.join(".github/workflows/autopilot.yml")).unwrap();
+    let factory_workflow =
+        std::fs::read_to_string(root.join(".github/workflows/factory-cycle-dispatch.yml")).unwrap();
+
+    assert!(autopilot_workflow.contains(".name == \"sprint\""));
+    assert!(autopilot_workflow.contains("workflow=\"factory-cycle-dispatch.yml\""));
+    assert!(
+        autopilot_workflow.contains("reason=\"no open sprint found; dispatching factory cycle\"")
+    );
+    assert!(autopilot_workflow.contains("gh workflow run factory-cycle-dispatch.yml"));
+    assert!(!autopilot_workflow.contains("weekly-backlog-curation.yml"));
+    assert!(autopilot_workflow.contains("housekeeping:"));
+    assert!(autopilot_workflow.contains("uses: ./.github/workflows/nightly-housekeeping.yml"));
+    assert!(autopilot_workflow.contains("needs: housekeeping"));
+
+    assert!(factory_workflow.contains("--label sprint"));
+    assert!(factory_workflow.contains("has_open_sprint"));
+    assert!(!factory_workflow.contains("--label tracker"));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

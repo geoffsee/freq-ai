@@ -1,0 +1,36 @@
+%% Software Factory Operating States - What to Expect
+
+stateDiagram-v2
+  [*] --> NoSprint: no open sprint issue
+
+  NoSprint --> AutopilotHousekeeping: autopilot starts
+  SprintReady --> AutopilotHousekeeping: autopilot starts
+
+  AutopilotHousekeeping --> NoSprintEvaluated: housekeeping completes, no open sprint
+  AutopilotHousekeeping --> SprintEvaluated: housekeeping completes, open sprint remains
+
+  NoSprintEvaluated --> FactoryCycleQueued: autopilot dispatches factory cycle
+  FactoryCycleQueued --> FactoryPlanning: target workflow is not busy
+  FactoryCycleQueued --> NoSprint: target workflow already busy or dry run
+
+  FactoryPlanning --> NoSprint: preflight finds an existing sprint and short-circuits
+  FactoryPlanning --> SprintReady: ideation, research, strategy, and sprint planning complete
+
+  SprintEvaluated --> TrackerLoopQueued: autopilot dispatches tracker loop
+  TrackerLoopQueued --> SprintExecuting: target workflow is not busy
+  TrackerLoopQueued --> SprintReady: target workflow already busy or dry run
+
+  SprintExecuting --> PRReview: child issues produce agent/issue-* PRs
+  PRReview --> ReviewFixes: code review requests changes
+  ReviewFixes --> PRReview: fix-pr updates PRs
+  PRReview --> AutoMergeQueue: PRs approved and ordered by tracker
+  AutoMergeQueue --> SprintExecuting: more unchecked tracker children remain
+  AutoMergeQueue --> SprintComplete: tracker children are done
+
+  SprintComplete --> NoSprint: housekeeping closes completed sprint tracker
+
+  state "Manual control-plane follow-up" as ManualControl
+  FactoryPlanning --> ManualControl: proposed .github/workflows/** change
+  SprintReady --> ManualControl: tracker item requires .github/** change
+  SprintExecuting --> ManualControl: issue branch detects .github/** requirement
+  ManualControl --> NoSprint: human resolves or re-scopes work

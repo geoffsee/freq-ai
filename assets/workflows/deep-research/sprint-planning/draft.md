@@ -29,6 +29,7 @@ Produce a DRAFT sprint plan for the next development cycle:
    issues list below is supplementary context (in-flight work, leftover items, PRs).
 1. **Analyse** — Review the strategic-review recommendations, open issues, open PRs, and completed work. Identify what is ready, what is blocked, and what has open review work.
 2. **Prioritise** — Rank work items by impact and urgency. Consider dependencies.
+2a. **Control-plane boundary** — Exclude any work item that requires changes under `.github/`, especially `.github/workflows/**`. Do not include those items in a sprint plan, tracker checklist, or child issue; list them separately as manual control-plane follow-up.
 3. **Dependencies** — Identify dependencies between work items. Assign each item a Layer number (0 = no dependencies, 1 = depends on layer-0 items, etc.). Items in the same layer can run in parallel.
 4. **Group** — Organise items into a coherent sprint with clear goals.
 5. **Estimate** — Provide rough sizing (S/M/L) for each item.

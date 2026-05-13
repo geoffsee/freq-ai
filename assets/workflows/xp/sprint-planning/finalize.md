@@ -10,6 +10,10 @@ Read AGENTS.md and .agents/skills/ for project conventions.
 
 Incorporate the feedback and produce the FINAL iteration plan.
 
+Exclude any story that requires changes under `.github/`, especially `.github/workflows/**`.
+Do not create `sprint`, `tracker`, or child issues for those stories; record them only as
+manual control-plane follow-up outside the executable iteration scope.
+
 Then create the sprint artifacts:
 
 1. Create one GitHub issue per planned story.

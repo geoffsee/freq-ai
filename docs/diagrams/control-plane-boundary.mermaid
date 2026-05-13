@@ -1,0 +1,21 @@
+%% Immutable Control-Plane Boundary Expectations (see assets/skills/issue-tracking/SKILL.md)
+
+flowchart TB
+  Candidate["Candidate work item<br/>from strategy, backlog, CI governance,<br/>or sprint planning"] --> PathCheck{"Requires changes under<br/>.github/** ?"}
+
+  PathCheck -->|no| ScopeCheck{"Executable by<br/>autonomous sprint/tracker?"}
+  ScopeCheck -->|yes| Child["Create or keep child issue<br/>with acceptance criteria"]
+  Child --> Tracker["May be included in<br/>tracker,sprint checklist"]
+  ScopeCheck -->|no| Artifact["Record as workflow artifact<br/>without tracker label"]
+
+  PathCheck -->|yes| WorkflowCheck{"Touches<br/>.github/workflows/** ?"}
+  WorkflowCheck -->|yes| Manual["Manual control-plane follow-up<br/>no tracker label<br/>no sprint label"]
+  WorkflowCheck -->|no| Review["Treat as control-plane-sensitive<br/>route to human review unless explicitly allowed"]
+  Review --> Manual
+
+  Tracker --> AgentRun["caretta issue --tracker T N"]
+  AgentRun --> RuntimeGuard{"Issue branch attempts<br/>.github/** change?"}
+  RuntimeGuard -->|yes| Blocked["Stop implementation<br/>comment blocked by immutable<br/>CI control-plane policy"]
+  RuntimeGuard -->|no| PR["Open or update PR<br/>for normal code/docs change"]
+
+  Manual --> Human["Human changes control plane<br/>outside autonomous sprint loop"]

@@ -1,0 +1,21 @@
+%% Factory Cycle Expectations (see .github/workflows/factory-cycle-dispatch.yml)
+
+flowchart TB
+  Dispatch["Manual or autopilot dispatch<br/>factory-cycle-dispatch.yml"] --> Preflight["preflight:<br/>check open sprint issues"]
+  Dispatch --> Housekeeping["housekeeping:<br/>nightly-housekeeping.yml sidecar"]
+
+  Preflight --> HasSprint{"Open sprint<br/>already exists?"}
+  HasSprint -->|yes| ShortCircuit["Short-circuit planning path<br/>skip ideation through sprint-planning"]
+  HasSprint -->|no| Ideation["ideation:<br/>discover candidate work"]
+
+  Ideation --> Research["uxr-synth:<br/>report-research"]
+  Research --> Strategy["strategic-review:<br/>rank recommended path forward"]
+  Strategy --> SprintPlanning["sprint-planning:<br/>create executable sprint tracker"]
+
+  SprintPlanning --> Boundary["Apply control-plane boundary:<br/>exclude .github/workflows/** work"]
+  Boundary --> Children["Create child issues<br/>with acceptance criteria"]
+  Children --> Tracker["Create tracker issue<br/>labels: tracker,sprint"]
+  Tracker --> Ready["Expected next state:<br/>autopilot sees open sprint"]
+
+  Housekeeping --> Hygiene["Expected side effects:<br/>tracker drift, stale PRs, labels,<br/>and docs hygiene are checked"]
+  ShortCircuit --> Existing["Expected next state:<br/>existing sprint remains active"]

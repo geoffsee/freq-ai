@@ -28,6 +28,9 @@ Read AGENTS.md and {{issue_tracking_skill_path}} for project conventions and iss
 Incorporate feedback and publish the FINAL autonomous backlog.
 
 1. Create or update GitHub issues for approved backlog items with explicit acceptance criteria.
+   Exclude any item that requires changes under `.github/`, especially `.github/workflows/**`.
+   Do not create `sprint`, `tracker`, or child issues for those items; record them only as
+   manual control-plane follow-up outside the executable autonomous backlog.
 2. Create a tracker issue labeled `tracker,sprint` titled
    "Factory Backlog: <cycle goal>" with:
    - dependency hierarchy table

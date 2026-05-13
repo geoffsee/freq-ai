@@ -35,6 +35,9 @@ Produce a DRAFT sprint plan for the next development cycle:
 2. **Prioritise** — Rank work items by user impact and business urgency. Consider
    dependencies. Favor items that deliver visible user value over pure infrastructure work
    unless infrastructure is blocking user-facing delivery.
+2a. **Control-plane boundary** — Exclude any work item that requires changes under `.github/`,
+   especially `.github/workflows/**`. Do not include those items in a sprint plan, tracker
+   checklist, or child issue; list them separately as manual control-plane follow-up.
 3. **Dependencies** — Identify dependencies between work items. Assign each item a Layer
    number (0 = no dependencies, 1 = depends on layer-0 items, etc.). Items in the same
    layer can run in parallel.

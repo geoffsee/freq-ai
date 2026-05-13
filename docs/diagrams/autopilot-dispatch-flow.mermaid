@@ -1,0 +1,25 @@
+%% Autopilot Dispatch Expectations (see .github/workflows/autopilot.yml)
+
+flowchart TB
+  Start["Autopilot run<br/>scheduled or manual"] --> Housekeeping["housekeeping job<br/>nightly-housekeeping.yml"]
+  Housekeeping --> Clean["Expected cleanup<br/>tracker drift, stale PRs,<br/>labels, docs hygiene"]
+  Clean --> Eval["evaluate-and-dispatch job<br/>open issues, open PRs, stale PRs"]
+  Eval --> Sprint{"Open issue labeled<br/>sprint?"}
+
+  Sprint -->|yes| PickSprint["Select most recently<br/>updated sprint issue"]
+  PickSprint --> TargetTracker["Target workflow:<br/>tracker-loop-dispatch.yml"]
+  TargetTracker --> BusyTracker{"Tracker workflow<br/>queued or running?"}
+  BusyTracker -->|yes| SkipTracker["Skip dispatch<br/>report busy target"]
+  BusyTracker -->|no| DryTracker{"Dry run?"}
+  DryTracker -->|yes| ReportTracker["Report would dispatch<br/>tracker loop"]
+  DryTracker -->|no| DispatchTracker["Dispatch tracker-loop-dispatch.yml<br/>tracker = sprint issue number"]
+
+  Sprint -->|no| TargetFactory["Target workflow:<br/>factory-cycle-dispatch.yml"]
+  TargetFactory --> BusyFactory{"Factory cycle<br/>queued or running?"}
+  BusyFactory -->|yes| SkipFactory["Skip dispatch<br/>report busy target"]
+  BusyFactory -->|no| DryFactory{"Dry run?"}
+  DryFactory -->|yes| ReportFactory["Report would dispatch<br/>factory cycle"]
+  DryFactory -->|no| DispatchFactory["Dispatch factory-cycle-dispatch.yml<br/>with context"]
+
+  DispatchTracker --> ExpectedWork["Expected next state:<br/>sprint child issues become PRs"]
+  DispatchFactory --> ExpectedPlan["Expected next state:<br/>new sprint tracker is planned"]

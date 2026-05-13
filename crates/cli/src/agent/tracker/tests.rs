@@ -611,6 +611,7 @@ fn build_prompt_contains_issue_number_and_body() {
     assert!(p.contains("Codebase Snapshot"));
     assert!(p.contains("ISSUES.md"));
     assert!(p.contains("STATUS.md"));
+    assert!(p.contains("Do NOT modify `.github/**`"));
     assert!(p.contains("Do NOT commit"));
     // No tracker section when tracker body is empty
     assert!(!p.contains("Parent Tracker"));
@@ -688,6 +689,8 @@ fn sprint_finalize_includes_feedback_and_creates_issues() {
     assert!(p.contains("gh issue create"));
     assert!(p.contains("ISSUES.md"));
     assert!(!p.contains("DRAFT"));
+    assert!(p.contains("Do not create `sprint`, `tracker`, or child issues"));
+    assert!(p.contains(".github/workflows/**"));
 }
 
 #[test]
@@ -1843,6 +1846,8 @@ fn security_review_prompt_creates_tracker_with_labels() {
     assert!(prompt.contains("Tracked by #<tracker>"));
     assert!(prompt.contains("Tracker Issue"));
     assert!(prompt.contains("Actionable Findings"));
+    assert!(prompt.contains("Do not create tracker or child issues"));
+    assert!(prompt.contains(".github/workflows/**"));
 }
 
 #[test]

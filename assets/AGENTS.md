@@ -45,6 +45,9 @@ entries that fetch issue bodies by label.
 - Always verify your changes by running the appropriate tests.
 - When creating, editing, or working on GitHub issues, follow `skills/issue-tracking/SKILL.md`
   or the configured issue-tracking skill path.
+- Do not scope autonomous sprint/tracker issue work to require changes under `.github/`,
+  especially `.github/workflows/**`; route those items to manual control-plane follow-up
+  instead of executable sprint/tracker issues.
 - Adhere to the project's coding standards and architectural principles.
 
 ## Label Conventions

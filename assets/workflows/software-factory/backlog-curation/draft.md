@@ -29,6 +29,8 @@ Produce a DRAFT autonomous backlog designed for execution by GitHub Actions.
    - Platform hardening (CI, security, reproducibility)
    - Product evolution (features, quality, performance)
    - Operability (observability, rollback, docs hygiene)
+   Keep any item requiring changes under `.github/`, especially `.github/workflows/**`,
+   out of the proposed executable tracker. List those as manual control-plane follow-up.
 4. For each candidate item, provide:
    - outcome-oriented title
    - acceptance criteria

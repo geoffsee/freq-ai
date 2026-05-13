@@ -20,6 +20,10 @@ Read AGENTS.md and .agents/skills/ for project conventions.
 
 Build a DRAFT iteration plan that prefers the smallest shippable slices.
 
+Exclude any story that requires changes under `.github/`, especially `.github/workflows/**`.
+Do not include those items in the iteration plan, tracker checklist, or child issue; list
+them separately as manual control-plane follow-up.
+
 For each proposed story include:
 - issue title
 - why it belongs in this iteration

@@ -21,6 +21,9 @@ Read AGENTS.md and {{issue_tracking_skill_path}} for project conventions and iss
 Produce a DRAFT execution plan for the next autonomous sprint run on GitHub Actions.
 
 1. Identify the active tracker and all unblocked child issues.
+   If any active tracker item requires changes under `.github/`, especially
+   `.github/workflows/**`, mark it as blocked by manual control-plane policy instead of
+   placing it in the autonomous execution sequence.
 2. Build an execution sequence that maximizes safe parallelism by dependency layer.
 3. For each layer, define:
    - expected deliverables

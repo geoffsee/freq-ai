@@ -29,26 +29,26 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     outputs:
-      has_open_tracker: ${{ steps.check.outputs.has_open_tracker }}
+      has_open_sprint: ${{ steps.check.outputs.has_open_sprint }}
     steps:
-      - name: Check for open tracker issue
+      - name: Check for open sprint issue
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: |
-          count=$(gh issue list --state open --label tracker --json number --jq 'length')
-          echo "Open tracker issues: $count"
+          count=$(gh issue list --state open --label sprint --json number --jq 'length')
+          echo "Open sprint issues: $count"
           if [ "$count" -gt 0 ]; then
-            echo "has_open_tracker=true" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Cycle short-circuited::An open 'tracker' issue exists; skipping ideation → sprint-planning."
+            echo "has_open_sprint=true" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Cycle short-circuited::An open 'sprint' issue exists; skipping ideation → sprint-planning."
           else
-            echo "has_open_tracker=false" >> "$GITHUB_OUTPUT"
+            echo "has_open_sprint=false" >> "$GITHUB_OUTPUT"
           fi
 
   ideation:
     needs: preflight
-    if: needs.preflight.outputs.has_open_tracker == 'false'
+    if: needs.preflight.outputs.has_open_sprint == 'false'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

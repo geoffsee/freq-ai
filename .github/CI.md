@@ -38,7 +38,7 @@ should use their native `task` value directly.
 - `monthly-factory-retrospective.yml`: manual/callable retrospective.
 - `factory-cycle-dispatch.yml`: chained factory cycle.
 - `tracker-loop-dispatch.yml`: manual tracker execution, followed by code review and review-fix follow-up.
-- `autopilot.yml`: scheduled/manual controller that evaluates issues/PRs and dispatches tracker or backlog work.
+- `autopilot.yml`: scheduled/manual controller that evaluates issues/PRs and dispatches active sprint or factory-cycle work.
 - `release-mediator.yml`: scheduled/manual neutral release checkpoint generator that promotes checkpoints to tags.
 - `release-tag-publisher.yml`: reusable/manual tag publisher for checkpoint issues.
 - `release.yml`: builds release artifacts and publishes the `caretta` crate when a `v*` tag is pushed.
@@ -46,8 +46,8 @@ should use their native `task` value directly.
 ## Operating Flow
 
 1. `Autopilot` runs every 6 hours and evaluates open issues and PRs.
-2. If an open `tracker` issue exists, Autopilot dispatches `tracker-loop-dispatch.yml`.
-3. If work exists but no tracker exists, Autopilot dispatches backlog curation.
+2. If an open `sprint` issue exists, Autopilot dispatches `tracker-loop-dispatch.yml` with that sprint issue number.
+3. If no open `sprint` issue exists, Autopilot dispatches `factory-cycle-dispatch.yml` to plan the next cycle.
 4. Tracker loop work creates or updates PRs.
 5. After tracker work succeeds, `tracker-loop-dispatch.yml` runs `caretta code-review`.
 6. After code review succeeds, it runs `caretta fix-pr <PR>` for each open PR.

@@ -17,16 +17,24 @@ on:
 
 permissions:
   actions: write
-  contents: read
-  issues: read
-  pull-requests: read
+  contents: write
+  issues: write
+  pull-requests: write
 
 concurrency:
   group: autopilot
   cancel-in-progress: false
 
 jobs:
+  housekeeping:
+    uses: ./.github/workflows/nightly-housekeeping.yml
+    with:
+      context: ${{ inputs.context }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
   evaluate-and-dispatch:
+    needs: housekeeping
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
@@ -45,27 +53,28 @@ jobs:
 
           open_issue_count="$(jq 'length' <<< "$issues_json")"
           open_pr_count="$(jq 'length' <<< "$prs_json")"
-          tracker="$(jq -r '[.[] | select(any(.labels[]?; .name == "tracker"))] | sort_by(.updatedAt) | reverse | .[0].number // ""' <<< "$issues_json")"
+          sprint="$(jq -r '[.[] | select(any(.labels[]?; .name == "sprint"))] | sort_by(.updatedAt) | reverse | .[0].number // ""' <<< "$issues_json")"
           stale_pr_count="$(jq '[.[] | select(.isDraft == false and (.reviewDecision == "CHANGES_REQUESTED" or .reviewDecision == "REVIEW_REQUIRED"))] | length' <<< "$prs_json")"
 
           workflow=""
           reason=""
           tracker_arg=""
+          active_sprint="none"
 
-          if [[ -n "$tracker" ]]; then
+          if [[ -n "$sprint" ]]; then
             workflow="tracker-loop-dispatch.yml"
-            tracker_arg="$tracker"
-            reason="open tracker #$tracker found; dispatching tracker loop"
-          elif (( open_issue_count > 0 || open_pr_count > 0 )); then
-            workflow="weekly-backlog-curation.yml"
-            reason="open issues/PRs found without an open tracker; dispatching backlog curation"
+            tracker_arg="$sprint"
+            active_sprint="#$sprint"
+            reason="open sprint #$sprint found; dispatching tracker loop"
           else
-            reason="no open issues or pull requests found; no workflow dispatch needed"
+            workflow="factory-cycle-dispatch.yml"
+            reason="no open sprint found; dispatching factory cycle"
           fi
 
           {
             echo "workflow=$workflow"
             echo "tracker=$tracker_arg"
+            echo "sprint=$sprint"
             echo "open_issue_count=$open_issue_count"
             echo "open_pr_count=$open_pr_count"
             echo "stale_pr_count=$stale_pr_count"
@@ -77,6 +86,7 @@ jobs:
             echo
             echo "- Open issues: $open_issue_count"
             echo "- Open pull requests: $open_pr_count"
+            echo "- Active sprint: $active_sprint"
             echo "- PRs requiring attention: $stale_pr_count"
             echo "- Selected workflow: ${workflow:-none}"
             echo "- Reason: $reason"
@@ -111,13 +121,13 @@ jobs:
             -f tracker="${{ steps.evaluate.outputs.tracker }}" \
             -f context="$AUTOPILOT_CONTEXT"
 
-      - name: Dispatch backlog curation
-        if: steps.evaluate.outputs.workflow == 'weekly-backlog-curation.yml' && steps.activity.outputs.busy == 'false' && env.DRY_RUN != 'true'
+      - name: Dispatch factory cycle
+        if: steps.evaluate.outputs.workflow == 'factory-cycle-dispatch.yml' && steps.activity.outputs.busy == 'false' && env.DRY_RUN != 'true'
         shell: bash
         run: |
           set -euo pipefail
 
-          gh workflow run weekly-backlog-curation.yml \
+          gh workflow run factory-cycle-dispatch.yml \
             --ref "${{ github.ref_name }}" \
             -f context="$AUTOPILOT_CONTEXT"
 

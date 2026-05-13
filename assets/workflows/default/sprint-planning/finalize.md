@@ -32,6 +32,9 @@ Incorporate the feedback above and produce the FINAL sprint plan:
    followed by `gh issue view <number>`. Pick from those recommendations; treat the open
    issues list above as supplementary context for in-flight work.
 1. Adjust priorities, grouping, and scope based on the feedback.
+1a. Exclude any work item that requires changes under `.github/`, especially `.github/workflows/**`.
+   Do not create `sprint`, `tracker`, or child issues for those items. Record them only as manual
+   control-plane follow-up outside the executable sprint scope.
 2. Create GitHub issues for each work item using `gh issue create --title "..." --body "..."`.
    Do NOT include `Tracked by #<tracker>` yet — the tracker doesn't exist until step 3.
    The back-reference will be added by `gh issue edit` in step 4.

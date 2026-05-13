@@ -42,5 +42,8 @@ Produce a DRAFT CI governance audit focused on safe autonomous operation via Git
    - findings grouped by severity
    - concrete remediation actions
    - a prioritized hardening roadmap for CI
+   Keep any remediation that requires `.github/**` changes, especially
+   `.github/workflows/**`, out of executable tracker scope; list it as manual
+   control-plane follow-up.
 
 This is a DRAFT for human review. Do not modify workflow files or open issues in this phase.

@@ -28,6 +28,17 @@ A tracker issue must contain all of the following:
 
 Do not use `tracker` for retrospective reports, housekeeping audit logs, single feature issues, child issues, or documents that merely mention other issues. If a workflow needs to record tracker maintenance, write that in the artifact body without adding the `tracker` label.
 
+## Immutable Control-Plane Boundary
+
+Do not create `tracker` or `sprint` issues for work that requires changes under `.github/`,
+especially `.github/workflows/**`. This repository treats GitHub Actions workflow files as an
+immutable control plane for autonomous sprint execution; executable sprint/tracker work that
+tries to modify those files will get stuck.
+
+If a recommendation requires `.github/**` changes, keep it out of tracker checklists and sprint
+child issues. Record it as a manual control-plane follow-up or non-executable workflow artifact
+without `tracker` or `sprint` labels, and state that a human must handle the `.github/**` change.
+
 ## Rule of Thumb
 
 Comment on the issue when the written record materially changes what a future reader would do.

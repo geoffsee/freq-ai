@@ -25,6 +25,9 @@ Read AGENTS.md and {{issue_tracking_skill_path}} for project conventions and iss
 Incorporate feedback and publish the FINAL autonomous sprint execution plan.
 
 1. Finalize dependency layering and merge order for all active tracker items.
+   If any active tracker item requires changes under `.github/`, especially
+   `.github/workflows/**`, remove it from autonomous execution, mark it blocked, and
+   record that a human must handle the control-plane change.
 2. Update the tracker issue body with:
    - finalized dependency hierarchy
    - layer-specific validation gates
