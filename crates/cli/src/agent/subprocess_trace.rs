@@ -148,8 +148,9 @@ fn append_record(log_dir: &Path, record: &RunRecord) {
         .append(true)
         .open(&path)
         .and_then(|mut file| {
-            file.write_all(line.as_bytes())?;
-            file.write_all(b"\n")
+            let mut bytes = line.into_bytes();
+            bytes.push(b'\n');
+            file.write_all(&bytes)
         });
     if let Err(err) = result {
         log(&format!(
@@ -190,7 +191,9 @@ pub fn endpoint_for_config(cfg: &Config) -> Option<String> {
 
 fn default_endpoint_for_agent(agent: Agent) -> Option<&'static str> {
     match agent {
-        Agent::Claude | Agent::Cursor => Some("https://api.anthropic.com"),
+        Agent::Claude => Some("https://api.anthropic.com"),
+        // Cursor routes through its own backend, not Anthropic directly.
+        Agent::Cursor => None,
         Agent::Codex => Some("https://api.openai.com/v1"),
         Agent::Copilot => Some("https://api.githubcopilot.com"),
         Agent::Gemini => Some("https://generativelanguage.googleapis.com"),
