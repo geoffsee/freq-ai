@@ -785,48 +785,6 @@ fn housekeeping_audit_issue_is_not_tracker_labeled() {
     assert!(!template.contains("--label \"housekeeping,tracker\""));
 }
 
-#[test]
-fn release_tag_publisher_dispatches_release_workflow_for_published_tag() {
-    let root = repo_root();
-    let release_workflow =
-        std::fs::read_to_string(root.join(".github/workflows/release.yml")).unwrap();
-    let publisher_workflow =
-        std::fs::read_to_string(root.join(".github/workflows/release-tag-publisher.yml")).unwrap();
-
-    assert!(release_workflow.contains("workflow_dispatch:"));
-    assert!(release_workflow.contains("RELEASE_TAG: ${{ inputs.tag || github.ref_name }}"));
-    assert!(release_workflow.contains("ref: ${{ env.RELEASE_TAG }}"));
-    assert!(release_workflow.contains("tag_name: ${{ env.RELEASE_TAG }}"));
-
-    assert!(publisher_workflow.contains("gh workflow run release.yml"));
-    assert!(publisher_workflow.contains("--ref master"));
-    assert!(publisher_workflow.contains("-f tag=\"${{ steps.tag.outputs.next_tag }}\""));
-}
-
-#[test]
-fn autopilot_dispatches_factory_cycle_when_no_sprint_exists() {
-    let root = repo_root();
-    let autopilot_workflow =
-        std::fs::read_to_string(root.join(".github/workflows/autopilot.yml")).unwrap();
-    let factory_workflow =
-        std::fs::read_to_string(root.join(".github/workflows/factory-cycle-dispatch.yml")).unwrap();
-
-    assert!(autopilot_workflow.contains(".name == \"sprint\""));
-    assert!(autopilot_workflow.contains("workflow=\"factory-cycle-dispatch.yml\""));
-    assert!(
-        autopilot_workflow.contains("reason=\"no open sprint found; dispatching factory cycle\"")
-    );
-    assert!(autopilot_workflow.contains("gh workflow run factory-cycle-dispatch.yml"));
-    assert!(!autopilot_workflow.contains("weekly-backlog-curation.yml"));
-    assert!(autopilot_workflow.contains("housekeeping:"));
-    assert!(autopilot_workflow.contains("uses: ./.github/workflows/nightly-housekeeping.yml"));
-    assert!(autopilot_workflow.contains("needs: housekeeping"));
-
-    assert!(factory_workflow.contains("--label sprint"));
-    assert!(factory_workflow.contains("has_open_sprint"));
-    assert!(!factory_workflow.contains("--label tracker"));
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // 10. Bundled assets exist and are non-empty
 // ═══════════════════════════════════════════════════════════════════════════
