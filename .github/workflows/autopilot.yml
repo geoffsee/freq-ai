@@ -1,0 +1,38 @@
+name: Autopilot
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      context:
+        description: "Optional natural-language steering context"
+        required: false
+        type: string
+      dry_run:
+        description: "Evaluate only; emit summary without taking action"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: autopilot
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: geoffsee/caretta-autopilot-action@main
+        with:
+          context: ${{ inputs.context || 'Autopilot scheduled evaluation of open issues and pull requests.' }}
+          dry-run: ${{ inputs.dry_run || 'false' }}
+          enable-dispatch: "false"
+          github-token: ${{ github.token }}

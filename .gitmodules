@@ -1,3 +1,7 @@
 [submodule "packages/action"]
 	path = packages/action
 	url = https://github.com/geoffsee/caretta-action.git
+[submodule "packages/autopilot-action"]
+	path = packages/autopilot-action
+	url = https://github.com/geoffsee/caretta-autopilot-action.git
+	branch = main
