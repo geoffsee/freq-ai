@@ -16,23 +16,32 @@ on:
         default: false
 
 permissions:
-  actions: read
-  checks: read
-  contents: read
-  issues: read
-  pull-requests: read
+  actions: write
+  checks: write
+  contents: write
+  issues: write
+  pull-requests: write
+  statuses: write
 
 concurrency:
   group: autopilot
   cancel-in-progress: false
 
 jobs:
-  evaluate:
+  autopilot:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: geoffsee/caretta-autopilot-action@main
         with:
+          mode: execute
+          caretta-version: latest
           context: ${{ inputs.context || 'Autopilot scheduled evaluation of open issues and pull requests.' }}
           dry-run: ${{ inputs.dry_run || 'false' }}
-          enable-dispatch: "false"
           github-token: ${{ github.token }}
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          DEV_BOT_APP_ID: ${{ secrets.DEV_BOT_APP_ID }}
+          DEV_BOT_PRIVATE_KEY_B64: ${{ secrets.DEV_BOT_PRIVATE_KEY_B64 }}
