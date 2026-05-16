@@ -72,6 +72,7 @@ fn run_claude_native_with_env_for_prompt(
     run_claude_native_with_env_for_prompt_and_stdin(
         binary, args, extra_env, cwd, prompt, None, None,
     )
+    .0
 }
 
 fn run_claude_native_with_env_for_prompt_and_stdin(
@@ -82,16 +83,19 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
     prompt: &str,
     stdin_prompt: Option<&str>,
     append_system_prompt: Option<&str>,
-) -> bool {
+) -> (bool, String) {
     let started_at = Instant::now();
     let (launch_args, _system_prompt_file) =
         match args_with_append_system_prompt_file(args, append_system_prompt) {
             Ok(prepared) => prepared,
             Err(err) => {
-                return handle_agent_launch_failure(
-                    format!("Failed to prepare system prompt file for {binary}: {err}"),
-                    started_at,
-                    prompt,
+                return (
+                    handle_agent_launch_failure(
+                        format!("Failed to prepare system prompt file for {binary}: {err}"),
+                        started_at,
+                        prompt,
+                    ),
+                    String::new(),
                 );
             }
         };
@@ -113,12 +117,15 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
     let _prompt_file =
         match attach_prompt_stdin(&mut cmd, stdin_prompt, binary, &program, started_at, prompt) {
             Ok(prompt_file) => prompt_file,
-            Err(ok) => return ok,
+            Err(ok) => return (ok, String::new()),
         };
     let mut child = match cmd.stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn() {
         Ok(child) => child,
         Err(err) => {
-            return handle_agent_spawn_error(binary, &program, err, started_at, prompt);
+            return (
+                handle_agent_spawn_error(binary, &program, err, started_at, prompt),
+                String::new(),
+            );
         }
     };
     set_active_child_pid(Some(child.id()));
@@ -127,6 +134,7 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
     let reader = BufReader::new(stdout);
     let mut saw_result = false;
     let mut raw_output = String::new();
+    let mut assistant_text = String::new();
 
     for line in reader.lines().map_while(Result::ok) {
         if stop_requested() {
@@ -140,6 +148,15 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
         if let Ok(ev) = serde_json::from_str::<ClaudeEvent>(trimmed) {
             if matches!(ev, ClaudeEvent::Result { .. }) {
                 saw_result = true;
+            }
+            // Accumulate assistant text for flight-recorder capture.
+            if let ClaudeEvent::Assistant { ref message } = ev {
+                for block in &message.content {
+                    if let ContentBlock::Text { text } = block {
+                        assistant_text.push_str(text);
+                        assistant_text.push('\n');
+                    }
+                }
             }
             emit_event(AgentEvent::Claude(ev));
         } else {
@@ -158,7 +175,7 @@ fn run_claude_native_with_env_for_prompt_and_stdin(
             raw_output.trim(),
         ));
     }
-    ok
+    (ok, assistant_text)
 }
 
 pub fn u64_to_u32(value: Option<u64>) -> Option<u32> {
@@ -479,7 +496,7 @@ fn run_codex_native_with_env_for_prompt(
     cwd: Option<&Path>,
     prompt: &str,
 ) -> bool {
-    run_codex_native_with_env_for_prompt_and_stdin(binary, args, extra_env, cwd, prompt, None)
+    run_codex_native_with_env_for_prompt_and_stdin(binary, args, extra_env, cwd, prompt, None).0
 }
 
 fn run_codex_native_with_env_for_prompt_and_stdin(
@@ -489,7 +506,7 @@ fn run_codex_native_with_env_for_prompt_and_stdin(
     cwd: Option<&Path>,
     prompt: &str,
     stdin_prompt: Option<&str>,
-) -> bool {
+) -> (bool, String) {
     let mut cmd = native_command(binary, args);
 
     if let Some(p) = cwd {
@@ -503,12 +520,15 @@ fn run_codex_native_with_env_for_prompt_and_stdin(
     let _prompt_file =
         match attach_prompt_stdin(&mut cmd, stdin_prompt, binary, &program, started_at, prompt) {
             Ok(prompt_file) => prompt_file,
-            Err(ok) => return ok,
+            Err(ok) => return (ok, String::new()),
         };
     let mut child = match cmd.stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn() {
         Ok(child) => child,
         Err(err) => {
-            return handle_agent_spawn_error(binary, &program, err, started_at, prompt);
+            return (
+                handle_agent_spawn_error(binary, &program, err, started_at, prompt),
+                String::new(),
+            );
         }
     };
     set_active_child_pid(Some(child.id()));
@@ -551,7 +571,7 @@ fn run_codex_native_with_env_for_prompt_and_stdin(
             output_text.trim(),
         ));
     }
-    ok
+    (ok, output_text)
 }
 
 pub fn run_agent(cfg: &Config, prompt: &str) -> bool {
@@ -577,6 +597,15 @@ fn run_agent_with_env_with_cwd(
     extra_env: &[(String, String)],
     cwd: Option<&Path>,
 ) -> bool {
+    run_agent_with_env_with_cwd_capturing(cfg, prompt, extra_env, cwd).0
+}
+
+fn run_agent_with_env_with_cwd_capturing(
+    cfg: &Config,
+    prompt: &str,
+    extra_env: &[(String, String)],
+    cwd: Option<&Path>,
+) -> (bool, String) {
     let env = merged_agent_env(cfg, extra_env);
     let mut overrides = local_inference_overrides(cfg);
     let model_ov = model_selection_overrides(cfg);
@@ -610,6 +639,15 @@ fn run_agent_with_env_with_cwd(
             append_system_prompt,
         ),
     }
+}
+
+/// Run the agent and return both the success flag and the captured response text.
+///
+/// The response text is the accumulated assistant output from the agent process
+/// (text content blocks for Claude; accumulated output lines for Codex).
+/// Used by the flight-recorder integration in `work_on_issue`.
+pub fn run_agent_capturing_output(cfg: &Config, prompt: &str) -> (bool, String) {
+    run_agent_with_env_with_cwd_capturing(cfg, prompt, &[], None)
 }
 
 fn appended_system_prompt_for_agent(agent: Agent) -> Option<&'static str> {

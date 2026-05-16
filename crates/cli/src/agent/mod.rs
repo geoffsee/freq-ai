@@ -14,6 +14,7 @@ pub mod launch;
 pub mod models_catalog;
 pub mod process;
 pub mod refresh;
+pub mod replay;
 pub mod review;
 pub mod run;
 pub mod shell;

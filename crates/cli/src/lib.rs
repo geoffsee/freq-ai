@@ -36,8 +36,9 @@ use agent::conflicts::run_pr_conflict_fix;
 use agent::shell::{
     clear_stop_request, list_all_files, parse_args, preflight, record_agent_response, request_stop,
     reset_chat_history, run_chat_send, run_code_review, run_interview_draft, run_interview_respond,
-    run_loop, run_pr_review_fix, run_refresh_agents, run_refresh_docs, run_security_code_review,
-    run_single_issue, run_tracker_matrix, run_workflow_draft, try_approve_pr,
+    run_loop, run_pr_review_fix, run_refresh_agents, run_refresh_docs, run_replay,
+    run_security_code_review, run_single_issue, run_tracker_matrix, run_workflow_draft,
+    try_approve_pr,
 };
 use agent::tracker::{
     DEFAULT_REVIEW_BOT_LOGIN, PendingIssue, PrSummary, TrackerInfo, current_branch_pr,
@@ -229,6 +230,12 @@ enum Commands {
         #[arg(long)]
         all: bool,
     },
+    /// Replay a past workflow run from its flight-recorder log (dry-run, no live agent)
+    Replay {
+        /// Path to the `.replay.ndjson` log file written by a previous run
+        #[arg(value_name = "LOG_FILE")]
+        log_file: String,
+    },
 }
 
 /// Standalone entry point — equivalent to `run_with_overrides(|_| {})`.
@@ -413,6 +420,9 @@ where
             }
             Some(Commands::Models { plain, all }) => {
                 agent::models_catalog::run_models_list(cli.agent, plain, all);
+            }
+            Some(Commands::Replay { log_file }) => {
+                run_replay(&log_file);
             }
             Some(Commands::Presets { name }) => match name {
                 None => {

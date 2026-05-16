@@ -17,10 +17,11 @@ pub use crate::agent::process::{
     active_child_pid, clear_stop_request, request_stop, stop_requested,
 };
 pub use crate::agent::refresh::{run_refresh_agents, run_refresh_docs};
+pub use crate::agent::replay::run_replay;
 pub use crate::agent::review::{
     run_code_review, run_pr_review_fix, run_security_code_review, try_approve_pr,
 };
-pub use crate::agent::run::{run_agent, run_agent_with_env};
+pub use crate::agent::run::{run_agent, run_agent_capturing_output, run_agent_with_env};
 pub use crate::agent::snapshot::generate_codebase_snapshot;
 pub use crate::agent::workflows::{
     run_retrospective_draft, run_retrospective_finalize, run_sprint_planning_draft,

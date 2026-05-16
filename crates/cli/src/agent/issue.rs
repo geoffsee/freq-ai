@@ -3,8 +3,9 @@ use crate::agent::cmd::{
 };
 use crate::agent::launch::log_resolved_agent_launch;
 use crate::agent::process::stop_requested;
+use crate::agent::replay::{FlightRecorder, issue_run_id, replay_log_path};
 use crate::agent::review::run_issue_pr_review_resume;
-use crate::agent::run::run_agent;
+use crate::agent::run::{run_agent, run_agent_capturing_output};
 use crate::agent::snapshot::generate_codebase_snapshot;
 use crate::agent::tracker::{
     build_prompt, build_provenance, build_test_fix_prompt, embed_provenance_in_body,
@@ -170,7 +171,33 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
         tracker_num,
         &tracker_body,
     );
-    let agent_ok = run_agent(cfg, &prompt);
+
+    // ── Flight-recorder: open log and write input record ──────────────────────
+    let run_id = issue_run_id(issue_num);
+    let log_path = replay_log_path(&cfg.root, &run_id);
+    let prov = build_provenance(&cfg.agent.to_string(), &cfg.model, &prompt, &title, &body);
+    let mut recorder = FlightRecorder::open(run_id, log_path.clone(), prov.clone())
+        .map_err(|e| {
+            log(&format!(
+                "flight-recorder: failed to open {}: {e}",
+                log_path.display()
+            ))
+        })
+        .ok();
+    if let Some(ref mut rec) = recorder {
+        rec.record_input(&prompt);
+        log(&format!(
+            "flight-recorder: log opened at {}",
+            log_path.display()
+        ));
+    }
+
+    // Run the agent, capturing its response text for the log.
+    let (agent_ok, agent_text) = run_agent_capturing_output(cfg, &prompt);
+    if let Some(ref mut rec) = recorder {
+        rec.record_response(&agent_text, agent_ok);
+    }
+
     if agent_ok {
         log(&format!("Agent run completed for issue #{issue_num}."));
     } else {
@@ -215,7 +242,6 @@ pub fn work_on_issue(cfg: &Config, tracker_num: u32, issue_num: u32, blockers: &
     );
     if push_ok {
         let pr_title = format!("implement #{issue_num}: {title}");
-        let prov = build_provenance(&cfg.agent.to_string(), &cfg.model, &prompt, &title, &body);
         let pr_body = embed_provenance_in_body(
             &format!("Closes #{issue_num}\n\nAutomated PR opened by caretta issue runner."),
             &prov,
