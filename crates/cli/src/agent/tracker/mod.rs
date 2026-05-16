@@ -576,6 +576,26 @@ Do NOT commit — the calling script handles commits."#
     )
 }
 
+/// Prompt for re-invoking the agent when `git commit` is rejected by a
+/// pre-commit hook in the target repo. Generic (no issue number) so both the
+/// `issue` and `fix-pr` paths can share it. The captured output is the real
+/// combined stdout+stderr from the failed `git commit` call.
+pub fn build_commit_hook_fix_prompt(hook_output: &str) -> String {
+    format!(
+        r#"`git commit` was rejected by a pre-commit hook in this repository.
+
+Here is the combined output from the failed commit attempt:
+
+{hook_output}
+
+Fix the issues the hook flagged so the next commit attempt can succeed. Guidance:
+- If the hook is a type/lint/test gate, fix the underlying code it complained about.
+- If the errors are in files you did not modify, treat them as pre-existing landmines blocking the commit — fix them too if a small change unblocks the gate, or stop and explain why you cannot.
+- Do NOT bypass the hook (no `--no-verify`, no disabling the hook).
+- Do NOT commit yourself — the calling script will retry the commit after you return."#
+    )
+}
+
 pub fn build_test_fix_prompt(issue_num: u32, test_output: &str) -> String {
     format!(
         r#"The configured test command for issue #{issue_num} reported failures.

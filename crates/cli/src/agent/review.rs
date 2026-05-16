@@ -1,17 +1,18 @@
 use crate::agent::bot::resolve_bot_token;
-use crate::agent::cmd::{cmd_run, cmd_run_env, cmd_stdout, log};
+use crate::agent::cmd::{cmd_capture, cmd_run, cmd_run_env, cmd_stdout, log};
 use crate::agent::issue::preflight;
 use crate::agent::launch::log_resolved_agent_launch;
 use crate::agent::process::{emit_event, stop_requested};
 use crate::agent::run::{run_agent_with_env, run_agent_with_env_in_dir};
 use crate::agent::tracker::{
-    DEFAULT_REVIEW_BOT_LOGIN, ReviewThread, build_code_review_prompt, build_pr_review_fix_prompt,
-    build_pr_review_verification_prompt, build_review_followup_code_review_prompt,
-    build_security_review_prompt, fetch_all_unresolved_review_threads,
-    fetch_unresolved_review_threads, list_open_prs, parse_verification_verdict, pr_body, pr_diff,
-    pr_head_branch, pr_review_decision, resolve_review_thread,
+    DEFAULT_REVIEW_BOT_LOGIN, ReviewThread, build_code_review_prompt, build_commit_hook_fix_prompt,
+    build_pr_review_fix_prompt, build_pr_review_verification_prompt,
+    build_review_followup_code_review_prompt, build_security_review_prompt,
+    fetch_all_unresolved_review_threads, fetch_unresolved_review_threads, list_open_prs,
+    parse_verification_verdict, pr_body, pr_diff, pr_head_branch, pr_review_decision,
+    resolve_review_thread,
 };
-use crate::agent::types::{AgentEvent, Config};
+use crate::agent::types::{AgentEvent, Config, MAX_COMMIT_ATTEMPTS};
 use std::path::{Path, PathBuf};
 
 pub fn run_code_review(cfg: &Config, only_pr: Option<u32>) {
@@ -261,8 +262,40 @@ fn run_pr_review_fix_scoped(
         "fix review comments on PR #{pr_num}\n\n{}",
         cfg.agent.co_author()
     );
-    let committed = cmd_run("git", &["-C", &worktree_str, "add", "."])
-        && cmd_run("git", &["-C", &worktree_str, "commit", "-m", &message]);
+    let mut committed = false;
+    for attempt in 1..=MAX_COMMIT_ATTEMPTS {
+        if !cmd_run("git", &["-C", &worktree_str, "add", "."]) {
+            log(&format!(
+                "Fix Comments commit attempt {attempt} failed at `git add` for PR #{pr_num}, retrying..."
+            ));
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            continue;
+        }
+        let (commit_ok, commit_out) =
+            cmd_capture("git", &["-C", &worktree_str, "commit", "-m", &message]);
+        if !commit_out.is_empty() {
+            eprint!("{commit_out}");
+        }
+        if commit_ok {
+            committed = true;
+            break;
+        }
+        log(&format!(
+            "Fix Comments commit attempt {attempt} failed for PR #{pr_num}, retrying..."
+        ));
+        if attempt < MAX_COMMIT_ATTEMPTS {
+            log(
+                "Invoking agent to address pre-commit hook failures before the next commit attempt.",
+            );
+            let fix_prompt = build_commit_hook_fix_prompt(&commit_out);
+            run_agent_with_env_in_dir(cfg, &fix_prompt, &[], &worktree_path);
+            if stop_requested() {
+                log("Stop requested during hook-fix pass; aborting Fix Comments commit retries.");
+                break;
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
     if !committed {
         log(&format!(
             "Failed to commit Fix Comments changes for PR #{pr_num}."

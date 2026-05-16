@@ -7,9 +7,10 @@ use crate::agent::review::run_issue_pr_review_resume;
 use crate::agent::run::run_agent;
 use crate::agent::snapshot::generate_codebase_snapshot;
 use crate::agent::tracker::{
-    build_prompt, build_test_fix_prompt, fetch_all_unresolved_review_threads, fetch_issue,
-    find_upstream_branch, get_tracker_body, open_pr_number_for_head_branch, parse_pending,
-    pending_issues_execution_order, pr_review_decision,
+    build_commit_hook_fix_prompt, build_prompt, build_test_fix_prompt,
+    fetch_all_unresolved_review_threads, fetch_issue, find_upstream_branch, get_tracker_body,
+    open_pr_number_for_head_branch, parse_pending, pending_issues_execution_order,
+    pr_review_decision,
 };
 use crate::agent::types::{BRANCH_PREFIX, Config, MAX_COMMIT_ATTEMPTS, MAX_PUSH_ATTEMPTS};
 use crate::timed;
@@ -266,7 +267,7 @@ pub fn create_pr_if_missing(branch: &str, base: &str, title: &str, body: &str) -
     false
 }
 
-pub fn commit_with_retries(_cfg: &Config, _issue_num: u32, branch: &str, message: &str) -> bool {
+pub fn commit_with_retries(cfg: &Config, _issue_num: u32, branch: &str, message: &str) -> bool {
     let mut ok = false;
     for attempt in 1..=MAX_COMMIT_ATTEMPTS {
         if !cmd_run("git", &["add", "."]) {
@@ -280,11 +281,28 @@ pub fn commit_with_retries(_cfg: &Config, _issue_num: u32, branch: &str, message
             ok = true;
             break;
         }
-        if cmd_run("git", &["commit", "-m", message]) {
+        let (commit_ok, commit_out) = cmd_capture("git", &["commit", "-m", message]);
+        if !commit_out.is_empty() {
+            // Echo the captured output so humans still see the hook's stdout/stderr
+            // in real time (cmd_capture buffers it, unlike cmd_run).
+            eprint!("{commit_out}");
+        }
+        if commit_ok {
             ok = true;
             break;
         }
         log(&format!("Commit attempt {attempt} failed, retrying..."));
+        if attempt < MAX_COMMIT_ATTEMPTS {
+            log(
+                "Invoking agent to address pre-commit hook failures before the next commit attempt.",
+            );
+            let fix_prompt = build_commit_hook_fix_prompt(&commit_out);
+            run_agent(cfg, &fix_prompt);
+            if stop_requested() {
+                log("Stop requested during hook-fix pass; aborting commit retries.");
+                break;
+            }
+        }
         std::thread::sleep(std::time::Duration::from_secs(2));
     }
 
