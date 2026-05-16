@@ -333,8 +333,7 @@ pub fn gather_context_as_json(cfg: &Config, gatherer: &str) -> serde_json::Value
             let open_prs = open_prs_json();
             let recent_commits = cmd_stdout("git", &["log", "--oneline", "--no-decorate", "-30"])
                 .unwrap_or_default();
-            let crate_tree =
-                cmd_stdout("ls", &["-1", &format!("{}/crates", cfg.root)]).unwrap_or_default();
+            let crate_tree = list_crates_dir(&cfg.root);
             let status = read_project_file(&cfg.root, "STATUS.md");
             let issues_md = read_project_file(&cfg.root, "ISSUES.md");
             serde_json::json!({
@@ -493,6 +492,22 @@ fn read_project_file(root: &str, name: &str) -> String {
     std::fs::read_to_string(format!("{root}/{name}")).unwrap_or_default()
 }
 
+fn list_crates_dir(root: &str) -> String {
+    let crates_dir = Path::new(root).join("crates");
+    let Ok(entries) = std::fs::read_dir(crates_dir) else {
+        return String::new();
+    };
+
+    let mut names = entries
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            Some(entry.file_name().to_string_lossy().into_owned())
+        })
+        .collect::<Vec<_>>();
+    names.sort();
+    names.join("\n")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -508,6 +523,25 @@ mod tests {
 
     fn temp_root() -> TempDir {
         tempfile::tempdir().expect("tempdir")
+    }
+
+    #[test]
+    fn list_crates_dir_returns_empty_when_crates_dir_is_missing() {
+        let root = temp_root();
+
+        assert_eq!(list_crates_dir(root.path().to_str().unwrap()), "");
+    }
+
+    #[test]
+    fn list_crates_dir_returns_sorted_crates_entries() {
+        let root = temp_root();
+        fs::create_dir_all(root.path().join("crates/zeta")).expect("create zeta crate");
+        fs::create_dir_all(root.path().join("crates/alpha")).expect("create alpha crate");
+
+        assert_eq!(
+            list_crates_dir(root.path().to_str().unwrap()),
+            "alpha\nzeta"
+        );
     }
 
     #[test]
