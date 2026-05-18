@@ -11,7 +11,11 @@ Workflow-driven agents
 </div>
 
 ## Origins
-It was upon an evening not unlike any other that the toils of my labour grew so weighty in the chambers of my mind as to brook no further dismissal. I had set myself to the construction of a cloud of mine own devising, a work, I confess, of no small ambition, and found that its foundations demanded a most particular order of laying: first the accounts of users, then the permissions that govern them, then the documentation by which they are made intelligible, then the compliance by which they are made lawful, and at the last the security by which the whole is preserved from ruin. Each stone, you see, rested upon the one before it, and to misplace a single course was to invite the slow and silent decay of the edifice entire. The labour was not, in truth, beyond the compass of a single mind; yet it lay manifestly beyond the reach of a single pair of hands. And so, after the manner of those who, finding themselves outnumbered by their own undertakings, resolve to multiply their instruments rather than their hours, I set about the fashioning of further hands, and of a cycle by which they might turn in concert.
+Caretta takes its name from *Caretta caretta*, the loggerhead sea turtle: a global wanderer of the Atlantic, Pacific, Indian Ocean, and Mediterranean, not the creature of a single sea. A hatchling leaves its natal beach with no chart in any ordinary sense, yet the open ocean is not featureless to it. Loggerheads can use the Earth's magnetic field as both compass and map, reading regional signatures shaped by field intensity and inclination, and recent work suggests juveniles can learn the magnetic character of particular places.
+
+Birds share a related gift, though their compass appears to be bound to a different sensorium: light-dependent chemistry in retinal cryptochromes, an eye-borne way of sensing magnetic direction. Same hidden coordinate system, different biological interface.
+
+That was the image behind this project. A growing codebase is less a straight road than a shifting field of signatures: accounts, permissions, documentation, compliance, security, issues, and release pressure all bend the local field. caretta is built to help agents read those signals, orient themselves, and move work forward in the right sequence when no single pair of hands can carry the whole migration alone.
 
 ## Quickstart
 ```shell
