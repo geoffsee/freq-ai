@@ -33,6 +33,7 @@ use agent::config_store::{
     store_bot_private_key_pem, store_bot_token, store_local_inference_api_key,
 };
 use agent::conflicts::run_pr_conflict_fix;
+use agent::fix_pr::run_fix_pr;
 use agent::shell::{
     clear_stop_request, list_all_files, parse_args, preflight, record_agent_response, request_stop,
     reset_chat_history, run_chat_send, run_code_review, run_interview_draft, run_interview_respond,
@@ -115,7 +116,9 @@ struct Cli {
 enum Commands {
     /// Launch the GUI (default)
     Gui,
-    /// Address review threads on a PR
+    /// Diagnose and remediate a stuck PR: update a BEHIND base, fix failing CI checks,
+    /// and address unresolved bot review threads. Reports DIRTY (conflicts) without
+    /// auto-fixing — use `fix-conflicts` for that.
     FixPr {
         /// Pull request number to inspect and update
         #[arg(value_name = "PR")]
@@ -322,7 +325,7 @@ where
 
         match cli.command {
             Some(Commands::FixPr { pr }) => {
-                run_pr_review_fix(&config, pr);
+                run_fix_pr(&config, pr);
             }
             Some(Commands::FixConflicts { pr }) => {
                 run_pr_conflict_fix(&config, pr);

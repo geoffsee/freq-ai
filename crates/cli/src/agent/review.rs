@@ -494,57 +494,13 @@ fn run_pr_review_fix_scoped(
         .unwrap_or_else(|| format!("PR #{pr_num}"));
     let diff = pr_diff(pr_num);
 
-    let worktree_path =
-        std::env::temp_dir().join(format!("caretta-pr-{pr_num}-{}", std::process::id()));
+    let Some((_guard, worktree_path)) = setup_pr_worktree(cfg, pr_num, &branch, "Fix Comments")
+    else {
+        emit_event(AgentEvent::Done);
+        return;
+    };
     let worktree_str = worktree_path.to_string_lossy().to_string();
-    let remote_ref = format!("origin/{branch}");
 
-    let fetch_refspec = format!("+refs/heads/{branch}:refs/remotes/origin/{branch}");
-    if !cmd_run("git", &["fetch", "origin", &fetch_refspec]) {
-        log(&format!("Failed to fetch branch '{branch}' from origin."));
-        emit_event(AgentEvent::Done);
-        return;
-    }
-
-    let restore_after_add = match prepare_branch_for_worktree_add(Path::new(&cfg.root), &branch) {
-        PrepareBranchOutcome::Aborted { reason } => {
-            log(&reason);
-            log(&format!("Aborting Fix Comments run for PR #{pr_num}."));
-            emit_event(AgentEvent::Done);
-            return;
-        }
-        PrepareBranchOutcome::Ready { restore } => restore,
-    };
-
-    if !cmd_run(
-        "git",
-        &[
-            "-C",
-            &cfg.root,
-            "worktree",
-            "add",
-            "--force",
-            "-B",
-            &branch,
-            &worktree_str,
-            &remote_ref,
-        ],
-    ) {
-        if let Some(restore) = &restore_after_add {
-            restore_main_head(restore);
-        }
-        log(&format!(
-            "Failed to create worktree for PR #{pr_num} from {remote_ref}."
-        ));
-        emit_event(AgentEvent::Done);
-        return;
-    }
-
-    let _guard = WorktreeGuard {
-        path: worktree_path.clone(),
-        root: PathBuf::from(&cfg.root),
-        restore: restore_after_add,
-    };
     let prompt =
         build_pr_review_fix_prompt(&cfg.project_name, pr_num, &title, &branch, &diff, &threads);
 
@@ -573,52 +529,14 @@ fn run_pr_review_fix_scoped(
         "fix review comments on PR #{pr_num}\n\n{}",
         cfg.agent.co_author()
     );
-    let mut committed = false;
-    for attempt in 1..=MAX_COMMIT_ATTEMPTS {
-        if !cmd_run("git", &["-C", &worktree_str, "add", "."]) {
-            log(&format!(
-                "Fix Comments commit attempt {attempt} failed at `git add` for PR #{pr_num}, retrying..."
-            ));
-            std::thread::sleep(std::time::Duration::from_secs(2));
-            continue;
-        }
-        let (commit_ok, commit_out) =
-            cmd_capture("git", &["-C", &worktree_str, "commit", "-m", &message]);
-        if !commit_out.is_empty() {
-            eprint!("{commit_out}");
-        }
-        if commit_ok {
-            committed = true;
-            break;
-        }
-        log(&format!(
-            "Fix Comments commit attempt {attempt} failed for PR #{pr_num}, retrying..."
-        ));
-        if attempt < MAX_COMMIT_ATTEMPTS {
-            log(
-                "Invoking agent to address pre-commit hook failures before the next commit attempt.",
-            );
-            let fix_prompt = build_commit_hook_fix_prompt(&commit_out);
-            run_agent_with_env_in_dir(cfg, &fix_prompt, &[], &worktree_path);
-            if stop_requested() {
-                log("Stop requested during hook-fix pass; aborting Fix Comments commit retries.");
-                break;
-            }
-        }
-        std::thread::sleep(std::time::Duration::from_secs(2));
-    }
-    if !committed {
-        log(&format!(
-            "Failed to commit Fix Comments changes for PR #{pr_num}."
-        ));
-        emit_event(AgentEvent::Done);
-        return;
-    }
-
-    if !cmd_run("git", &["-C", &worktree_str, "push", "origin", &branch]) {
-        log(&format!(
-            "Failed to push Fix Comments changes for PR #{pr_num}."
-        ));
+    if !commit_and_push_worktree_changes(
+        cfg,
+        pr_num,
+        &branch,
+        &worktree_path,
+        &message,
+        "Fix Comments",
+    ) {
         emit_event(AgentEvent::Done);
         return;
     }
@@ -780,6 +698,139 @@ pub fn try_approve_pr(cfg: &Config, pr_num: u32) -> bool {
         ));
     }
     ok
+}
+
+/// Fetch `origin/{branch}` and lay down a throwaway worktree on that branch
+/// at `<tmp>/caretta-pr-<pr_num>-<pid>`. Returns the [`WorktreeGuard`] (which
+/// cleans up on drop) and the worktree path on success.
+///
+/// `flow_label` is used in log messages so the operator can tell which
+/// caller (Fix Comments, Fix Failing Checks, …) failed when setup aborts.
+///
+/// Returns `None` on any failure (already logged). Shared by [`run_pr_review_fix_scoped`]
+/// and [`crate::agent::fix_pr::run_pr_failing_checks_fix`].
+pub(crate) fn setup_pr_worktree(
+    cfg: &Config,
+    pr_num: u32,
+    branch: &str,
+    flow_label: &str,
+) -> Option<(WorktreeGuard, PathBuf)> {
+    let worktree_path =
+        std::env::temp_dir().join(format!("caretta-pr-{pr_num}-{}", std::process::id()));
+    let worktree_str = worktree_path.to_string_lossy().to_string();
+    let remote_ref = format!("origin/{branch}");
+
+    let fetch_refspec = format!("+refs/heads/{branch}:refs/remotes/origin/{branch}");
+    if !cmd_run("git", &["fetch", "origin", &fetch_refspec]) {
+        log(&format!("Failed to fetch branch '{branch}' from origin."));
+        return None;
+    }
+
+    let restore_after_add = match prepare_branch_for_worktree_add(Path::new(&cfg.root), branch) {
+        PrepareBranchOutcome::Aborted { reason } => {
+            log(&reason);
+            log(&format!("Aborting {flow_label} run for PR #{pr_num}."));
+            return None;
+        }
+        PrepareBranchOutcome::Ready { restore } => restore,
+    };
+
+    if !cmd_run(
+        "git",
+        &[
+            "-C",
+            &cfg.root,
+            "worktree",
+            "add",
+            "--force",
+            "-B",
+            branch,
+            &worktree_str,
+            &remote_ref,
+        ],
+    ) {
+        if let Some(restore) = &restore_after_add {
+            restore_main_head(restore);
+        }
+        log(&format!(
+            "Failed to create worktree for PR #{pr_num} from {remote_ref}."
+        ));
+        return None;
+    }
+
+    let guard = WorktreeGuard {
+        path: worktree_path.clone(),
+        root: PathBuf::from(&cfg.root),
+        restore: restore_after_add,
+    };
+    Some((guard, worktree_path))
+}
+
+/// Stage everything in `worktree_path`, commit with `message`, then push
+/// `branch` to origin. Retries the commit up to [`MAX_COMMIT_ATTEMPTS`] times,
+/// invoking the agent between attempts to address pre-commit hook failures.
+///
+/// Returns `false` (and logs) on any failure. Stop-requested mid-retry also
+/// returns `false`.
+pub(crate) fn commit_and_push_worktree_changes(
+    cfg: &Config,
+    pr_num: u32,
+    branch: &str,
+    worktree_path: &Path,
+    message: &str,
+    flow_label: &str,
+) -> bool {
+    let worktree_str = worktree_path.to_string_lossy().to_string();
+    let mut committed = false;
+    for attempt in 1..=MAX_COMMIT_ATTEMPTS {
+        if !cmd_run("git", &["-C", &worktree_str, "add", "."]) {
+            log(&format!(
+                "{flow_label} commit attempt {attempt} failed at `git add` for PR #{pr_num}, retrying..."
+            ));
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            continue;
+        }
+        let (commit_ok, commit_out) =
+            cmd_capture("git", &["-C", &worktree_str, "commit", "-m", message]);
+        if !commit_out.is_empty() {
+            eprint!("{commit_out}");
+        }
+        if commit_ok {
+            committed = true;
+            break;
+        }
+        log(&format!(
+            "{flow_label} commit attempt {attempt} failed for PR #{pr_num}, retrying..."
+        ));
+        if attempt < MAX_COMMIT_ATTEMPTS {
+            log(
+                "Invoking agent to address pre-commit hook failures before the next commit attempt.",
+            );
+            let fix_prompt = build_commit_hook_fix_prompt(&commit_out);
+            run_agent_with_env_in_dir(cfg, &fix_prompt, &[], worktree_path);
+            if stop_requested() {
+                log(&format!(
+                    "Stop requested during hook-fix pass; aborting {flow_label} commit retries."
+                ));
+                break;
+            }
+        }
+        std::thread::sleep(std::time::Duration::from_secs(2));
+    }
+    if !committed {
+        log(&format!(
+            "Failed to commit {flow_label} changes for PR #{pr_num}."
+        ));
+        return false;
+    }
+
+    if !cmd_run("git", &["-C", &worktree_str, "push", "origin", branch]) {
+        log(&format!(
+            "Failed to push {flow_label} changes for PR #{pr_num}."
+        ));
+        return false;
+    }
+    true
 }
 
 #[cfg(test)]

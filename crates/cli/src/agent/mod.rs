@@ -8,6 +8,7 @@ pub mod cli;
 pub mod cmd;
 pub mod config_store;
 pub mod conflicts;
+pub mod fix_pr;
 pub mod interview;
 pub mod issue;
 pub mod launch;

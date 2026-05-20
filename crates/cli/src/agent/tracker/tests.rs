@@ -1420,6 +1420,34 @@ fn pr_review_fix_prompt_includes_diff_branch_and_thread_anchors() {
     assert!(p.contains("Do NOT `cd`"));
 }
 
+#[test]
+fn pr_failing_checks_fix_prompt_includes_check_names_and_links() {
+    let checks: &[(&str, Option<&str>)] =
+        &[("Test", Some("https://example/run/123")), ("Lint", None)];
+    let p = build_pr_failing_checks_fix_prompt(
+        "test-project",
+        141,
+        "test: failing checks fixture",
+        "agent/issue-135",
+        "@@ -1,1 +1,1 @@\n-old\n+new\n",
+        checks,
+    );
+
+    assert!(p.contains("test-project"));
+    assert!(p.contains("Pull Request #141"));
+    assert!(p.contains("agent/issue-135"));
+    assert!(p.contains("Failing Checks (2)"));
+    assert!(p.contains("`Test`"));
+    assert!(p.contains("https://example/run/123"));
+    assert!(p.contains("`Lint`"));
+    assert!(p.contains("no link reported"));
+
+    // Worktree contract: agent doesn't commit/push/cd and doesn't touch CI config.
+    assert!(p.contains("Do NOT commit"));
+    assert!(p.contains("Do NOT `cd`"));
+    assert!(p.contains(".github/workflows"));
+}
+
 /// A Fix Comments run with zero threads is supposed to bail out before
 /// reaching the prompt builder, but if it ever does the prompt must
 /// still be coherent (no panic, no missing sections).

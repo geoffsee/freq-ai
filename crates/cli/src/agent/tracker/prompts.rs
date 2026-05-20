@@ -141,6 +141,65 @@ After writing the file, your final response can be a single line summary. The ca
     )
 }
 
+/// Build the prompt for the "fix failing CI checks" agent run launched by
+/// `caretta fix-pr <N>` when the PR's status check rollup contains terminal
+/// failures (FAILURE / ERROR / TIMED_OUT / CANCELLED / STARTUP_FAILURE).
+///
+/// `failing_checks` is a slice of `(display_name, link)` pairs. The agent uses
+/// the link to fetch logs via `gh run view --log-failed` (or the workflow's
+/// dashboard) — we deliberately do NOT pre-fetch logs into the prompt because
+/// they're often huge and most of the diagnostic value comes from the agent
+/// reading the failing test's source.
+///
+/// The agent runs inside a freshly-created worktree on the PR head branch.
+pub fn build_pr_failing_checks_fix_prompt(
+    project_name: &str,
+    pr_num: u32,
+    pr_title: &str,
+    branch: &str,
+    diff: &str,
+    failing_checks: &[(&str, Option<&str>)],
+) -> String {
+    let mut checks_section = String::new();
+    for (i, (name, link)) in failing_checks.iter().enumerate() {
+        let link_str = link
+            .map(|l| format!(" — logs: {l}"))
+            .unwrap_or_else(|| " — no link reported".to_string());
+        checks_section.push_str(&format!("{i}. `{name}`{link_str}\n", i = i + 1));
+    }
+    let check_count = failing_checks.len();
+
+    format!(
+        r#"You are addressing failing CI checks on pull request #{pr_num} for the {project_name} project.
+
+Read AGENTS.md and skills/ for project conventions and coding standards.
+
+## Working directory
+
+Your current working directory is a freshly-created git worktree on branch `{branch}`. All file paths below are relative to this worktree. Do NOT `cd` elsewhere and do NOT run `git checkout` — the calling script handles branching and cleanup.
+
+## Pull Request #{pr_num}: {pr_title}
+
+### Current Diff
+```diff
+{diff}
+```
+
+## Failing Checks ({check_count})
+
+{checks_section}
+## Instructions
+
+1. Use the `gh` CLI to inspect failing check logs when needed. For workflow-backed checks, `gh run view <run-id> --log-failed` returns just the failing job's log. The links above point at the check's GitHub page from which the run ID can be extracted.
+2. Reproduce the failure locally where feasible (run the relevant test/lint command from the worktree) so your fix can be validated before the push.
+3. Apply the smallest change that addresses the root cause. Do NOT refactor unrelated code or "drive-by" fix tangential issues — every extra change is more surface area for the next CI run to fail on.
+4. If a check failure is plausibly flaky (network, timing, race), say so in your final summary and still attempt a defensive fix only if it improves the code; do NOT add retries or sleeps purely to mask flakiness.
+5. Do NOT modify `.github/**`, especially `.github/workflows/**`, from this branch — the immutable CI control-plane policy applies. If the only fix would be a workflow edit, stop and explain.
+6. Do NOT commit. Do NOT push. The calling script handles commit and push.
+7. Do NOT post comments or reviews back to GitHub. The calling script handles that."#
+    )
+}
+
 /// Verdict for one thread parsed from the verification agent's JSON output.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerificationVerdict {
