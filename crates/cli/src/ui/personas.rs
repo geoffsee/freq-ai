@@ -1,3 +1,6 @@
+use crate::agent::types::{
+    DOT_CARETTA_USER_PERSONAS_PERSONAS_DIR, LEGACY_ASSETS_USER_PERSONAS_PERSONAS_DIR,
+};
 use dioxus::prelude::*;
 use serde_json::{Map, Value, json};
 use std::path::{Path, PathBuf};
@@ -75,7 +78,19 @@ pub fn personas_dir(root: &str, skill_path: &str) -> PathBuf {
     resolve_skill_path(root, skill_path)
         .parent()
         .map(|path| path.join("personas"))
-        .unwrap_or_else(|| Path::new(root).join("assets/skills/user-personas/personas"))
+        .unwrap_or_else(|| fallback_personas_data_dir(Path::new(root)))
+}
+
+fn fallback_personas_data_dir(root: &Path) -> PathBuf {
+    let preferred = root.join(DOT_CARETTA_USER_PERSONAS_PERSONAS_DIR);
+    let legacy = root.join(LEGACY_ASSETS_USER_PERSONAS_PERSONAS_DIR);
+    if preferred.exists() {
+        preferred
+    } else if legacy.exists() {
+        legacy
+    } else {
+        preferred
+    }
 }
 
 #[cfg(target_arch = "wasm32")]

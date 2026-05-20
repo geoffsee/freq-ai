@@ -81,14 +81,19 @@ tabs for:
 - **Chat** — free-form project chat with the selected agent.
 
 Personas are stored as JSON files in the `personas/` directory beside the
-configured `user_personas` skill file. With the default config, that is
-`assets/skills/user-personas/personas/`. If you override `[skills].user_personas`,
-the Personas tab reads and writes next to that custom skill path so UXR workflows
-and the studio share the same persona set.
+resolved `user_personas` skill file. With automatic defaults, that directory is
+**`.caretta/skills/user-personas/personas/`** when you keep forked skills there,
+else **`assets/skills/user-personas/personas/`** when present (upstream Caretta’s
+bundled layout), else beside the materialized `SKILL.md` under your OS app-data
+directory — see **Skill paths** under Configuration below. If you override
+`[skills].user_personas`, the Personas tab reads and writes next to that custom skill
+path so UXR workflows and the studio share the same persona set.
 
 ## Configuration (`caretta.toml`)
 
 caretta reads `caretta.toml` from the repo root on every launch (the legacy filename `dev.toml` is still honored as a fallback). Every field is optional — drop in only what you want to change. The full surface looks like this:
+
+**Skill paths (defaults):** if you omit `[skills]`, caretta searches in order — repo-relative **`.caretta/skills/.../SKILL.md`** when present (**recommended overrides** for forks and application repos); else **`assets/skills/.../SKILL.md`** when present (**upstream Caretta’s embedded source tree**, unchanged here); otherwise **absolute** paths to the bundled copy materialized under the OS app-data directory — typically **`$HOME/Library/Application Support/caretta/skills`** on macOS, **`$XDG_DATA_HOME/caretta/skills`** (or **`~/.local/share/caretta/skills`**) on Linux — so workflows work with no copied skills at all. If both layouts exist in the checkout, **`.caretta/skills/` wins**. Explicit `[skills]` entries override everything.
 
 ```toml
 # ── Top-level ─────────────────────────────────────────────────────────────
@@ -114,10 +119,10 @@ base_url = "http://localhost:8000/v1"     # filled from preset unless preset = "
 model    = "qwen2.5-coder-32b-instruct"
 # api_key stored via `caretta`'s OS keychain; do not commit it.
 
-# ── Skill files (override bundled paths) ──────────────────────────────────
-[skills]
-user_personas  = "skills/user-personas/SKILL.md"
-issue_tracking = "skills/issue-tracking/SKILL.md"
+# ── Skill files (optional — overrides automatic `.caretta/` then `assets/` resolution) ─
+# [skills]
+# user_personas  = ".caretta/skills/user-personas/SKILL.md"
+# issue_tracking = ".caretta/skills/issue-tracking/SKILL.md"
 
 # ── Bot identity for code review / approvals ──────────────────────────────
 # mode = "disabled" | "token" | "github_app". Tokens / private keys are
@@ -141,7 +146,8 @@ paths = [
 ```
 
 `user_personas` also controls the Personas Studio storage location: persona JSON
-documents live in a `personas/` directory beside that `SKILL.md`.
+documents live in a `personas/` directory beside the resolved `SKILL.md` (whether
+that path is repo-relative, materialized under app data, or set explicitly in `[skills]`).
 
 CLI flags (`--agent`, `--auto`, `--dry-run`, `--preset`) override matching `caretta.toml` values for that single invocation. Secrets — agent API keys, GitHub bot tokens, GitHub App private keys — are not written to `caretta.toml`; they're stored in the OS keychain by the GUI's settings panel or supplied via env vars (see the [GitHub Actions example](#github-actions) below).
 

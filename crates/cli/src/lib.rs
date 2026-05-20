@@ -6,6 +6,13 @@
 //! should call [`run_with_overrides`] with a closure that mutates the
 //! [`Config`] before dispatch.
 //!
+//! When `[skills]` in `caretta.toml` omits overrides, bundled skill paths
+//! resolve first to **`.caretta/skills/...`** when those files exist in the repo,
+//! next to `./assets/skills/...` (upstream Caretta’s bundled layout), otherwise to
+//! the absolute paths of the bundled copy materialized under the OS app data directory
+//! (`dirs::data_dir()/caretta/skills/...`) after [`materialize_assets`](crate::agent::assets::materialize_assets).
+//! Downstream repos override skills via **`.caretta/skills/`**; upstream Caretta keeps the embedded source under `./assets/skills/` (unchanged).
+//!
 //! ## Example
 //!
 //! ```no_run

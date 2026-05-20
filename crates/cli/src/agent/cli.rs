@@ -53,7 +53,8 @@ pub fn parse_args() -> Config {
         local_inference.api_key = api_key;
     }
     let scan_targets = dev_cfg.security_scan.into_scan_targets();
-    let skill_paths = dev_cfg.skills.into_skill_paths();
+    let skill_paths =
+        crate::agent::assets::resolve_skill_paths(Path::new(&root), dev_cfg.skills.clone());
     let bootstrap_agent_files = dev_cfg.bootstrap_agent_files.unwrap_or(true);
     let bootstrap_snapshot = dev_cfg.bootstrap_snapshot.unwrap_or(false);
     let use_subscription = dev_cfg.use_subscription.unwrap_or(false);

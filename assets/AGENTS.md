@@ -5,7 +5,12 @@ This project is a software application. Your goal is to help build, maintain, an
 ## Skills
 
 Project-specific agent skills are available in `skills/` when materialized or
-through the configured skill paths. Load them when relevant:
+through the configured skill paths (`caretta.toml` `[skills]`). Forks and
+application repos normally keep edits under **`.caretta/skills/`** so they do not
+shadow upstream’s **`./assets/skills/`** tree (canonical embedded source in this repo).
+When neither repo layout is present on disk, the Caretta CLI materializes bundled skills
+under your OS app data directory and resolves defaults there so agents can read real files.
+Load them when relevant:
 
 - `project-context` — Core project priorities and key resources
 - `architecture` — High-level system design and component overview

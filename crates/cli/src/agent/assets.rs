@@ -1,5 +1,10 @@
+use crate::agent::types::{
+    DEFAULT_ISSUE_SKILL_REPO_PATH, DEFAULT_USER_PERSONAS_REPO_PATH,
+    DOT_CARETTA_ISSUE_SKILL_REPO_PATH, DOT_CARETTA_USER_PERSONAS_REPO_PATH, SkillPaths,
+    SkillPathsFile,
+};
 use rust_embed::RustEmbed;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub const AGENTS_MD: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/AGENTS.md"));
 pub const LABELS_YML: &str =
@@ -29,6 +34,68 @@ pub fn assets_dir() -> PathBuf {
     let dir = base.join("caretta");
     let _ = std::fs::create_dir_all(&dir);
     dir
+}
+
+/// Resolve skill paths declared in `[skills]` merged with sane defaults:
+/// check **`.caretta/skills/...`** first (recommended for forks / consumer repos), then the
+/// upstream **`assets/skills/...`** tree when those files exist in the git checkout, otherwise
+/// use the materialized bundled copy under `material_skills_root` (normally
+/// [`assets_dir`] `join("skills")`) so workflows run without any repo-local skill tree.
+///
+/// Explicit `caretta.toml` overrides (`user_personas` / `issue_tracking`) are kept verbatim.
+pub fn resolve_skill_paths(repo_root: &Path, skills_file: SkillPathsFile) -> SkillPaths {
+    resolve_skill_paths_with_roots(repo_root, skills_file, &assets_dir().join("skills"))
+}
+
+pub(crate) fn resolve_skill_paths_with_roots(
+    repo_root: &Path,
+    skills_file: SkillPathsFile,
+    material_skills_root: &Path,
+) -> SkillPaths {
+    fn pick(
+        repo_root: &Path,
+        configured: Option<String>,
+        repo_candidate_paths: &[&str],
+        material_file: PathBuf,
+    ) -> String {
+        if let Some(path) = configured {
+            return path;
+        }
+        for rel in repo_candidate_paths {
+            if repo_root.join(rel).is_file() {
+                return (*rel).to_string();
+            }
+        }
+        material_file
+            .canonicalize()
+            .unwrap_or(material_file)
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    const ISSUE_REPO_CANDIDATES: &[&str] = &[
+        DOT_CARETTA_ISSUE_SKILL_REPO_PATH,
+        DEFAULT_ISSUE_SKILL_REPO_PATH,
+    ];
+    const USER_PERSONAS_REPO_CANDIDATES: &[&str] = &[
+        DOT_CARETTA_USER_PERSONAS_REPO_PATH,
+        DEFAULT_USER_PERSONAS_REPO_PATH,
+    ];
+
+    SkillPaths {
+        issue_tracking: pick(
+            repo_root,
+            skills_file.issue_tracking,
+            ISSUE_REPO_CANDIDATES,
+            material_skills_root.join("issue-tracking/SKILL.md"),
+        ),
+        user_personas: pick(
+            repo_root,
+            skills_file.user_personas,
+            USER_PERSONAS_REPO_CANDIDATES,
+            material_skills_root.join("user-personas/SKILL.md"),
+        ),
+    }
 }
 
 /// Materialize embedded AGENTS.md and skills into the app-data directory.
@@ -65,4 +132,119 @@ pub fn materialize_assets() -> PathBuf {
     }
 
     dir
+}
+
+#[cfg(test)]
+mod skill_path_resolve_tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn uses_repo_relative_when_issue_skill_present() {
+        let repo = tempfile::tempdir().expect("repo tempdir");
+        let rel = repo.path().join(DEFAULT_ISSUE_SKILL_REPO_PATH);
+        fs::create_dir_all(rel.parent().expect("skill parent")).expect("mkdir");
+        fs::write(&rel, "local skill").expect("write skill");
+
+        let mirror = tempfile::tempdir().expect("mirror tempdir");
+
+        let sp =
+            resolve_skill_paths_with_roots(repo.path(), SkillPathsFile::default(), mirror.path());
+
+        assert_eq!(sp.issue_tracking, DEFAULT_ISSUE_SKILL_REPO_PATH);
+    }
+
+    #[test]
+    fn uses_dot_caretta_layout_when_present() {
+        let repo = tempfile::tempdir().expect("repo tempdir");
+        let rel = repo.path().join(DOT_CARETTA_ISSUE_SKILL_REPO_PATH);
+        fs::create_dir_all(rel.parent().expect("skill parent")).expect("mkdir");
+        fs::write(&rel, "forked skill").expect("write skill");
+
+        let mirror = tempfile::tempdir().expect("mirror tempdir");
+
+        let sp =
+            resolve_skill_paths_with_roots(repo.path(), SkillPathsFile::default(), mirror.path());
+
+        assert_eq!(sp.issue_tracking, DOT_CARETTA_ISSUE_SKILL_REPO_PATH);
+        assert_eq!(
+            fs::read_to_string(repo.path().join(&sp.issue_tracking)).unwrap(),
+            "forked skill"
+        );
+    }
+
+    #[test]
+    fn prefers_dot_caretta_over_assets_when_both_exist() {
+        let repo = tempfile::tempdir().expect("repo");
+        let dot = repo.path().join(DOT_CARETTA_ISSUE_SKILL_REPO_PATH);
+        let leg = repo.path().join(DEFAULT_ISSUE_SKILL_REPO_PATH);
+        fs::create_dir_all(dot.parent().expect("p")).expect("md");
+        fs::create_dir_all(leg.parent().expect("p")).expect("md");
+        fs::write(&dot, "dot wins").unwrap();
+        fs::write(&leg, "legacy").unwrap();
+
+        let sp = resolve_skill_paths_with_roots(
+            repo.path(),
+            SkillPathsFile::default(),
+            tempfile::tempdir().unwrap().path(),
+        );
+        assert_eq!(sp.issue_tracking, DOT_CARETTA_ISSUE_SKILL_REPO_PATH);
+        assert_eq!(
+            fs::read_to_string(repo.path().join(&sp.issue_tracking)).unwrap(),
+            "dot wins"
+        );
+    }
+
+    #[test]
+    fn falls_back_to_materialized_path_when_repo_lacks_assets_skills() {
+        let repo = tempfile::tempdir().expect("repo tempdir");
+
+        let mirror = tempfile::tempdir().expect("mirror tempdir");
+        for (sub, body) in [
+            ("issue-tracking/SKILL.md", "bundled issue"),
+            ("user-personas/SKILL.md", "bundled personas"),
+        ] {
+            let p = mirror.path().join(sub);
+            fs::create_dir_all(p.parent().expect("parent")).expect("mkdir");
+            fs::write(&p, body).expect("write mirror skill");
+        }
+
+        let sp =
+            resolve_skill_paths_with_roots(repo.path(), SkillPathsFile::default(), mirror.path());
+
+        assert_eq!(
+            fs::read_to_string(&sp.issue_tracking).expect("read issue skill"),
+            "bundled issue"
+        );
+        assert_eq!(
+            fs::read_to_string(&sp.user_personas).expect("read personas skill"),
+            "bundled personas"
+        );
+    }
+
+    #[test]
+    fn caretta_toml_paths_win_over_repo_and_mirror() {
+        let repo = tempfile::tempdir().expect("repo");
+        let mirror = tempfile::tempdir().expect("mirror");
+
+        let repo_issue = repo.path().join(DEFAULT_ISSUE_SKILL_REPO_PATH);
+        fs::create_dir_all(repo_issue.parent().expect("p")).expect("md");
+        fs::write(&repo_issue, "local").expect("write repo skill");
+
+        let mirrored = mirror.path().join("issue-tracking/SKILL.md");
+        fs::create_dir_all(mirrored.parent().expect("p")).expect("md");
+        fs::write(&mirrored, "mirror").expect("w");
+
+        let sp = resolve_skill_paths_with_roots(
+            repo.path(),
+            SkillPathsFile {
+                issue_tracking: Some("/custom/issue.md".into()),
+                user_personas: Some("/custom/personas.md".into()),
+            },
+            mirror.path(),
+        );
+
+        assert_eq!(sp.issue_tracking, "/custom/issue.md");
+        assert_eq!(sp.user_personas, "/custom/personas.md");
+    }
 }

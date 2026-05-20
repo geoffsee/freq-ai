@@ -588,6 +588,21 @@ impl BotSettings {
     }
 }
 
+/// Repo-relative overrides for bundled skills (**recommended for consumer repos**).
+/// Upstream Caretta keeps its canonical copies under `./assets/skills/` (embedded at
+/// build time); downstream projects vendor or fork skills here instead.
+pub const DOT_CARETTA_ISSUE_SKILL_REPO_PATH: &str = ".caretta/skills/issue-tracking/SKILL.md";
+pub const DOT_CARETTA_USER_PERSONAS_REPO_PATH: &str = ".caretta/skills/user-personas/SKILL.md";
+/// Personas JSON directory when using the `.caretta/skills/` layout.
+pub const DOT_CARETTA_USER_PERSONAS_PERSONAS_DIR: &str = ".caretta/skills/user-personas/personas";
+
+/// Canonical bundled skill paths in the upstream **`assets/skills/`** tree (this
+/// workspace’s RustEmbed source). Resolved after `.caretta/skills/` when present.
+pub const DEFAULT_ISSUE_SKILL_REPO_PATH: &str = "assets/skills/issue-tracking/SKILL.md";
+pub const DEFAULT_USER_PERSONAS_REPO_PATH: &str = "assets/skills/user-personas/SKILL.md";
+/// Personas JSON directory for the legacy **`assets/skills/`** layout.
+pub const LEGACY_ASSETS_USER_PERSONAS_PERSONAS_DIR: &str = "assets/skills/user-personas/personas";
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SkillPaths {
     pub user_personas: String,
@@ -597,8 +612,8 @@ pub struct SkillPaths {
 impl Default for SkillPaths {
     fn default() -> Self {
         Self {
-            user_personas: "assets/skills/user-personas/SKILL.md".to_string(),
-            issue_tracking: "assets/skills/issue-tracking/SKILL.md".to_string(),
+            user_personas: DEFAULT_USER_PERSONAS_REPO_PATH.to_string(),
+            issue_tracking: DEFAULT_ISSUE_SKILL_REPO_PATH.to_string(),
         }
     }
 }
